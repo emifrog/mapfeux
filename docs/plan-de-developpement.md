@@ -61,8 +61,14 @@ affiché sur une carte. C'est l'objet des lots 2 et 3.
 
 ## 2. Prochaine action
 
-**Vérifier que la surface publique `api` répond réellement.** Les migrations sont
-appliquées, mais aucune requête applicative ne les a encore traversées.
+**Regarder le résultat de la première exécution de la CI** sur
+<https://github.com/emifrog/mapfeux/actions>. Trois jobs s'y exécutent pour la
+première fois ; le job `migrations` est celui qui a le plus de chances de
+demander un ajustement.
+
+Puis **vérifier que la surface publique `api` répond réellement**. Les migrations
+sont appliquées sur le projet Supabase, mais aucune requête applicative ne les a
+encore traversées.
 
 ```bash
 pnpm dev                       # puis ouvrir http://localhost:3000/statut
@@ -86,9 +92,17 @@ absents — les requêtes Supabase sont typées à la main, ce qui ne tiendra pa
 - ✅ pnpm workspace + Turborepo, Node 22
 - ✅ TypeScript strict — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
 - ✅ ESLint flat config, Prettier
-- ✅ CI GitHub Actions : web, worker (micromamba), migrations sur PostGIS vierge
 - ✅ `.gitattributes`, `.gitignore`, `.env.example`
-- ⚠️ **Aucun commit git à ce jour.** Le dépôt est initialisé, l'arbre en attente.
+- ✅ Dépôt publié : <https://github.com/emifrog/mapfeux> — commit initial `aca4d4b`,
+  104 fichiers
+- 🟢 CI GitHub Actions : trois jobs — web, worker (micromamba), migrations sur
+  PostGIS vierge
+- ⚠️ **La CI n'a encore jamais été observée en vert.** Elle se déclenche pour la
+  première fois avec le commit initial. Le job `migrations` est le plus exposé :
+  il rejoue les neuf migrations sur une base vide après avoir recréé à la main
+  les rôles Supabase (`anon`, `authenticated`, `service_role`) et un `auth.uid()`
+  factice. Ce préambule est une approximation de l'environnement Supabase et
+  peut demander des ajustements.
 
 ### `packages/domain` ✅
 
@@ -319,7 +333,7 @@ Durée indicative : 2 à 3 semaines. EPIC-10.
 
 | Sujet | Nature | Échéance |
 |---|---|---|
-| Aucun commit git | Le travail n'est pas versionné | Immédiat |
+| CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
 | Types Supabase non générés | Requêtes typées à la main | Lot 2 |
 | Pas de CSP | En-têtes partiels seulement | Lot 9 |
 | ADR-001 à 013 non rédigés | Décisions actées, non documentées | Au fil des lots |
