@@ -19,9 +19,30 @@ import { getServerEnv, publicEnv } from '@/lib/env';
 const PUBLIC_SCHEMA = 'api';
 
 /**
- * Client de lecture publique, avec la clé publiable et le rôle `anon`.
- * Les cookies d'authentification sont transmis afin qu'un administrateur
- * connecté conserve sa session, sans lui accorder de droits supplémentaires.
+ * Client de lecture publique **sans cookie**.
+ *
+ * À utiliser pour tout contenu identique quel que soit le visiteur : territoires,
+ * communes, événements, état des sources. Ne pas lire les cookies permet à Next
+ * de mettre la page en cache et de la revalider, là où `cookies()` la rendrait
+ * dynamique à chaque requête — un coût inutile sur des données publiques que
+ * l'on veut justement servir depuis un CDN (§21.2).
+ */
+export function createPublicReadClient() {
+  return createClient(
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    {
+      db: { schema: PUBLIC_SCHEMA },
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
+}
+
+/**
+ * Client de lecture publique porteur de la session.
+ *
+ * Réservé aux pages dont le rendu dépend de l'utilisateur connecté —
+ * l'administration. Sur une page publique, préférer `createPublicReadClient`.
  */
 export async function createPublicServerClient() {
   const cookieStore = await cookies();

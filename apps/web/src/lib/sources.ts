@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { SourceFreshness } from '@mapfeux/domain';
 
-import { createPublicServerClient } from '@/lib/supabase/server';
+import { createPublicReadClient } from '@/lib/supabase/server';
 
 /**
  * Lecture de l'état des sources depuis la vue `api.source_status`.
@@ -24,7 +24,7 @@ export interface SourceStatusRow {
 }
 
 export async function fetchSourceStatus(): Promise<SourceStatusRow[]> {
-  const supabase = await createPublicServerClient();
+  const supabase = createPublicReadClient();
   const { data, error } = await supabase.from('source_status').select('*').order('key');
 
   if (error !== null) {

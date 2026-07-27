@@ -2,7 +2,7 @@ import { municipalitySearchQuerySchema } from '@mapfeux/contracts';
 import type { NextRequest } from 'next/server';
 
 import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
-import { createPublicServerClient } from '@/lib/supabase/server';
+import { searchMunicipalities } from '@/lib/data/municipalities';
 
 /**
  * GET /api/v1/municipalities/search — recherche de commune. FR-020, FR-021.
@@ -29,41 +29,16 @@ export async function GET(request: NextRequest): Promise<Response> {
     );
   }
 
-  const supabase = await createPublicServerClient();
-  const { data, error } = await supabase.rpc('search_municipalities', {
-    q: parsed.data.q,
-    max_results: parsed.data.limit,
-  });
-
-  if (error !== null) {
-    console.error('[api/municipalities/search] échec de la recherche', {
-      requestId,
-      code: error.code,
-      message: error.message,
-    });
+  let results;
+  try {
+    results = await searchMunicipalities(parsed.data.q, parsed.data.limit);
+  } catch {
     return jsonError(
       'INTERNAL_ERROR',
       'La recherche de commune est momentanément indisponible.',
       requestId,
     );
   }
-
-  type Row = {
-    insee_code: string;
-    name: string;
-    department_code: string;
-    postal_codes: string[];
-    longitude: number;
-    latitude: number;
-  };
-
-  const results = ((data ?? []) as Row[]).map((row) => ({
-    insee: row.insee_code,
-    name: row.name,
-    departmentCode: row.department_code,
-    postalCodes: row.postal_codes,
-    centroid: { type: 'Point' as const, coordinates: [row.longitude, row.latitude] as const },
-  }));
 
   return jsonSuccess(results, {
     // Le référentiel communal ne change qu'aux mises à jour du COG.

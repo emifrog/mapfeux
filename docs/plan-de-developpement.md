@@ -29,8 +29,13 @@ build, une requête. « Le code est écrit » vaut 🟢, pas ✅.
 complet pour les détections et les événements, application web qui construit,
 worker Python dont la pile géospatiale fonctionne sous Windows sans Docker.
 
-**Aucune donnée réelle n'a encore transité.** Rien n'est importé, rien n'est
-affiché sur une carte. C'est l'objet des lots 2 et 3.
+**Lot 2 : la moitié web est en place**, la moitié données ne l'est pas. Les
+pages territoriales, la recherche de commune, la carte et les endpoints
+existent et se construisent, mais `geo.municipalities` est vide. Les pages
+territoire fonctionnent grâce au seed — France, PACA, 06, 83 ; les pages
+commune répondront 404 jusqu'à l'import IGN.
+
+**Aucune donnée réelle n'a encore transité.** C'est le point dur du moment.
 
 ### Portes de qualité — dernier passage
 
@@ -39,7 +44,7 @@ affiché sur une carte. C'est l'objet des lots 2 et 3.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 34 tests |
+| Web | `pnpm test` | ✅ 40 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 12 fichiers |
 | Worker | `mypy src` | ✅ strict, 10 fichiers |
@@ -61,27 +66,25 @@ affiché sur une carte. C'est l'objet des lots 2 et 3.
 
 ## 2. Prochaine action
 
-**Regarder le résultat de la première exécution de la CI** sur
-<https://github.com/emifrog/mapfeux/actions>. Trois jobs s'y exécutent pour la
-première fois ; le job `migrations` est celui qui a le plus de chances de
-demander un ajustement.
+**Écrire l'import IGN ADMIN EXPRESS.** C'est le seul verrou : sans communes en
+base, la recherche ne renvoie rien, les pages commune répondent 404 et le lot 3
+n'aura nulle part où rattacher les détections. Tout le reste du lot 2 est prêt à
+les recevoir.
 
-Puis **vérifier que la surface publique `api` répond réellement**. Les migrations
-sont appliquées sur le projet Supabase, mais aucune requête applicative ne les a
-encore traversées.
+Avant cela, deux vérifications rapides qui demandent vos accès :
 
 ```bash
-pnpm dev                       # puis ouvrir http://localhost:3000/statut
-curl http://localhost:3000/api/v1/status
+pnpm db:push                   # applique 20260727130000_api_municipalities.sql
+pnpm dev                       # puis http://localhost:3000/statut et /territoire/alpes-maritimes
+pnpm db:types                  # génère les types du schéma api, aujourd'hui absents
 ```
 
-La page `/statut` doit lister les cinq sources du seed avec l'état
-`unavailable` — aucun import n'a jamais tourné, c'est le résultat attendu. Si
-elle affiche « L'état des sources n'est pas consultable », c'est que les grants
-ou l'exposition du schéma `api` ne sont pas en place.
+`/statut` doit lister les cinq sources du seed en `unavailable` — aucun import
+n'a jamais tourné, c'est le résultat attendu. `/territoire/alpes-maritimes` doit
+afficher la carte centrée sur le 06. Si l'une des deux échoue, le problème est
+dans les grants ou l'exposition du schéma `api`, pas dans les pages.
 
-Ensuite : `pnpm db:types` pour générer les types du schéma `api`, aujourd'hui
-absents — les requêtes Supabase sont typées à la main, ce qui ne tiendra pas.
+Et si la CI n'est pas encore verte : <https://github.com/emifrog/mapfeux/actions>.
 
 ---
 
@@ -179,11 +182,11 @@ Neuf migrations appliquées sur le projet Supabase hébergé.
 
 ---
 
-## 4. Lot 2 — Territoires et carte ⬜
+## 4. Lot 2 — Territoires et carte 🟡
 
 **Jalon A.** Durée indicative : 2 semaines. EPIC-02.
 
-### Import des référentiels
+### Import des référentiels ⬜ — **le verrou**
 
 - ⬜ Connecteur Géoplateforme IGN, en respectant la limite de 10 requêtes/seconde
 - ⬜ Import ADMIN EXPRESS COG : régions, départements, communes
@@ -192,19 +195,31 @@ Neuf migrations appliquées sur le projet Supabase hébergé.
 - ⚠️ Import manuel et contrôlé, pas de job fréquent : ce référentiel change deux
   fois par an
 
-### API
+### API 🟢
 
-- ⬜ `GET /api/v1/territories` et `/territories/{slug}`
-- ⬜ `GET /api/v1/municipalities/{insee}`
-- ⬜ `POST /api/v1/location/resolve` — coordonnées jamais journalisées (§22.2)
+- ✅ Migration `api.municipalities` — vue sans géométrie, les limites passeront
+  par les tuiles vectorielles (§21.1)
+- 🟢 `GET /api/v1/territories` et `/territories/{slug}` avec liens officiels
+- 🟢 `GET /api/v1/municipalities/{insee}` et `/search`
+- 🟢 `POST /api/v1/location/resolve` — position transmise en corps de requête et
+  non en URL, car les URL atterrissent dans les journaux des CDN (§22.2)
+- ✅ Couche d'accès partagée entre pages et endpoints : une page rendue serveur
+  n'appelle pas sa propre API par HTTP
 
-### Interface
+### Interface 🟢
 
-- ⬜ Carte MapLibre, vue France, fond IGN avec attribution
-- ⬜ Sélecteur de territoire groupé par région, URL partageable (FR-013)
-- ⬜ Recherche de commune avec homonymes distingués par département
-- ⬜ « Autour de moi » — consentement explicite, dégradation propre au refus
-- ⬜ Pages `/territoire/[slug]` et `/commune/[insee]`
+- 🟢 Carte MapLibre, fond Géoplateforme IGN avec attribution permanente
+- 🟢 Recherche de commune : combobox ARIA, navigation clavier, annulation des
+  requêtes obsolètes, dégradation explicite en cas de panne (FR-026)
+- 🟢 Pages `/carte`, `/territoire/[slug]`, `/commune/[insee]`
+- 🟢 Accueil listant les territoires ouverts
+- ⬜ Sélecteur de territoire groupé par région (FR-012)
+- ⬜ « Autour de moi » — l'endpoint existe, le bouton reste à poser
+- ⚠️ **Le fond IGN n'a jamais été chargé dans un navigateur.** L'URL WMTS de la
+  Géoplateforme est construite d'après la convention documentée, mais rien ne
+  l'a confirmée contre le service réel. Si les tuiles ne s'affichent pas,
+  regarder d'abord `packages/map-style/src/basemap.ts` — `MAP_STYLE_URL` permet
+  d'y substituer un autre fond sans toucher au code.
 
 **Fin de lot** : la France est navigable, les communes cherchables, sans aucune
 donnée temps réel.
@@ -338,7 +353,9 @@ Durée indicative : 2 à 3 semaines. EPIC-10.
 | Sujet | Nature | Échéance |
 |---|---|---|
 | CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
-| Types Supabase non générés | Requêtes typées à la main | Lot 2 |
+| Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | Lot 2 |
+| Fond IGN jamais chargé | URL WMTS construite d'après la doc, non vérifiée | Lot 2 |
+| Aucun test de composant | La recherche et la carte n'ont que le typage | Lot 9 (Playwright) |
 | Pas de CSP | En-têtes partiels seulement | Lot 9 |
 | ADR-001 à 013 non rédigés | Décisions actées, non documentées | Au fil des lots |
 | Schémas `meteo`, `air`, `radar` vides | Tables à créer | Lots 5 et 6 |
