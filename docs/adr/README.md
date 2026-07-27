@@ -45,3 +45,11 @@ en œuvre.
    simple regroupement algorithmique serait une affirmation non sourcée.
 6. **§10.2** — Python 3.12 retenu plutôt que 3.13, pour la couverture binaire de
    la pile géospatiale. À réévaluer, sans urgence.
+7. **Annexe C** — `SUPABASE_SERVICE_ROLE_KEY` renommée `SUPABASE_SECRET_KEY`.
+   Supabase a remplacé la clé `service_role` au format JWT par une clé
+   `sb_secret_…` ; la variable suit la terminologie du tableau de bord, sans
+   quoi on y cherche une rubrique qui n'existe plus.
+8. **§12.1** — l'exposition du schéma `api` n'est pas portée par
+   `supabase/config.toml`, qui ne configure que le Supabase local. Sur un projet
+   hébergé, elle se règle dans Project Settings → API → Exposed schemas. Le
+   cahier ne le mentionnait pas.

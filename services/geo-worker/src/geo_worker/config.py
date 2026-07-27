@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     # Base de données ---------------------------------------------------------
     database_url: SecretStr
     supabase_url: str
-    supabase_service_role_key: SecretStr
+    # Nommée d'après la terminologie Supabase : les clés `sb_secret_…`
+    # remplacent l'ancienne `service_role` au format JWT. Le cahier annexe C
+    # employait encore l'ancien nom.
+    supabase_secret_key: SecretStr
     supabase_storage_bucket_raw: str = "raw"
     supabase_storage_bucket_derived: str = "derived"
 

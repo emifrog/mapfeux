@@ -22,6 +22,8 @@ SENSITIVE_KEYS = frozenset(
         "firms_map_key",
         "service_role_key",
         "supabase_service_role_key",
+        "secret_key",
+        "supabase_secret_key",
         "password",
         "token",
         "authorization",

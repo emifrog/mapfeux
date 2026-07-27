@@ -77,16 +77,16 @@ export async function createPublicServerClient() {
  * Ne jamais l'exposer à un composant client, ni l'utiliser pour rendre une page
  * publique : il contourne l'intégralité des politiques RLS. §14.3
  */
-export function createServiceRoleClient() {
+export function createPrivilegedClient() {
   const env = getServerEnv();
 
-  if (env.SUPABASE_SERVICE_ROLE_KEY === undefined) {
+  if (env.SUPABASE_SECRET_KEY === undefined) {
     throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY absente : les opérations privilégiées sont indisponibles.',
+      'SUPABASE_SECRET_KEY absente : les opérations privilégiées sont indisponibles.',
     );
   }
 
-  return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
