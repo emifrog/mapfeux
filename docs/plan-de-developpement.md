@@ -218,18 +218,15 @@ Neuf migrations appliquées sur le projet Supabase hébergé.
 
 ### Interface 🟢
 
-- 🟢 Carte MapLibre, fond Géoplateforme IGN avec attribution permanente
+- ✅ Carte MapLibre, fond Géoplateforme IGN avec attribution permanente —
+  tuiles affichées, vérifié dans un navigateur
 - 🟢 Recherche de commune : combobox ARIA, navigation clavier, annulation des
   requêtes obsolètes, dégradation explicite en cas de panne (FR-026)
 - 🟢 Pages `/carte`, `/territoire/[slug]`, `/commune/[insee]`
 - 🟢 Accueil listant les territoires ouverts
 - ⬜ Sélecteur de territoire groupé par région (FR-012)
 - ⬜ « Autour de moi » — l'endpoint existe, le bouton reste à poser
-- ⚠️ **Le fond IGN n'a jamais été chargé dans un navigateur.** L'URL WMTS de la
-  Géoplateforme est construite d'après la convention documentée, mais rien ne
-  l'a confirmée contre le service réel. Si les tuiles ne s'affichent pas,
-  regarder d'abord `packages/map-style/src/basemap.ts` — `MAP_STYLE_URL` permet
-  d'y substituer un autre fond sans toucher au code.
+- ⬜ Couches de détections et d'événements — lot 3
 
 **Fin de lot** : la France est navigable, les communes cherchables, sans aucune
 donnée temps réel.
@@ -365,7 +362,6 @@ Durée indicative : 2 à 3 semaines. EPIC-10.
 | Schéma `api` non exposé | `PGRST106` sur toutes les requêtes | Immédiat |
 | CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | Lot 2 |
-| Fond IGN jamais chargé | URL WMTS construite d'après la doc, non vérifiée | Lot 2 |
 | Aucun test de composant | La recherche et la carte n'ont que le typage | Lot 9 (Playwright) |
 | Pas de CSP | En-têtes partiels seulement | Lot 9 |
 | ADR-001 à 013 non rédigés | Décisions actées, non documentées | Au fil des lots |
