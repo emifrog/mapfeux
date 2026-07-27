@@ -78,7 +78,8 @@ function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
 }
 
 export default async function StatusPage() {
-  const sources = await fetchSourceStatus();
+  const result = await fetchSourceStatus();
+  const sources = result.sources;
   const now = new Date();
 
   return (
@@ -90,14 +91,18 @@ export default async function StatusPage() {
         silencieusement.
       </p>
 
-      {sources.length === 0 ? (
+      {!result.readable ? (
         <p className="mt-8 rounded border border-stone-400 bg-stone-100 p-4 text-sm">
           L’état des sources n’est pas consultable actuellement. Cette page ne reflète donc pas la
           situation réelle des imports.
         </p>
+      ) : sources.length === 0 ? (
+        <p className="mt-8 rounded border border-stone-400 bg-stone-100 p-4 text-sm">
+          Aucune source de données n’est encore enregistrée sur cette instance.
+        </p>
       ) : (
         <div className="mt-8 overflow-x-auto">
-          <table className="w-full min-w-[36rem] border-collapse text-left">
+          <table className="min-w-xl w-full border-collapse text-left">
             <caption className="sr-only">
               Fraîcheur des sources de données, dernière donnée disponible et incidents en cours
             </caption>

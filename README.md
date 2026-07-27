@@ -60,7 +60,27 @@ cp .env.example apps/web/.env.local   # renseigner les valeurs Supabase
 pnpm dev
 ```
 
+Le fichier d'environnement doit se trouver dans `apps/web/`, pas à la racine :
+Next.js ne remonte pas l'arborescence du monorepo pour le chercher.
+
 ### Base de données
+
+#### Exposer le schéma `api` — à faire une fois par projet
+
+**Sans cette étape, toutes les requêtes échouent avec `PGRST106: Invalid
+schema: api`.**
+
+Le fichier `supabase/config.toml` ne configure que le Supabase **local**. Sur un
+projet hébergé, les schémas exposés par la Data API se règlent dans le tableau
+de bord :
+
+> Project Settings → API → **Exposed schemas** → ajouter `api`
+
+Conserver `public` et `graphql_public` dans la liste. Le schéma `api` est le
+seul schéma métier exposé ; `app`, `geo`, `fire`, `meteo`, `air`, `radar`,
+`ingest`, `admin` et `audit` ne doivent jamais y figurer (cahier §12.1).
+
+#### Migrations
 
 Les migrations sont l'unique moyen de modifier le schéma. Elles s'appliquent au
 projet Supabase hébergé sans Docker :

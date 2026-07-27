@@ -23,22 +23,33 @@ export interface SourceStatusRow {
   incident_opened_at: string | null;
 }
 
-export async function fetchSourceStatus(): Promise<SourceStatusRow[]> {
+/**
+ * Résultat explicite plutôt qu'un simple tableau.
+ *
+ * « Aucune source connue » et « impossible de lire l'état des sources » sont
+ * deux situations différentes qu'un tableau vide confond. Les confondre
+ * conduirait /statut à annoncer que tout va bien alors que la page ne sait
+ * rien — exactement la fausse assurance que le cahier §5.13 proscrit.
+ */
+export type SourceStatusResult =
+  { readable: true; sources: SourceStatusRow[] } | { readable: false; sources: [] };
+
+export async function fetchSourceStatus(): Promise<SourceStatusResult> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.from('source_status').select('*').order('key');
 
   if (error !== null) {
     // La page /statut doit rester affichable même si sa propre source de
-    // vérité est injoignable : on renvoie une liste vide plutôt que de faire
-    // échouer le rendu, et l'appelant affiche l'indisponibilité. FR-114
+    // vérité est injoignable : on annonce l'indisponibilité plutôt que de
+    // faire échouer le rendu. FR-114
     console.error('[sources] lecture de api.source_status impossible', {
       code: error.code,
       message: error.message,
     });
-    return [];
+    return { readable: false, sources: [] };
   }
 
-  return (data ?? []) as SourceStatusRow[];
+  return { readable: true, sources: (data ?? []) as SourceStatusRow[] };
 }
 
 /** Réduit les lignes en bloc `meta.sources` pour les réponses de l'API. */

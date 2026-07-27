@@ -66,23 +66,33 @@ commune répondront 404 jusqu'à l'import IGN.
 
 ## 2. Prochaine action
 
-**Écrire l'import IGN ADMIN EXPRESS.** C'est le seul verrou : sans communes en
-base, la recherche ne renvoie rien, les pages commune répondent 404 et le lot 3
-n'aura nulle part où rattacher les détections. Tout le reste du lot 2 est prêt à
-les recevoir.
+**Exposer le schéma `api` sur le projet Supabase hébergé.** Toutes les requêtes
+échouent aujourd'hui avec `PGRST106: Invalid schema: api`, constaté en exécutant
+l'application.
 
-Avant cela, deux vérifications rapides qui demandent vos accès :
+> Project Settings → API → **Exposed schemas** → ajouter `api`
+
+`supabase/config.toml` ne configure que le Supabase local ; sur un projet
+hébergé, cette liste se règle dans le tableau de bord. Conserver `public` et
+`graphql_public`, n'ajouter que `api` — aucun schéma interne ne doit y figurer
+(§12.1).
+
+Ensuite, vérifier :
 
 ```bash
-pnpm db:push                   # applique 20260727130000_api_municipalities.sql
-pnpm dev                       # puis http://localhost:3000/statut et /territoire/alpes-maritimes
-pnpm db:types                  # génère les types du schéma api, aujourd'hui absents
+pnpm dev
+# http://localhost:3000/api/v1/status      → sourceCount 5, status "degraded"
+# http://localhost:3000/statut             → les cinq sources en « Indisponible »
+# http://localhost:3000/territoire/alpes-maritimes → carte centrée sur le 06
+pnpm db:types                              # types du schéma api, aujourd'hui absents
 ```
 
-`/statut` doit lister les cinq sources du seed en `unavailable` — aucun import
-n'a jamais tourné, c'est le résultat attendu. `/territoire/alpes-maritimes` doit
-afficher la carte centrée sur le 06. Si l'une des deux échoue, le problème est
-dans les grants ou l'exposition du schéma `api`, pas dans les pages.
+Les cinq sources doivent apparaître en `unavailable` : aucun import n'a jamais
+tourné, c'est le résultat attendu.
+
+Puis **écrire l'import IGN ADMIN EXPRESS**, seul verrou restant du lot 2 : sans
+communes en base, la recherche ne renvoie rien, les pages commune répondent 404
+et le lot 3 n'aura nulle part où rattacher les détections.
 
 Et si la CI n'est pas encore verte : <https://github.com/emifrog/mapfeux/actions>.
 
@@ -352,6 +362,7 @@ Durée indicative : 2 à 3 semaines. EPIC-10.
 
 | Sujet | Nature | Échéance |
 |---|---|---|
+| Schéma `api` non exposé | `PGRST106` sur toutes les requêtes | Immédiat |
 | CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | Lot 2 |
 | Fond IGN jamais chargé | URL WMTS construite d'après la doc, non vérifiée | Lot 2 |

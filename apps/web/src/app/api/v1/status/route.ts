@@ -6,19 +6,29 @@ import { fetchSourceStatus, toMetaSources } from '@/lib/sources';
  *
  * L'endpoint reste disponible même lorsque toutes les sources sont en échec :
  * c'est précisément la situation où il est le plus consulté.
+ *
+ * Trois états, jamais deux. « unknown » n'est pas « operational » : ne pas
+ * savoir n'est pas aller bien, et annoncer le contraire serait exactement la
+ * fausse assurance que le cahier §5.13 interdit.
  */
 export async function GET(): Promise<Response> {
   const requestId = newRequestId();
-  const sources = await fetchSourceStatus();
+  const result = await fetchSourceStatus();
   const generatedAt = new Date().toISOString();
 
-  const degraded = sources.filter((s) => s.freshness !== 'fresh').map((s) => s.key);
+  const degraded = result.sources.filter((s) => s.freshness !== 'fresh').map((s) => s.key);
+
+  const status = !result.readable
+    ? 'unknown'
+    : degraded.length === 0 && result.sources.length > 0
+      ? 'operational'
+      : 'degraded';
 
   return jsonSuccess(
     {
-      status: degraded.length === 0 ? 'operational' : 'degraded',
+      status,
       degradedSources: degraded,
-      sourceCount: sources.length,
+      sourceCount: result.sources.length,
       requestId,
     },
     {
@@ -26,7 +36,7 @@ export async function GET(): Promise<Response> {
       staleWhileRevalidate: 120,
       meta: {
         generatedAt,
-        sources: toMetaSources(sources),
+        sources: toMetaSources(result.sources),
       },
     },
   );
