@@ -1,0 +1,54 @@
+# Dépendances
+node_modules/
+.pnpm-store/
+
+# Builds
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Turborepo
+.turbo/
+
+# Environnement — aucun secret ne doit être versionné
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.micromamba/
+services/geo-worker/.env
+
+# Données brutes et artefacts d'import (jamais versionnés)
+data/raw/
+data/derived/
+*.grib
+*.grib2
+*.nc
+*.tif
+*.tiff
+*.pmtiles
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+
+# Outils et OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+coverage/
+playwright-report/
+test-results/

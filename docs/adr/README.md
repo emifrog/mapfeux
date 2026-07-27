@@ -1,0 +1,47 @@
+# Décisions d'architecture
+
+Registre des ADR du projet MapFeux. Cahier annexe F et §6.4.
+
+Toute modification affectant le périmètre, la séparation public/opérationnel,
+les sources de données, le modèle de panache ou l'exposition des schémas
+Supabase doit être consignée ici et validée **avant** implémentation.
+
+## Registre
+
+| ADR | Sujet | Statut |
+|---|---|---|
+| ADR-001 | Choix Supabase / PostGIS comme source de vérité | à rédiger — décision actée au cahier §10.3 |
+| ADR-002 | Worker Python séparé | à rédiger — décision actée au cahier §10.3 |
+| ADR-003 | Schémas internes non exposés par la Data API | à rédiger — appliqué par `20260727120000_schemas_and_extensions.sql` |
+| ADR-004 | Données brutes immuables | à rédiger — appliqué par `fire.detections.raw_payload` |
+| ADR-005 | Stratégie cartographique | à rédiger |
+| ADR-006 | Algorithme de regroupement | à rédiger — EPIC-04 |
+| ADR-007 | Modèle de panache MVP | à rédiger — EPIC-06 |
+| ADR-008 | Séparation DFCI OPS | à rédiger — décision actée au cahier §3.3 |
+| ADR-009 | Stratégie de cache | à rédiger |
+| ADR-010 | Politique de rétention | à rédiger |
+| ADR-011 | Dimensions de statut et transitions autorisées | à rédiger — appliqué par `packages/domain/src/status-transitions.ts` et les contraintes de `fire.events` |
+| ADR-012 | Provenance et chronologie | à rédiger |
+| ADR-013 | Snapshots publics et mode dégradé | à rédiger |
+| [ADR-014](014-environnement-sans-docker.md) | Environnement de développement et d'exécution sans Docker | accepté |
+| [ADR-015](015-partitionnement-des-detections.md) | Partitionnement de `fire.detections` dès l'origine | accepté |
+| [ADR-016](016-file-de-taches-postgresql.md) | File de tâches PostgreSQL au lieu de Celery et Redis | accepté, réversible |
+
+Les ADR 001 à 013 sont réservés par le cahier. Leur numérotation est figée ;
+seul leur contenu reste à rédiger, au fur et à mesure des lots qui les mettent
+en œuvre.
+
+## Écarts au cahier v1.1 introduits par ces décisions
+
+À reporter lors de la prochaine révision du cahier de développement :
+
+1. **§11, §25.1, §25.4** — Docker et Docker Compose retirés (ADR-014).
+2. **§10.2, §16.8** — Redis et Celery retirés du MVP (ADR-016).
+3. **§12.4 et §13.5** — `fire.detections` est partitionnée dès l'origine, avec
+   des clés composites (ADR-015).
+4. **§11** — la racine du monorepo se nomme `mapfeux` et non `feux-de-france`.
+5. **§13.6** — contrainte ajoutée : un `official_control_status` exige
+   `verification_status = 'officially_confirmed'`. Publier « feu éteint » sur un
+   simple regroupement algorithmique serait une affirmation non sourcée.
+6. **§10.2** — Python 3.12 retenu plutôt que 3.13, pour la couverture binaire de
+   la pile géospatiale. À réévaluer, sans urgence.

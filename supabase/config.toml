@@ -1,0 +1,38 @@
+project_id = "mapfeux"
+
+[api]
+enabled = true
+port = 54321
+# Seul le schéma `api` est exposé par la Data API. Les schémas internes
+# (app, geo, fire, meteo, air, radar, ingest, admin, audit) ne le sont jamais.
+# Cahier §12.1.
+schemas = ["api"]
+extra_search_path = ["extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed/*.sql"]
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/admin"]
+jwt_expiry = 3600
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = true
+
+[storage]
+enabled = true
+file_size_limit = "512MiB"
+
+[analytics]
+enabled = false

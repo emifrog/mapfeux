@@ -1,0 +1,62 @@
+[project]
+name = "mapfeux-geo-worker"
+version = "0.1.0"
+description = "Ingestion et calculs géospatiaux MapFeux"
+requires-python = ">=3.12"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# =============================================================================
+# Qualité — cahier §6.4 : lint et typage bloquants.
+# =============================================================================
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle
+  "F",    # pyflakes
+  "I",    # isort
+  "N",    # pep8-naming
+  "UP",   # pyupgrade
+  "B",    # bugbear
+  "ASYNC",
+  "S",    # bandit
+  "DTZ",  # dates naïves interdites — toutes les heures sont en UTC (FR-032)
+  "RUF",
+]
+ignore = [
+  "S101", # assert autorisé dans les tests
+]
+
+[tool.ruff.lint.per-file-ignores]
+# E501 : les fixtures CSV reproduisent les en-têtes FIRMS réels. Les tronquer
+# pour tenir en 100 colonnes ferait tester autre chose que le format publié.
+"tests/**" = ["S101", "S105", "S106", "E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["cfgrib.*", "rasterio.*", "geopandas.*", "shapely.*", "apscheduler.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+asyncio_mode = "auto"
+# Les tests s'exécutent sans installation éditable préalable : utile en CI et
+# après une recréation d'environnement.
+pythonpath = ["src"]

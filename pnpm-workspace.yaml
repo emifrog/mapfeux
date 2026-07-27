@@ -1,0 +1,12 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# Scripts de build autorisés explicitement (pnpm 11).
+# esbuild : binaire requis par Vitest.
+# sharp : optimisation d'images Next.js.
+# unrs-resolver : résolveur natif utilisé par la configuration ESLint de Next.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

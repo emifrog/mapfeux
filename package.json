@@ -1,0 +1,29 @@
+{
+  "name": "mapfeux",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plateforme publique de suivi des détections thermiques, des feux potentiels et des fumées",
+  "packageManager": "pnpm@11.11.0",
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml,css}\"",
+    "db:push": "supabase db push",
+    "db:diff": "supabase db diff -f",
+    "db:types": "supabase gen types typescript --schema api --schema public > packages/domain/src/generated/database.ts"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "prettier-plugin-tailwindcss": "^0.6.9",
+    "supabase": "^2.2.1",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

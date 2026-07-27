@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # L'application est construite avec des valeurs factices : la CI ne doit
+  # jamais disposer d'une clé de production. Cahier §25.2.
+  NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder_value
+
+jobs:
+  web:
+    name: Web — lint, types, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Installation verrouillée
+        run: pnpm install --frozen-lockfile
+
+      - name: Format
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Tests unitaires
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  worker:
+    name: Worker — lint, types, tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/geo-worker
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      # L'environnement conda-forge est la référence : la CI doit valider le
+      # même environnement que les postes de développement. ADR-014.
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: services/geo-worker/environment.yml
+          cache-environment: true
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format
+        run: ruff format --check .
+
+      - name: Typecheck
+        run: mypy src
+
+      - name: Tests
+        run: pytest
+
+  migrations:
+    name: Migrations Supabase
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      # Les migrations doivent s'appliquer sur une base vide, dans l'ordre, sans
+      # intervention. Cahier §24.2.
+      - name: Préparer les rôles Supabase
+        run: |
+          psql "postgresql://postgres:postgres@localhost:5432/postgres" -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin noinherit;
+          create role authenticated nologin noinherit;
+          create role service_role nologin noinherit bypassrls;
+          create schema if not exists extensions;
+          create schema if not exists auth;
+          create table if not exists auth.users (id uuid primary key);
+          create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+          SQL
+
+      - name: Appliquer les migrations
+        run: |
+          for file in supabase/migrations/*.sql; do
+            echo "--- $file"
+            psql "postgresql://postgres:postgres@localhost:5432/postgres" -v ON_ERROR_STOP=1 -f "$file"
+          done
+
+      - name: Appliquer le seed
+        run: |
+          for file in supabase/seed/*.sql; do
+            echo "--- $file"
+            psql "postgresql://postgres:postgres@localhost:5432/postgres" -v ON_ERROR_STOP=1 -f "$file"
+          done
+
+      - name: Vérifier l'absence d'accès anonyme aux schémas internes
+        run: |
+          psql "postgresql://postgres:postgres@localhost:5432/postgres" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare leaked text;
+          begin
+            select string_agg(format('%s.%s', table_schema, table_name), ', ')
+            into leaked
+            from information_schema.role_table_grants
+            where grantee in ('anon', 'authenticated')
+              and table_schema in ('app','geo','fire','meteo','air','radar','ingest','admin','audit');
+
+            if leaked is not null then
+              raise exception 'Accès anonyme détecté sur des schémas internes : %', leaked;
+            end if;
+          end $$;
+          SQL

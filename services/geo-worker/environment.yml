@@ -1,0 +1,77 @@
+# =============================================================================
+# Environnement du worker géospatial — micromamba / conda-forge
+#
+# Remplace l'image Docker prévue au cahier §11 (voir ADR-014).
+#
+# Motif du choix : sur Windows, `pip install` suffit pour rasterio, pyproj,
+# shapely et geopandas, mais **ecCodes** — nécessaire à la lecture des GRIB2
+# AROME — n'a pas de roue PyPI fiable. conda-forge fournit des binaires win-64
+# pour ecCodes, GDAL et cfgrib, ce que ni pip ni un venv nu ne savent faire.
+#
+# Création :   micromamba create -f environment.yml -y
+# Activation : micromamba activate mapfeux-geo
+# =============================================================================
+name: mapfeux-geo
+
+channels:
+  - conda-forge
+
+dependencies:
+  # Version conservatrice : conda-forge suit 3.13, mais 3.12 offre la couverture
+  # binaire la plus large sur l'ensemble de la pile géospatiale. À réévaluer au
+  # premier blocage, pas avant.
+  - python=3.12
+
+  # Pile géospatiale — binaires conda-forge obligatoires
+  # GDAL n'est pas épinglé : le solveur choisit la version compatible avec le
+  # reste de la pile. Le verrouillage se fait par fichier de lock, pas ici.
+  - gdal
+  - eccodes
+  - proj
+  - geos
+
+  # Lecture des formats météo
+  # `cfgrib` tire `python-eccodes`, les liaisons Python d'ecCodes.
+  - cfgrib
+  - xarray
+  - netcdf4
+  - rasterio
+  - rioxarray
+
+  # Géométries et référentiels
+  - geopandas
+  - shapely
+  - pyproj
+  - fiona
+
+  # Numérique
+  - numpy
+  - pandas
+
+  # Base de données
+  - psycopg
+  - sqlalchemy
+
+  # Service et outillage
+  - fastapi
+  - uvicorn
+  - pydantic
+  - pydantic-settings
+  - httpx
+  - tenacity
+  - apscheduler
+  - structlog
+  - python-dotenv
+
+  # Qualité
+  - pytest
+  - pytest-asyncio
+  - pytest-cov
+  - mypy
+  - ruff
+
+  - pip
+  - pip:
+      - opentelemetry-api
+      - opentelemetry-sdk
+      - opentelemetry-exporter-otlp

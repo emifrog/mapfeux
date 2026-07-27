@@ -1,0 +1,58 @@
+@import 'tailwindcss';
+
+/*
+ * Système visuel — cahier §8.2.
+ *
+ * Le rouge et l'orange sont réservés aux détections et phénomènes thermiques.
+ * Aucun bouton, lien ou état d'interface ne doit les employer : la carte serait
+ * alors ambiguë. Les tons neutres portent l'ancienneté, le teal l'information
+ * officielle.
+ */
+
+@theme {
+  --color-thermal-new: #dc2626;
+  --color-thermal-recent: #ea580c;
+  --color-thermal-old: #a16207;
+  --color-thermal-archived: #78716c;
+
+  --color-official: #0f766e;
+  --color-atmosphere-wind: #2563eb;
+  --color-atmosphere-smoke: #7c3aed;
+  --color-atmosphere-air: #4f46e5;
+  --color-atmosphere-rain: #0891b2;
+}
+
+:root {
+  --background: #fafaf9;
+  --foreground: #1c1917;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0c0a09;
+    --foreground: #e7e5e4;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Respect de prefers-reduced-motion — cahier §6.5. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Cible tactile minimale et visibilité du focus clavier — cahier §6.5. */
+:focus-visible {
+  outline: 2px solid var(--color-atmosphere-wind);
+  outline-offset: 2px;
+}

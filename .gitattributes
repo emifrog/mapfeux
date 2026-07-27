@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.pmtiles binary
+*.grib binary
+*.grib2 binary
+*.nc binary
+*.tif binary
+
+pnpm-lock.yaml linguist-generated=true merge=binary
