@@ -97,12 +97,16 @@ absents — les requêtes Supabase sont typées à la main, ce qui ne tiendra pa
   104 fichiers
 - 🟢 CI GitHub Actions : trois jobs — web, worker (micromamba), migrations sur
   PostGIS vierge
-- ⚠️ **La CI n'a encore jamais été observée en vert.** Elle se déclenche pour la
-  première fois avec le commit initial. Le job `migrations` est le plus exposé :
-  il rejoue les neuf migrations sur une base vide après avoir recréé à la main
-  les rôles Supabase (`anon`, `authenticated`, `service_role`) et un `auth.uid()`
-  factice. Ce préambule est une approximation de l'environnement Supabase et
-  peut demander des ajustements.
+- ⚠️ **La CI n'a encore jamais été observée en vert.** Le job `migrations` est le
+  plus exposé : il rejoue les neuf migrations sur une base vide après avoir
+  reconstitué à la main l'environnement Supabase — rôles `anon`,
+  `authenticated`, `service_role`, schéma `auth` et `auth.uid()` factice.
+  Première exécution en échec, diagnostiquée et corrigée : l'image
+  `postgis/postgis` pré-installe PostGIS dans `public`, ce qui transformait
+  `create extension if not exists postgis with schema extensions` en no-op
+  silencieux. Le préambule remet désormais la base dans l'état d'un projet
+  Supabase neuf, et une étape de contrôle échoue lisiblement si ce n'était pas
+  le cas. À reconfirmer en vert.
 
 ### `packages/domain` ✅
 

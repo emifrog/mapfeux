@@ -96,16 +96,51 @@ jobs:
 
       # Les migrations doivent s'appliquer sur une base vide, dans l'ordre, sans
       # intervention. Cahier §24.2.
-      - name: Préparer les rôles Supabase
+      #
+      # L'image postgis/postgis pré-installe PostGIS et ses compagnons dans le
+      # schéma `public`. Un projet Supabase neuf ne les a pas : c'est la première
+      # migration qui les crée dans `extensions`. Sans ce nettoyage,
+      # `create extension if not exists postgis with schema extensions` devient
+      # un no-op silencieux, l'extension reste dans `public`, et le type
+      # `extensions.geometry` n'existe jamais.
+      - name: Ramener la base aux conditions d'un projet Supabase neuf
         run: |
           psql "postgresql://postgres:postgres@localhost:5432/postgres" -v ON_ERROR_STOP=1 <<'SQL'
+          drop extension if exists postgis_tiger_geocoder cascade;
+          drop extension if exists postgis_topology cascade;
+          drop extension if exists postgis_raster cascade;
+          drop extension if exists postgis cascade;
+          drop extension if exists fuzzystrmatch cascade;
+          drop extension if exists pg_trgm cascade;
+          drop schema if exists tiger cascade;
+          drop schema if exists tiger_data cascade;
+          drop schema if exists topology cascade;
+
+          create schema if not exists extensions;
+
           create role anon nologin noinherit;
           create role authenticated nologin noinherit;
           create role service_role nologin noinherit bypassrls;
-          create schema if not exists extensions;
+
           create schema if not exists auth;
           create table if not exists auth.users (id uuid primary key);
           create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+          SQL
+
+      # Garde-fou : si PostGIS repartait dans `public`, l'échec doit être lisible
+      # ici plutôt que trente lignes plus bas sur un type introuvable.
+      - name: Vérifier que le préambule est correct
+        run: |
+          psql "postgresql://postgres:postgres@localhost:5432/postgres" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if to_regtype('extensions.geometry') is not null then
+              raise exception 'PostGIS est déjà présent dans extensions avant les migrations.';
+            end if;
+            if to_regtype('public.geometry') is not null then
+              raise exception 'PostGIS est resté dans public : le nettoyage a échoué.';
+            end if;
+          end $$;
           SQL
 
       - name: Appliquer les migrations
