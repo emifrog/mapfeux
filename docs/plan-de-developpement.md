@@ -72,16 +72,20 @@ grand feu, pas un chaînage de l'algorithme.
 
 ## 2. Prochaine action
 
-**Corriger la performance du regroupement.** 3 min 23 s pour 931 détections ne
-tiendra pas face aux dizaines de milliers par jour du §6.3. La cause est
-identifiée : les agrégats sont recalculés après *chaque* détection rattachée, ce
-qui devient quadratique sur un événement de 570 membres. La correction consiste
-à ne recalculer qu'en fin de passe, en conservant à jour le seul
-`last_detected_at` dont dépend la fenêtre spatiale.
+**Trancher la politique d'affichage de la longue traîne.** Sept événements
+portent 77 % des observations, cent trois en portent 16 %. La carte les montre
+sur le même plan : un visiteur y voit un semis dont plus de huit points sur dix
+ne correspondent probablement à rien.
 
-Ensuite, deux directions au choix : la calibration fine des paramètres sur
-plusieurs saisons, ou `GET /api/v1/fires` et l'affichage des événements sur la
-carte — qui rendrait le travail visible.
+Ce n'est pas un réglage d'algorithme mais une décision de produit, et elle
+précède l'ouverture : une carte illisible dessert autant qu'une carte fausse.
+Le cahier interdit de masquer une observation, donc la réponse est une vue par
+défaut hiérarchisée, avec une commande explicite pour tout afficher.
+
+Deux autres chantiers sont mûrs : le regroupement reste lent — le coût est
+dominé par les allers-retours réseau, pas par le calcul, ce qui appelle à
+pousser la boucle côté serveur — et l'ingestion n'est ni planifiée ni branchée
+sur le rafraîchissement des snapshots.
 
 En parallèle, de votre côté :
 
@@ -211,7 +215,71 @@ sans provenance ni horodatage.
 - ✅ Score de fiabilité interne et seuils publics versionnés (§17.3)
 - ✅ Génération idempotente des entrées de chronologie (FR-058)
 - ✅ Import d'historique par tranches, corpus de calibration constitué
+- ✅ Banc de calibration : huit jeux de paramètres rejoués sur le corpus complet
 - ⬜ Calibration fine sur plusieurs saisons — une seule est chargée
+
+#### Ce que le balayage a montré
+
+| jeu | évts | 1 det | ≥2 capt | + gros | diag. km |
+|---|---:|---:|---:|---:|---:|
+| référence (2500 m, 500 m/h, 24 h, 0,35) | 122 | 53 % | 7 % | 570 | 15,1 |
+| rayon 1500 m | 145 | 50 % | 12 % | 171 | 7,6 |
+| rayon 4000 m | 114 | 56 % | 4 % | 691 | 15,8 |
+| croissance 250 m/h | 123 | 53 % | 7 % | 570 | 15,1 |
+| croissance 1000 m/h | 122 | 53 % | 7 % | 338 | 15,1 |
+| fenêtre 12 h | 154 | 50 % | 10 % | 300 | 11,6 |
+| seuil 0,20 | 116 | 56 % | 5 % | 662 | 15,1 |
+| seuil 0,50 | 152 | 51 % | 10 % | 319 | 10,5 |
+
+**La proportion d'événements à une seule détection ne bouge pas** : entre 50 %
+et 56 % quel que soit le réglage. Aucun paramètre ne la déplace, parce qu'elle
+tient à la donnée et non à l'algorithme — la moitié des détections sont vues
+une fois, par un seul capteur, et jamais revues.
+
+**La croissance du rayon est quasi inerte.** De 250 à 1000 m/h, le nombre
+d'événements ne varie pas. Le paramètre peut être figé et retiré de la surface
+de calibration.
+
+**Le résultat n'est pas monotone dans les paramètres.** Une croissance de
+1000 m/h — plus permissive — produit un plus gros événement *plus petit* que
+500 m/h. Le rattachement séquentiel glouton ne garantit pas que « plus lâche »
+donne « plus fusionné » : l'intuition n'est pas un guide sûr, ce qui est
+précisément la raison d'être du banc.
+
+**Les temps mesurés ne sont pas exploitables** : de 116 s à 609 s pour un
+travail identique. La variance confirme que le coût est dominé par les
+allers-retours réseau, pas par le calcul.
+
+⚠️ Le banc mesure la **sensibilité**, pas la **justesse**. Retenir le réglage
+médian se défend — les réglages serrés fragmentent un feu dont on a établi par
+ailleurs qu'il était réel — mais rien ici ne prouve que le regroupement est
+correct. Cela demande une vérité terrain : ce que la presse et les préfectures
+ont effectivement rapporté, c'est-à-dire le jalon J4.
+
+#### La question que le balayage a fait surgir
+
+Répartition des 122 événements de référence :
+
+| fiabilité | événements | dont à 1 détection | détections portées |
+|---|---:|---:|---:|
+| faible | 103 | 65 | 151 |
+| modérée | 12 | 0 | 66 |
+| élevée | 7 | 0 | 714 |
+
+**Sept événements portent 77 % des observations. Cent trois en portent 16 %.**
+
+Ce n'est pas un défaut de réglage, c'est la nature du signal satellitaire : une
+poignée de vrais feux, et une longue traîne d'anomalies thermiques ponctuelles —
+brûlages agricoles, sites industriels, artefacts.
+
+La carte affiche aujourd'hui les 122 sur le même plan. Un visiteur y voit un
+semis dont plus de huit points sur dix ne correspondent probablement à rien. Ce
+n'est pas une question d'algorithme mais de **politique d'affichage** :
+- ⬜ Vue par défaut mettant au premier plan les événements étayés, sans masquer
+  les autres — le cahier interdit de dissimuler une observation (§17.7)
+- ⬜ Commande explicite pour tout afficher, et libellé disant ce qui est filtré
+- ⚠️ À trancher avant l'ouverture : une carte illisible dessert autant qu'une
+  carte fausse.
 - ⬜ Fusion et séparation manuelles réversibles
 - ⬜ `GET /api/v1/fires` avec bbox obligatoire au-delà du seuil national
 - ⬜ Détection des candidats à la fusion, sans fusion silencieuse (§17.2, étape 8)
