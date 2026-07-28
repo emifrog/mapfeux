@@ -11,15 +11,17 @@ des fumées.
 | Document | Rôle |
 |---|---|
 | [MapFeux_Cahier_de_developpement_v1.1.md](MapFeux_Cahier_de_developpement_v1.1.md) | Référence fonctionnelle. Ne bouge qu'en révision. |
-| [docs/plan-de-developpement.md](docs/plan-de-developpement.md) | **Avancement et prochaine action.** Source unique de l'état du projet. |
+| [docs/strategie.md](docs/strategie.md) | Positionnement, périmètre, préalables juridiques, modèle économique, points d'arrêt. |
+| [docs/plan-de-developpement.md](docs/plan-de-developpement.md) | **Avancement, jalons et prochaine action.** Source unique de l'état du projet. |
 | [docs/adr/README.md](docs/adr/README.md) | Décisions d'architecture et écarts assumés au cahier. |
 
 ## État d'avancement
 
-Lot 0/1 terminé : monorepo, schéma Supabase, socle web, worker Python et CI.
-Aucune donnée réelle n'a encore transité — c'est l'objet des lots 2 et 3.
+Fondations et couche territoriale du pilote livrées : monorepo, schéma Supabase,
+socle web, worker Python, CI, carte et 316 communes sur le 06 et le 83. Reste
+l'objet central du produit — la fiche événement — et l'ingestion FIRMS.
 
-Le détail, les dettes et la prochaine action se trouvent dans le
+Le détail par jalon, les dettes et la prochaine action se trouvent dans le
 [plan de développement](docs/plan-de-developpement.md), tenu à jour à chaque
 session. Ce README ne duplique pas ce suivi.
 

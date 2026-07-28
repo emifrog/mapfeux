@@ -26,11 +26,22 @@ Supabase doit être consignée ici et validée **avant** implémentation.
 | [ADR-014](014-environnement-sans-docker.md) | Environnement de développement et d'exécution sans Docker | accepté |
 | [ADR-015](015-partitionnement-des-detections.md) | Partitionnement de `fire.detections` dès l'origine | accepté |
 | [ADR-016](016-file-de-taches-postgresql.md) | File de tâches PostgreSQL au lieu de Celery et Redis | accepté, réversible |
-| [ADR-017](017-source-des-limites-communales.md) | Source des limites communales pour le pilote | accepté, à réexaminer avant le jalon F |
+| [ADR-017](017-source-des-limites-communales.md) | Source des limites communales pour le pilote | accepté, à réexaminer avant l'ouverture nationale |
+| ADR-018 | Ordonnancement des tâches — réexamen d'ADR-016 | réservé, [décision ouverte](../strategie.md#81-ordonnancement--revenir-à-celery-et-redis) |
+| ADR-019 | Tuiles vectorielles PMTiles, sans GeoJSON national en direct | réservé, à rédiger en J3 |
+| ADR-020 | Hébergement en région UE, front et base, sous-traitants documentés | réservé |
+| ADR-021 | Préfixe d'identifiant public, figé avant la première URL | réservé, [décision ouverte](../strategie.md#84-préfixe-didentifiant-public) |
+| ADR-022 | Accessibilité : RGAA 4.1 niveau AA visé, déclaration publiée | réservé |
+| ADR-023 | Politique de republication des informations officielles | réservé, à rédiger en J4 |
 
 Les ADR 001 à 013 sont réservés par le cahier. Leur numérotation est figée ;
-seul leur contenu reste à rédiger, au fur et à mesure des lots qui les mettent
+seul leur contenu reste à rédiger, au fur et à mesure des jalons qui les mettent
 en œuvre.
+
+Les numéros 018 à 023 sont réservés pour les décisions identifiées par la
+[stratégie](../strategie.md). Un plan antérieur leur attribuait les numéros 014
+à 017, déjà pris par des décisions acceptées et implémentées : la renumérotation
+évite qu'un ADR en désigne deux choses différentes.
 
 ## Écarts au cahier v1.1 introduits par ces décisions
 
