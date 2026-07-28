@@ -47,6 +47,7 @@ export default async function MapPage() {
           events={events.map((event) => ({
             publicId: event.publicId,
             freshnessStatus: event.freshnessStatus,
+            lastDetectedAt: event.lastDetectedAt.toISOString(),
             detectionCount: event.detectionCount,
             location: event.location,
             nearestMunicipalityName: event.nearestMunicipality?.name ?? null,

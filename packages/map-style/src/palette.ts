@@ -11,30 +11,45 @@
  */
 
 export const PALETTE = {
-  /** Détections et événements thermiques, du plus récent au plus ancien. */
+  /**
+   * Âge de l'observation thermique, du plus récent au plus ancien.
+   *
+   * La carte colore par **âge** et non par statut de fraîcheur. Les deux
+   * répondent à des questions différentes : le statut dit ce que l'on sait de
+   * l'événement, l'âge dit à quel point l'image est vieille. Sur une carte,
+   * c'est la seconde qui se lit d'un coup d'œil.
+   */
   thermal: {
-    new: '#dc2626',
-    recent: '#ea580c',
-    notRecent: '#a16207',
-    archived: '#78716c',
+    /** Moins de 3 heures. */
+    new: '#ce2516',
+    /** De 3 à 12 heures. */
+    recent: '#ee5718',
+    /** De 12 à 24 heures. */
+    notRecent: '#f0a24e',
+    /** Au-delà de 24 heures. */
+    archived: '#97a0aa',
   },
-  /** Données anciennes ou non revues. */
   neutral: {
-    strong: '#57534e',
-    muted: '#a8a29e',
-    faint: '#e7e5e4',
+    strong: '#2a3646',
+    muted: '#97a0aa',
+    faint: '#eef2f5',
   },
   /** Météo, vent et qualité de l'air. */
   atmosphere: {
-    wind: '#2563eb',
-    smoke: '#7c3aed',
-    airQuality: '#4f46e5',
-    precipitation: '#0891b2',
+    wind: '#17639e',
+    smoke: '#6941c6',
+    airQuality: '#6941c6',
+    precipitation: '#17639e',
   },
-  /** Information officielle : jamais rouge, pour ne pas imiter une alerte. */
-  official: '#0f766e',
-  boundary: '#44403c',
+  /** Information officielle : bleu, jamais rouge, pour ne pas imiter une alerte. */
+  official: '#17639e',
+  /** Produit d'un calcul, distinct de l'observé et de l'officiel. */
+  inference: '#6941c6',
+  boundary: '#c4cbd3',
 } as const;
+
+/** Seuils d'âge de la légende cartographique, en heures. */
+export const AGE_BUCKETS_HOURS = { new: 3, recent: 12, notRecent: 24 } as const;
 
 /** Couleur d'un événement selon sa fraîcheur technique. */
 export const FRESHNESS_COLORS: Record<string, string> = {
@@ -69,18 +84,24 @@ export const SMOKE_OUTLINE_DASH: readonly [number, number] = [2, 2];
  * export.
  */
 export const FRESHNESS_COLOR_EXPRESSION = [
-  'match',
-  ['get', 'freshness'],
-  'new',
+  'step',
+  ['get', 'ageHours'],
   PALETTE.thermal.new,
-  'recent',
+  AGE_BUCKETS_HOURS.new,
   PALETTE.thermal.recent,
-  'not_recent',
+  AGE_BUCKETS_HOURS.recent,
   PALETTE.thermal.notRecent,
-  'archived',
+  AGE_BUCKETS_HOURS.notRecent,
   PALETTE.thermal.archived,
-  PALETTE.neutral.muted,
 ] as const;
+
+/** Bucket d'âge d'une observation, pour la légende et la liste textuelle. */
+export function ageBucket(hours: number): 'new' | 'recent' | 'notRecent' | 'archived' {
+  if (hours < AGE_BUCKETS_HOURS.new) return 'new';
+  if (hours < AGE_BUCKETS_HOURS.recent) return 'recent';
+  if (hours < AGE_BUCKETS_HOURS.notRecent) return 'notRecent';
+  return 'archived';
+}
 
 /**
  * Rayon d'un marqueur selon le nombre de détections.

@@ -19,12 +19,21 @@ export const EVENTS_HALO_LAYER_ID = 'mapfeux-events-halo';
 export interface MapEvent {
   publicId: string;
   freshnessStatus: string;
+  /** Heure de la dernière observation, source de la couleur du marqueur. */
+  lastDetectedAt: string;
   detectionCount: number;
   location: { longitude: number; latitude: number };
   nearestMunicipalityName: string | null;
 }
 
-export function toFeatureCollection(events: MapEvent[]): FeatureCollection {
+/**
+ * L'âge est calculé à la construction de la couche, pas figé côté serveur.
+ *
+ * Une page peut rester ouverte des heures pendant une crise : une couleur
+ * calculée au rendu vieillirait sans changer, et afficherait « moins de 3 h »
+ * sur une observation devenue vieille de six.
+ */
+export function toFeatureCollection(events: MapEvent[], now = new Date()): FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: events.map((event) => ({
@@ -36,6 +45,10 @@ export function toFeatureCollection(events: MapEvent[]): FeatureCollection {
       properties: {
         publicId: event.publicId,
         freshness: event.freshnessStatus,
+        ageHours: Math.max(
+          0,
+          (now.getTime() - new Date(event.lastDetectedAt).getTime()) / 3_600_000,
+        ),
         detectionCount: event.detectionCount,
         municipality: event.nearestMunicipalityName ?? '',
       },

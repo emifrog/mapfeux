@@ -64,6 +64,7 @@ async function reload(map: maplibregl.Map): Promise<void> {
       data: {
         id: string;
         freshnessStatus: string;
+        lastDetectedAt: string;
         detectionCount: number;
         location: { coordinates: [number, number] };
         nearestMunicipality: { name: string } | null;
@@ -75,6 +76,7 @@ async function reload(map: maplibregl.Map): Promise<void> {
       payload.data.map((event) => ({
         publicId: event.id,
         freshnessStatus: event.freshnessStatus,
+        lastDetectedAt: event.lastDetectedAt,
         detectionCount: event.detectionCount,
         location: {
           longitude: event.location.coordinates[0],

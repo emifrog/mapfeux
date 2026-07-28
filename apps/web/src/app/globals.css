@@ -1,42 +1,113 @@
 @import 'tailwindcss';
 
 /*
- * Système visuel — cahier §8.2.
+ * Système visuel MapFeux — maquette v2.
  *
- * Le rouge et l'orange sont réservés aux détections et phénomènes thermiques.
- * Aucun bouton, lien ou état d'interface ne doit les employer : la carte serait
- * alors ambiguë. Les tons neutres portent l'ancienneté, le teal l'information
- * officielle.
+ * Référence : cahier §8.2 et §6.5.
+ *
+ * Trois familles de couleur, trois significations, jamais mélangées :
+ *
+ *   age-1/2/3   âge de l'observation thermique. Réservé aux détections et aux
+ *               événements. Aucun bouton, aucun lien, aucun état d'interface ne
+ *               les emploie : la carte deviendrait ambiguë.
+ *   authority   information publiée par une autorité. Bleu, jamais rouge, pour
+ *               ne pas imiter une alerte.
+ *   inference   produit d'un calcul. Violet, distinct de l'observé et de
+ *               l'officiel (FR-053).
+ *
+ * `degraded` signale une source manquante ou en retard — un état de la donnée,
+ * pas du phénomène.
  */
 
 @theme {
-  --color-thermal-new: #dc2626;
-  --color-thermal-recent: #ea580c;
-  --color-thermal-old: #a16207;
-  --color-thermal-archived: #78716c;
+  /* Âge de l'observation. Le dégradé va du plus récent au plus ancien. */
+  --color-age-1: #ce2516;
+  --color-age-2: #ee5718;
+  --color-age-3: #f0a24e;
+  --color-age-1-wash: #fceae7;
+  --color-age-2-wash: #fff0e8;
 
-  --color-official: #0f766e;
-  --color-atmosphere-wind: #2563eb;
-  --color-atmosphere-smoke: #7c3aed;
-  --color-atmosphere-air: #4f46e5;
-  --color-atmosphere-rain: #0891b2;
+  /* Provenance. */
+  --color-authority: #17639e;
+  --color-authority-wash: #e8eef3;
+  --color-inference: #6941c6;
+  --color-inference-wash: #f0ebfa;
+  --color-degraded: #8b5e12;
+  --color-degraded-wash: #fbf2e0;
+
+  /* Structure. */
+  --color-navy: #021526;
+  --color-slate: #2a3646;
+  --color-carto: #97a0aa;
+
+  --font-sans: var(--font-instrument-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
 }
 
 :root {
-  --background: #fafaf9;
-  --foreground: #1c1917;
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-muted: #eef2f5;
+  --border: #d9e0e6;
+  --border-strong: #c4cbd3;
+  --text: #021526;
+  --text-2: #55606e;
+  --text-3: #798591;
 }
 
+/*
+ * Thème sombre. Suivi du réglage système : imposer un thème clair à quelqu'un
+ * qui consulte une carte de feux la nuit est une faute d'usage.
+ */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0c0a09;
-    --foreground: #e7e5e4;
+    --bg: #0a1520;
+    --surface: #2a3646;
+    --surface-muted: #222d3b;
+    --border: #3a4757;
+    --border-strong: #4c5b6d;
+    --text: #edf1f5;
+    --text-2: #b3bdc8;
+    --text-3: #8b96a2;
+  }
+
+  /* Les teintes claires deviennent illisibles sur fond sombre : elles sont
+     éclaircies, et les fonds lavés assombris, en conservant les écarts. */
+  @theme {
+    --color-age-1: #f2634f;
+    --color-age-2: #ff8146;
+    --color-age-3: #f5b96e;
+    --color-age-1-wash: #3a211e;
+    --color-age-2-wash: #3a2519;
+    --color-authority: #6fa8dc;
+    --color-authority-wash: #1b2a3a;
+    --color-inference: #b49aeb;
+    --color-inference-wash: #292040;
+    --color-degraded: #d2a344;
+    --color-degraded-wash: #332a18;
+    --color-carto: #77828e;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Chiffres tabulaires : une heure et une durée se lisent en colonne, pas au
+   fil du texte. */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
 }
 
 /* Respect de prefers-reduced-motion — cahier §6.5. */
@@ -51,8 +122,7 @@ body {
   }
 }
 
-/* Cible tactile minimale et visibilité du focus clavier — cahier §6.5. */
 :focus-visible {
-  outline: 2px solid var(--color-atmosphere-wind);
-  outline-offset: 2px;
+  outline: 2px solid var(--color-authority);
+  outline-offset: 3px;
 }

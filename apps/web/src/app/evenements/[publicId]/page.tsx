@@ -5,13 +5,14 @@ import {
   isSnapshotStale,
   MAP_DISCLAIMER,
 } from '@mapfeux/domain';
+import { PALETTE } from '@mapfeux/map-style';
 import {
   CONFIDENCE_LEVEL_LABELS,
   CONFIDENCE_LEVEL_NOTICE,
   EVENT_FRESHNESS_DESCRIPTIONS,
-  EVENT_FRESHNESS_LABELS,
   OFFICIAL_CONTROL_STATUS_LABELS,
   ProvenanceBadge,
+  PROVENANCE_LABELS,
   VERIFICATION_STATUS_DESCRIPTIONS,
   VERIFICATION_STATUS_LABELS,
 } from '@mapfeux/ui';
@@ -47,6 +48,22 @@ import { getServerEnv } from '@/lib/env';
  */
 
 export const revalidate = 120;
+
+/**
+ * Couleur de la pastille de chronologie selon la provenance.
+ *
+ * Observation, calcul et information officielle ne se confondent pas d'un
+ * coup d'œil (FR-053). Le libellé reste affiché à côté : la couleur ne porte
+ * jamais seule le sens (§6.5).
+ */
+const PROVENANCE_DOT: Record<string, string> = {
+  observation: PALETTE.thermal.recent,
+  algorithmic_inference: PALETTE.inference,
+  model_estimate: PALETTE.inference,
+  official_information: PALETTE.official,
+  editorial_correction: PALETTE.neutral.strong,
+  external_report: PALETTE.neutral.muted,
+};
 
 interface PageParams {
   params: Promise<{ publicId: string }>;
@@ -87,75 +104,108 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   };
 }
 
-/** Bandeau des trois dimensions de statut, jamais fusionnées. §17.4 */
-function StatusPanel({ event }: { event: FireEvent }) {
+function StateCell({
+  label,
+  children,
+  note,
+}: {
+  label: string;
+  children: React.ReactNode;
+  note: string;
+}) {
   return (
-    <section aria-labelledby="statuts" className="mt-6 rounded border border-stone-300">
+    <div
+      className="border-b p-4 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0"
+      style={{ borderColor: 'var(--border)' }}
+    >
+      <div
+        className="mono mb-2 text-[10px] uppercase tracking-[0.11em]"
+        style={{ color: 'var(--text-3)' }}
+      >
+        {label}
+      </div>
+      {children}
+      <p className="mt-2 text-[12.5px] leading-snug" style={{ color: 'var(--text-2)' }}>
+        {note}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Les trois dimensions de statut, côte à côte et jamais fusionnées. §17.4
+ *
+ * La mise en grille est un choix de fond, pas de mise en page : les afficher
+ * l'une sous l'autre suggérerait une hiérarchie ou une progression, là où il
+ * s'agit de trois questions indépendantes.
+ */
+function StatusPanel({ event, now }: { event: FireEvent; now: Date }) {
+  const age = formatDataAge(dataAgeMs(event.lastDetectedAt, now));
+
+  return (
+    <section
+      aria-labelledby="statuts"
+      className="mt-6 grid overflow-hidden rounded-2xl border md:grid-cols-3"
+      style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+    >
       <h2 id="statuts" className="sr-only">
         Statuts
       </h2>
 
-      <dl className="divide-y divide-stone-200">
-        <div className="p-4">
-          <dt className="text-sm font-medium text-stone-600">Niveau de vérification</dt>
-          <dd className="mt-1">
-            <span className="font-semibold">
-              {VERIFICATION_STATUS_LABELS[event.verificationStatus]}
-            </span>
-            <span className="mt-1 block text-sm text-stone-700">
-              {VERIFICATION_STATUS_DESCRIPTIONS[event.verificationStatus]}
-            </span>
-          </dd>
-        </div>
+      <StateCell
+        label="Fraîcheur technique"
+        note={EVENT_FRESHNESS_DESCRIPTIONS[event.freshnessStatus]}
+      >
+        <span
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[13px] font-semibold"
+          style={{ background: 'var(--color-age-1-wash)', color: 'var(--color-age-1)' }}
+        >
+          Observé il y a {age}
+        </span>
+      </StateCell>
 
-        <div className="p-4">
-          <dt className="text-sm font-medium text-stone-600">Fraîcheur de l’observation</dt>
-          <dd className="mt-1">
-            <span className="font-semibold">{EVENT_FRESHNESS_LABELS[event.freshnessStatus]}</span>
-            <span className="mt-1 block text-sm text-stone-700">
-              {EVENT_FRESHNESS_DESCRIPTIONS[event.freshnessStatus]}
-            </span>
-          </dd>
-        </div>
+      <StateCell
+        label="Niveau de vérification"
+        note={VERIFICATION_STATUS_DESCRIPTIONS[event.verificationStatus]}
+      >
+        <span
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[13px] font-medium"
+          style={{ background: 'var(--surface-muted)', color: 'var(--text)' }}
+        >
+          {VERIFICATION_STATUS_LABELS[event.verificationStatus]}
+        </span>
+      </StateCell>
 
-        <div className="p-4">
-          <dt className="text-sm font-medium text-stone-600">Statut officiel</dt>
-          <dd className="mt-1">
-            {event.officialControlStatus === null || event.officialSource === null ? (
-              // L'absence est énoncée. Un blanc se lirait comme « rien à signaler ».
-              <span className="text-sm text-stone-700">
-                Aucune information officielle n’a été publiée sur cet événement à ce jour. Cela ne
-                signifie pas qu’il n’y en a pas eu : consultez les sources officielles ci-dessous.
-              </span>
-            ) : (
-              <>
-                <span className="text-official font-semibold">
-                  {OFFICIAL_CONTROL_STATUS_LABELS[event.officialControlStatus]}
-                </span>
-                <span className="mt-1 block text-sm text-stone-700">
-                  Publié par {event.officialSource.organisation} le{' '}
-                  <time dateTime={event.officialSource.publishedAt}>
-                    {formatInstant(new Date(event.officialSource.publishedAt), event.timeZone)}
-                  </time>
-                  {event.officialSource.url !== null && (
-                    <>
-                      {' · '}
-                      <a
-                        href={event.officialSource.url}
-                        rel="noopener noreferrer"
-                        className="underline underline-offset-4"
-                      >
-                        source
-                      </a>
-                    </>
-                  )}
-                </span>
-                <ProvenanceBadge provenance="official_information" className="mt-2" />
-              </>
-            )}
-          </dd>
-        </div>
-      </dl>
+      <StateCell
+        label="Statut officiel"
+        note={
+          event.officialSource === null
+            ? 'Rien de publié sur cet événement par la préfecture ou la commune. Cela ne signifie pas qu’il n’y en a pas eu.'
+            : `Publié par ${event.officialSource.organisation}.`
+        }
+      >
+        {event.officialControlStatus === null || event.officialSource === null ? (
+          // Une puce en pointillé, pas un vide : l'absence d'information
+          // officielle est un fait à énoncer, qu'un blanc laisserait lire
+          // comme « rien à signaler ».
+          <span
+            className="inline-flex items-center gap-2 rounded-full border border-dashed px-3 py-1 text-[13px]"
+            style={{ borderColor: 'var(--border-strong)', color: 'var(--text-3)' }}
+          >
+            Aucune source officielle
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[13px] font-semibold"
+            style={{
+              background: 'var(--color-authority-wash)',
+              color: 'var(--color-authority)',
+            }}
+          >
+            {OFFICIAL_CONTROL_STATUS_LABELS[event.officialControlStatus]}
+          </span>
+        )}
+      </StateCell>
     </section>
   );
 }
@@ -235,7 +285,7 @@ export default async function EventPage({ params }: PageParams) {
       </h1>
       <p className="mt-1 font-mono text-sm text-stone-600">{event.publicId}</p>
 
-      <StatusPanel event={event} />
+      <StatusPanel event={event} now={now} />
 
       {/* Dernière observation : l'horodatage exact accompagne toujours l'âge. */}
       <section aria-labelledby="derniere-observation" className="mt-8">
@@ -309,30 +359,47 @@ export default async function EventPage({ params }: PageParams) {
         {timeline.length === 0 ? (
           <p className="mt-2 text-stone-700">Aucune entrée de chronologie pour cet événement.</p>
         ) : (
-          <ol className="mt-4 space-y-4">
+          <ol className="relative mt-4 pl-6">
+            {/* Filet vertical : la chronologie se lit comme une ligne de temps,
+                les pastilles portant la provenance de chaque entrée. */}
+            <span
+              aria-hidden="true"
+              className="absolute bottom-1.5 left-1 top-1.5 w-px"
+              style={{ background: 'var(--border)' }}
+            />
             {timeline.map((entry) => (
-              <li key={entry.id} className="border-l-2 border-stone-300 pl-4">
-                <p className="text-sm text-stone-600">
+              <li key={entry.id} className="relative pb-5 last:pb-0">
+                <span
+                  aria-hidden="true"
+                  className="absolute -left-6 top-1.5 block size-2.5 rounded-full border-2"
+                  style={{
+                    background: PROVENANCE_DOT[entry.provenance],
+                    borderColor: 'var(--surface)',
+                  }}
+                />
+                <p className="text-sm leading-snug">{entry.title}</p>
+                {entry.summary !== null && (
+                  <p className="mt-1 text-sm" style={{ color: 'var(--text-2)' }}>
+                    {entry.summary}
+                  </p>
+                )}
+                <p
+                  className="mono mt-1 text-[11px]"
+                  style={{ color: PROVENANCE_DOT[entry.provenance] }}
+                >
                   <time dateTime={entry.occurredAt.toISOString()}>
                     {formatInstant(entry.occurredAt, event.timeZone)}
-                  </time>
-                </p>
-                <p className="font-medium">{entry.title}</p>
-                {entry.summary !== null && (
-                  <p className="mt-1 text-sm text-stone-700">{entry.summary}</p>
-                )}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <ProvenanceBadge provenance={entry.provenance} />
+                  </time>{' '}
+                  · {PROVENANCE_LABELS[entry.provenance].toLowerCase()}
                   {entry.source !== null && (
-                    <a
-                      href={entry.source.url}
-                      rel="noopener noreferrer"
-                      className="text-xs underline underline-offset-4"
-                    >
-                      {entry.source.organisation}
-                    </a>
+                    <>
+                      {' · '}
+                      <a href={entry.source.url} rel="noopener noreferrer" className="underline">
+                        {entry.source.organisation}
+                      </a>
+                    </>
                   )}
-                </div>
+                </p>
               </li>
             ))}
           </ol>
