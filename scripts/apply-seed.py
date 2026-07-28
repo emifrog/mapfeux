@@ -22,52 +22,21 @@ from __future__ import annotations
 
 import pathlib
 import sys
-from urllib.parse import quote
 
 import psycopg
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
+
+from geo_worker.db import dsn_from_env_file
+
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
 SEED_DIR = ROOT / "supabase" / "seed"
 DEV_SEED_DIR = SEED_DIR / "dev"
 
 
 def read_dsn() -> str:
-    """Lit DATABASE_URL, en réparant le seul défaut courant : un `@` non encodé.
-
-    Les mots de passe générés par Supabase contiennent fréquemment un `@`. Collé
-    tel quel dans une URL, il déplace la séparation utilisateur/hôte et produit
-    une erreur de résolution DNS trompeuse, qui fait chercher un problème réseau
-    là où il n'y a qu'un problème de format.
-
-    Le correctif est délibérément étroit : il n'agit que si la partie autorité
-    contient plus d'une arobase. Encoder inconditionnellement produirait un
-    double encodage sur une chaîne déjà correcte — `%40` deviendrait `%2540` —
-    et l'authentification échouerait sans que la cause soit visible.
-    """
-    if not ENV_FILE.exists():
-        sys.exit(f"Fichier introuvable : {ENV_FILE}")
-
-    for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("DATABASE_URL="):
-            continue
-
-        dsn = line.split("=", 1)[1].strip()
-        scheme, sep, rest = dsn.partition("://")
-        if sep == "":
-            return dsn
-
-        authority, slash, path = rest.partition("/")
-        if authority.count("@") <= 1:
-            return dsn
-
-        # Un nom d'hôte ne contient jamais d'arobase : la dernière sépare.
-        userinfo, _, hostpart = authority.rpartition("@")
-        user, _, password = userinfo.partition(":")
-        print("DATABASE_URL : mot de passe encodé en pourcent pour cette connexion")
-        return f"{scheme}://{user}:{quote(password, safe='')}@{hostpart}{slash}{path}"
-
-    sys.exit(f"DATABASE_URL absente de {ENV_FILE}")
+    return dsn_from_env_file(ENV_FILE)
 
 
 def main(argv: list[str]) -> None:

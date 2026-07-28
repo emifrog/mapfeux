@@ -18,34 +18,19 @@ from __future__ import annotations
 
 import pathlib
 import sys
-from urllib.parse import quote
 
 import psycopg
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
+
+from geo_worker.db import dsn_from_env_file
+
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
 
 
 def read_dsn() -> str:
-    """Lit DATABASE_URL, en réparant un `@` non encodé dans le mot de passe."""
-    if not ENV_FILE.exists():
-        sys.exit(f"Fichier introuvable : {ENV_FILE}")
-
-    for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("DATABASE_URL="):
-            continue
-        dsn = line.split("=", 1)[1].strip()
-        scheme, sep, rest = dsn.partition("://")
-        if sep == "":
-            return dsn
-        authority, slash, path = rest.partition("/")
-        if authority.count("@") <= 1:
-            return dsn
-        userinfo, _, hostpart = authority.rpartition("@")
-        user, _, password = userinfo.partition(":")
-        return f"{scheme}://{user}:{quote(password, safe='')}@{hostpart}{slash}{path}"
-
-    sys.exit(f"DATABASE_URL absente de {ENV_FILE}")
+    return dsn_from_env_file(ENV_FILE)
 
 
 def parse_stale_minutes(argv: list[str]) -> int | None:

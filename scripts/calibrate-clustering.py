@@ -26,7 +26,6 @@ from __future__ import annotations
 import pathlib
 import sys
 import time
-from urllib.parse import quote
 
 import psycopg
 from psycopg.rows import dict_row
@@ -34,6 +33,7 @@ from psycopg.rows import dict_row
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
+from geo_worker.db import dsn_from_env_file
 from geo_worker.pipelines.clustering import (
     ClusteringParams,
     cluster_detections,
@@ -84,20 +84,7 @@ from e
 
 
 def read_dsn() -> str:
-    for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("DATABASE_URL="):
-            continue
-        dsn = line.split("=", 1)[1].strip()
-        scheme, sep, rest = dsn.partition("://")
-        if sep == "":
-            return dsn
-        authority, slash, path = rest.partition("/")
-        if authority.count("@") <= 1:
-            return dsn
-        userinfo, _, hostpart = authority.rpartition("@")
-        user, _, password = userinfo.partition(":")
-        return f"{scheme}://{user}:{quote(password, safe='')}@{hostpart}{slash}{path}"
-    sys.exit(f"DATABASE_URL absente de {ENV_FILE}")
+    return dsn_from_env_file(ENV_FILE)
 
 
 def clear(conn: psycopg.Connection[object]) -> None:

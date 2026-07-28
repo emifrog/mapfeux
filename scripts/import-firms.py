@@ -26,7 +26,6 @@ import hashlib
 import pathlib
 import sys
 from datetime import UTC, datetime, timedelta
-from urllib.parse import quote
 
 import httpx
 import psycopg
@@ -34,6 +33,7 @@ import psycopg
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
+from geo_worker.db import DsnError, normalise_dsn, read_env_file
 from geo_worker.pipelines.detections import (
     insert_detections,
     mark_known_thermal_sources,
@@ -60,28 +60,12 @@ FRANCE_WITH_BUFFER = BoundingBox(min_lon=-5.8, min_lat=41.0, max_lon=10.2, max_l
 
 
 def read_env() -> dict[str, str]:
-    if not ENV_FILE.exists():
-        sys.exit(f"Fichier introuvable : {ENV_FILE}")
-
-    values: dict[str, str] = {}
-    for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-        if "=" in line and not line.lstrip().startswith("#"):
-            name, value = line.split("=", 1)
-            values[name.strip()] = value.strip()
-    return values
-
-
-def build_dsn(raw: str) -> str:
-    """Répare un `@` non encodé dans le mot de passe, sans double encodage."""
-    scheme, sep, rest = raw.partition("://")
-    if sep == "":
-        return raw
-    authority, slash, path = rest.partition("/")
-    if authority.count("@") <= 1:
-        return raw
-    userinfo, _, hostpart = authority.rpartition("@")
-    user, _, password = userinfo.partition(":")
-    return f"{scheme}://{user}:{quote(password, safe='')}@{hostpart}{slash}{path}"
+    # FIRMS_MAP_KEY et DATABASE_URL viennent du même fichier : on le lit une
+    # fois plutôt que d'ouvrir deux accès distincts au même contenu.
+    try:
+        return read_env_file(ENV_FILE)
+    except DsnError as exc:
+        sys.exit(str(exc))
 
 
 def archive(product: str, body: str, stamp: datetime) -> tuple[pathlib.Path, str]:
@@ -152,7 +136,7 @@ def main(argv: list[str]) -> int:
             "Clé gratuite : https://firms.modaps.eosdis.nasa.gov/api/map_key/"
         )
 
-    dsn = build_dsn(env.get("DATABASE_URL", ""))
+    dsn = normalise_dsn(env.get("DATABASE_URL", ""))
     stamp = datetime.now(UTC)
 
     chunks = windows(history, days, stamp)

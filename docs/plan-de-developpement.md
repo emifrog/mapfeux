@@ -66,7 +66,7 @@ grand feu, pas un chaînage de l'algorithme.
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 17 fichiers |
 | Worker | `mypy src` | ✅ strict, 12 fichiers |
-| Worker | `pytest` | ✅ 83 tests |
+| Worker | `pytest` | ✅ 94 tests |
 
 ---
 
@@ -203,9 +203,16 @@ sans provenance ni horodatage.
 - ✅ Rattachement aux sources thermiques connues : classe la détection sans
   jamais la supprimer (FR-036)
 
+- ✅ Chaîne d'ingestion enchaînée : `scripts/run-ingestion.py` importe, regroupe
+  et reconstruit les seuls snapshots touchés, en un point d'entrée. Vérifié de
+  bout en bout, 6 s sur le chemin incrémental
+- ✅ Lecture du DSN factorisée dans `geo_worker.db`, avec 12 tests dont une
+  régression sur le double encodage qui avait déjà cassé une connexion
+
 ### Reste ⬜
 
-- ⬜ Planification toutes les dix minutes
+- ⬜ Planification toutes les dix minutes — le point d'entrée existe, il reste à
+  le déclencher
 - ⬜ Déplacer les fichiers bruts vers Storage — ils sont aujourd'hui sur le
   disque local, sans rétention
 - ✅ Algorithme de rattachement déterministe, paramètres versionnés (§17.2) —
