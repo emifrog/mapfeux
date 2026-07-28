@@ -48,6 +48,7 @@ export default async function MapPage() {
             publicId: event.publicId,
             freshnessStatus: event.freshnessStatus,
             lastDetectedAt: event.lastDetectedAt.toISOString(),
+            confidence: event.confidenceLevel,
             detectionCount: event.detectionCount,
             location: event.location,
             nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
@@ -64,7 +65,7 @@ export default async function MapPage() {
         <h2 id="liste" className="text-xl font-semibold">
           Événements de la zone
         </h2>
-        <p className="mt-1 text-sm text-stone-600">
+        <p className="mt-1 text-sm" style={{ color: 'var(--text-2)' }}>
           {events.length} événement{events.length > 1 ? 's' : ''} au chargement de la page. Cette
           liste ne suit pas les déplacements de la carte : elle décrit l’emprise initiale, et son
           horodatage vaut pour elle seule.

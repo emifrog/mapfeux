@@ -50,10 +50,10 @@ export function MapLegend() {
         <li className="flex items-center gap-2">
           <span
             aria-hidden="true"
-            className="block size-2.5 shrink-0 rounded-full border-[1.5px] border-dashed"
-            style={{ borderColor: PALETTE.neutral.muted }}
+            className="block size-2.5 shrink-0 rounded-full border-[1.4px]"
+            style={{ borderColor: PALETTE.thermal.recent }}
           />
-          source connue
+          observation isolée
         </li>
         <li className="flex items-center gap-2">
           <span
@@ -66,7 +66,12 @@ export function MapLegend() {
       </ul>
 
       <p className="mt-3 font-sans text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
-        La taille d’un marqueur suit le <strong>nombre d’observations</strong> satellitaires, et non
+        Les <strong>disques pleins</strong> sont des événements étayés — observés plusieurs fois ou
+        par plusieurs capteurs. Les <strong>anneaux</strong> sont des observations isolées,
+        conservées et cliquables, mais dont on ne peut presque rien dire.
+      </p>
+      <p className="mt-2 font-sans text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
+        La taille d’un disque suit le <strong>nombre d’observations</strong> satellitaires, et non
         la surface ou la gravité du phénomène, que MapFeux ne connaît pas.
       </p>
     </section>

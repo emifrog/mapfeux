@@ -5,12 +5,7 @@ import maplibregl, { type StyleSpecification } from 'maplibre-gl';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
-import {
-  addEventLayer,
-  EVENTS_CIRCLE_LAYER_ID,
-  updateEventLayer,
-  type MapEvent,
-} from './event-layer';
+import { addEventLayer, CLICKABLE_LAYER_IDS, updateEventLayer, type MapEvent } from './event-layer';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -65,6 +60,7 @@ async function reload(map: maplibregl.Map): Promise<void> {
         id: string;
         freshnessStatus: string;
         lastDetectedAt: string;
+        confidence: string;
         detectionCount: number;
         location: { coordinates: [number, number] };
         nearestMunicipality: { name: string } | null;
@@ -77,6 +73,7 @@ async function reload(map: maplibregl.Map): Promise<void> {
         publicId: event.id,
         freshnessStatus: event.freshnessStatus,
         lastDetectedAt: event.lastDetectedAt,
+        confidence: event.confidence,
         detectionCount: event.detectionCount,
         location: {
           longitude: event.location.coordinates[0],
@@ -150,20 +147,24 @@ export default function BaseMap({
 
       // Un clic ouvre la fiche : la carte oriente vers l'événement, elle ne
       // prétend pas le décrire. Toute l'information sourcée est sur la fiche.
-      map.on('click', EVENTS_CIRCLE_LAYER_ID, (event) => {
-        const feature = event.features?.[0];
-        const publicId = feature?.properties?.['publicId'];
-        if (typeof publicId === 'string') {
-          router.push(`/evenements/${publicId}`);
-        }
-      });
+      //
+      // La traîne est cliquable au même titre que le reste : elle est rendue
+      // discrète, pas inaccessible.
+      for (const layerId of CLICKABLE_LAYER_IDS) {
+        map.on('click', layerId, (event) => {
+          const publicId = event.features?.[0]?.properties?.['publicId'];
+          if (typeof publicId === 'string') {
+            router.push(`/evenements/${publicId}`);
+          }
+        });
 
-      map.on('mouseenter', EVENTS_CIRCLE_LAYER_ID, () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', EVENTS_CIRCLE_LAYER_ID, () => {
-        map.getCanvas().style.cursor = '';
-      });
+        map.on('mouseenter', layerId, () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', layerId, () => {
+          map.getCanvas().style.cursor = '';
+        });
+      }
 
       if (reloadOnMove) {
         map.on('moveend', () => void reload(map));

@@ -123,3 +123,33 @@ export const DETECTION_COUNT_RADIUS_EXPRESSION = [
   500,
   20,
 ] as const;
+
+/**
+ * Filtres séparant les événements étayés de la longue traîne.
+ *
+ * Sur un corpus réel, sept événements portent les trois quarts des
+ * observations et une centaine d'autres n'en portent presque aucune. Les
+ * afficher au même plan rend la carte illisible ; les masquer contredirait
+ * l'interdiction de dissimuler une observation (§17.7).
+ *
+ * La réponse est une hiérarchie visuelle : les événements étayés en aplat, la
+ * traîne en anneau discret. Tout reste présent, cliquable et listé.
+ */
+export const SUBSTANTIATED_FILTER = [
+  'match',
+  ['get', 'confidence'],
+  ['medium', 'high'],
+  true,
+  false,
+] as const;
+
+export const LONG_TAIL_FILTER = [
+  'match',
+  ['get', 'confidence'],
+  ['medium', 'high'],
+  false,
+  true,
+] as const;
+
+/** Rayon fixe et discret pour la traîne : sa taille ne doit rien suggérer. */
+export const LONG_TAIL_RADIUS = 3.5;
