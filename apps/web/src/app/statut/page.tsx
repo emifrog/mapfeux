@@ -22,35 +22,44 @@ export const metadata: Metadata = {
 // La fraîcheur des sources change à chaque import : pas de mise en cache longue.
 export const revalidate = 60;
 
-const FRESHNESS_STYLES: Record<string, string> = {
-  fresh: 'bg-emerald-50 text-emerald-900 border-emerald-300',
-  delayed: 'bg-amber-50 text-amber-900 border-amber-300',
-  stale: 'bg-orange-50 text-orange-900 border-orange-300',
-  unavailable: 'bg-stone-100 text-stone-900 border-stone-400',
-  maintenance: 'bg-sky-50 text-sky-900 border-sky-300',
+/**
+ * Couleurs de l'état d'une source.
+ *
+ * Aucun vert : « à jour » se lit à la sobriété, pas à une pastille rassurante.
+ * Le registre chaud reste réservé aux phénomènes thermiques (§8.2) ; un retard
+ * de source emprunte l'ambre de `degraded`, qui décrit l'état de la donnée et
+ * non celui du terrain.
+ */
+const FRESHNESS_STYLES: Record<string, { background: string; color: string }> = {
+  fresh: { background: 'var(--surface-muted)', color: 'var(--text)' },
+  delayed: { background: 'var(--color-degraded-wash)', color: 'var(--color-degraded)' },
+  stale: { background: 'var(--color-degraded-wash)', color: 'var(--color-degraded)' },
+  unavailable: { background: 'var(--surface-muted)', color: 'var(--text-3)' },
+  maintenance: { background: 'var(--color-authority-wash)', color: 'var(--color-authority)' },
 };
 
 function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
   const dataAt = source.last_data_at === null ? null : new Date(source.last_data_at);
 
   return (
-    <tr className="border-b border-stone-200 align-top">
+    <tr className="border-b align-top" style={{ borderColor: 'var(--border)' }}>
       <th scope="row" className="py-3 pr-4 text-left font-medium">
         {source.name}
-        <span className="block text-xs font-normal text-stone-500">{source.provider}</span>
+        <span className="block text-xs font-normal" style={{ color: 'var(--text-3)' }}>
+          {source.provider}
+        </span>
       </th>
       <td className="py-3 pr-4">
         <span
-          className={`inline-block rounded border px-2 py-0.5 text-xs font-medium ${
-            FRESHNESS_STYLES[source.freshness] ?? FRESHNESS_STYLES.unavailable
-          }`}
+          className="inline-block rounded-full px-3 py-1 text-xs font-medium"
+          style={FRESHNESS_STYLES[source.freshness] ?? FRESHNESS_STYLES['unavailable']}
         >
           {SOURCE_FRESHNESS_LABELS[source.freshness]}
         </span>
       </td>
       <td className="py-3 pr-4 text-sm">
         {dataAt === null ? (
-          <span className="text-stone-500">Aucune donnée</span>
+          <span style={{ color: 'var(--text-3)' }}>Aucune donnée</span>
         ) : (
           <>
             <time dateTime={dataAt.toISOString()}>
@@ -60,7 +69,7 @@ function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
                 timeZone: 'Europe/Paris',
               }).format(dataAt)}
             </time>
-            <span className="block text-xs text-stone-500">
+            <span className="block text-xs" style={{ color: 'var(--text-3)' }}>
               il y a {formatDataAge(Math.max(0, now.getTime() - dataAt.getTime()))}
             </span>
           </>
@@ -68,9 +77,9 @@ function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
       </td>
       <td className="py-3 text-sm">
         {source.incident_message === null ? (
-          <span className="text-stone-500">—</span>
+          <span style={{ color: 'var(--text-3)' }}>—</span>
         ) : (
-          <span className="text-orange-900">{source.incident_message}</span>
+          <span style={{ color: 'var(--color-degraded)' }}>{source.incident_message}</span>
         )}
       </td>
     </tr>
@@ -85,19 +94,25 @@ export default async function StatusPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">État des données</h1>
-      <p className="mt-3 max-w-2xl text-stone-700">
+      <p className="mt-3 max-w-2xl" style={{ color: 'var(--text-2)' }}>
         Chaque source est indépendante. L’indisponibilité de l’une n’empêche pas l’affichage des
         autres : les couches concernées sont signalées comme indisponibles plutôt que masquées
         silencieusement.
       </p>
 
       {!result.readable ? (
-        <p className="mt-8 rounded border border-stone-400 bg-stone-100 p-4 text-sm">
+        <p
+          className="mt-8 rounded-xl border p-4 text-sm"
+          style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}
+        >
           L’état des sources n’est pas consultable actuellement. Cette page ne reflète donc pas la
           situation réelle des imports.
         </p>
       ) : sources.length === 0 ? (
-        <p className="mt-8 rounded border border-stone-400 bg-stone-100 p-4 text-sm">
+        <p
+          className="mt-8 rounded-xl border p-4 text-sm"
+          style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}
+        >
           Aucune source de données n’est encore enregistrée sur cette instance.
         </p>
       ) : (
@@ -107,7 +122,7 @@ export default async function StatusPage() {
               Fraîcheur des sources de données, dernière donnée disponible et incidents en cours
             </caption>
             <thead>
-              <tr className="border-b-2 border-stone-300 text-sm">
+              <tr className="border-b-2 text-sm" style={{ borderColor: 'var(--border-strong)' }}>
                 <th scope="col" className="py-2 pr-4">
                   Source
                 </th>
@@ -131,7 +146,7 @@ export default async function StatusPage() {
         </div>
       )}
 
-      <p className="mt-8 text-xs text-stone-500">
+      <p className="mt-8 text-xs" style={{ color: 'var(--text-3)' }}>
         Page générée le{' '}
         <time dateTime={now.toISOString()}>
           {new Intl.DateTimeFormat('fr-FR', {

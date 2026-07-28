@@ -5,13 +5,12 @@ import { MunicipalitySearch } from '@/components/municipality-search';
 import { fetchTerritories } from '@/lib/data/territories';
 
 /**
- * Accueil.
+ * Accueil. Cahier §8.1.
  *
- * Référence : cahier §8.1. L'utilisateur doit comprendre en moins de cinq
- * secondes le territoire affiché, la période couverte et le caractère non
- * officiel du service. Les couches de détections arrivent avec le lot 3 : tant
- * qu'elles n'existent pas, la page le dit plutôt que d'afficher une carte vide
- * laissant croire à l'absence de tout phénomène.
+ * L'utilisateur doit comprendre en moins de cinq secondes ce que le service
+ * montre, sur quel territoire, et son caractère non officiel. La recherche est
+ * placée avant tout le reste : c'est la seule action que quelqu'un vient
+ * réellement faire ici.
  */
 
 export const revalidate = 3600;
@@ -21,34 +20,39 @@ export default async function HomePage() {
   const departments = territories.filter((territory) => territory.type === 'department');
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">
-        Détections thermiques et fumées en France
+    <div className="mx-auto max-w-[68ch] px-6 py-14">
+      <h1 className="text-4xl font-bold tracking-tight">
+        Où sont les détections thermiques en France
       </h1>
-
-      <p className="mt-4 text-stone-700">
-        MapFeux regroupe les détections thermiques satellitaires en événements probables, estime un
-        panache de fumée indicatif et identifie les communes potentiellement concernées.
+      <p className="mt-4 text-lg" style={{ color: 'var(--text-2)' }}>
+        MapFeux regroupe les observations satellitaires en événements, les rattache à une commune,
+        et indique pour chacun qui a observé quoi et quand.
       </p>
 
-      <div className="mt-8 max-w-md">
+      <div className="mt-9 max-w-md">
         <MunicipalitySearch />
       </div>
 
-      <p className="mt-4">
-        <Link href="/carte" className="underline underline-offset-4">
-          Ouvrir la carte nationale
+      <p className="mt-5">
+        <Link href="/carte" className="font-medium underline underline-offset-4">
+          Ouvrir la carte
         </Link>
       </p>
 
-      <div className="mt-8 rounded border border-stone-300 bg-stone-50 p-4 text-sm text-stone-800">
+      <div
+        className="mt-10 rounded-2xl border-l-4 p-5 text-sm"
+        style={{
+          background: 'var(--color-age-2-wash)',
+          borderColor: 'var(--color-age-2)',
+        }}
+      >
         <h2 className="font-semibold">Ce que montre — et ne montre pas — cette carte</h2>
         <p className="mt-2">{MAP_DISCLAIMER}</p>
       </div>
 
       {departments.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-xl font-semibold">Territoires ouverts</h2>
+        <section className="mt-12">
+          <h2 className="text-xl font-semibold tracking-tight">Territoires ouverts</h2>
           <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
             {departments.map((department) => (
               <li key={department.slug}>
@@ -61,19 +65,27 @@ export default async function HomePage() {
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-sm" style={{ color: 'var(--text-2)' }}>
+            Les détections ne sont importées que sur ces départements. Ailleurs, l’absence
+            d’événement ne signifie rien.
+          </p>
         </section>
       )}
 
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">État de la plateforme</h2>
-        <p className="mt-2 text-stone-700">
-          Les détections satellitaires, les fiches événement et le panache indicatif sont en cours
-          de construction. L’état des sources de données est déjà consultable.
-        </p>
-        <p className="mt-4">
+      <section className="mt-12">
+        <h2 className="text-xl font-semibold tracking-tight">Comprendre avant d’interpréter</h2>
+        <p className="mt-2" style={{ color: 'var(--text-2)' }}>
+          Une détection thermique n’est pas un feu confirmé, et son absence ne signifie pas qu’il
+          n’y en a pas. La{' '}
+          <Link href="/methodologie" className="underline underline-offset-4">
+            méthodologie
+          </Link>{' '}
+          détaille ce que les satellites voient, ce qu’ils manquent, et comment un point devient un
+          événement. L’
           <Link href="/statut" className="underline underline-offset-4">
-            Consulter l’état des données
-          </Link>
+            état des données
+          </Link>{' '}
+          indique en permanence quelles sources répondent.
         </p>
       </section>
     </div>
