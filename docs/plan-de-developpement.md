@@ -29,13 +29,18 @@ build, une requête. « Le code est écrit » vaut 🟢, pas ✅.
 complet pour les détections et les événements, application web qui construit,
 worker Python dont la pile géospatiale fonctionne sous Windows sans Docker.
 
-**Lot 2 : la moitié web est en place**, la moitié données ne l'est pas. Les
-pages territoriales, la recherche de commune, la carte et les endpoints
-existent et se construisent, mais `geo.municipalities` est vide. Les pages
-territoire fonctionnent grâce au seed — France, PACA, 06, 83 ; les pages
-commune répondront 404 jusqu'à l'import IGN.
+**La chaîne complète répond**, vérifiée de bout en bout contre le projet
+Supabase hébergé : navigateur → Next.js → PostgREST → schéma `api` → PostGIS.
+`/api/v1/status` retourne les cinq sources en `unavailable`, `/api/v1/territories`
+la hiérarchie France → PACA → 06 et 83, et `/territoire/alpes-maritimes`
+s'affiche avec sa carte.
 
-**Aucune donnée réelle n'a encore transité.** C'est le point dur du moment.
+**Lot 2 : la moitié web est en place**, la moitié données ne l'est pas.
+`geo.municipalities` reste vide : les pages commune répondent 404 et la
+recherche ne renvoie rien jusqu'à l'import IGN.
+
+**Aucune donnée d'observation n'a encore transité.** C'est le point dur du
+moment.
 
 ### Portes de qualité — dernier passage
 
@@ -66,35 +71,13 @@ commune répondront 404 jusqu'à l'import IGN.
 
 ## 2. Prochaine action
 
-**Exposer le schéma `api` sur le projet Supabase hébergé.** Toutes les requêtes
-échouent aujourd'hui avec `PGRST106: Invalid schema: api`, constaté en exécutant
-l'application.
-
-> Project Settings → API → **Exposed schemas** → ajouter `api`
-
-`supabase/config.toml` ne configure que le Supabase local ; sur un projet
-hébergé, cette liste se règle dans le tableau de bord. Conserver `public` et
-`graphql_public`, n'ajouter que `api` — aucun schéma interne ne doit y figurer
-(§12.1).
-
-Ensuite, vérifier :
-
-```bash
-pnpm dev
-# http://localhost:3000/api/v1/status      → sourceCount 5, status "degraded"
-# http://localhost:3000/statut             → les cinq sources en « Indisponible »
-# http://localhost:3000/territoire/alpes-maritimes → carte centrée sur le 06
-pnpm db:types                              # types du schéma api, aujourd'hui absents
-```
-
-Les cinq sources doivent apparaître en `unavailable` : aucun import n'a jamais
-tourné, c'est le résultat attendu.
-
-Puis **écrire l'import IGN ADMIN EXPRESS**, seul verrou restant du lot 2 : sans
+**Écrire l'import IGN ADMIN EXPRESS.** C'est le dernier verrou du lot 2 : sans
 communes en base, la recherche ne renvoie rien, les pages commune répondent 404
 et le lot 3 n'aura nulle part où rattacher les détections.
 
-Et si la CI n'est pas encore verte : <https://github.com/emifrog/mapfeux/actions>.
+Accessoirement : `pnpm db:types` pour générer les types du schéma `api`,
+aujourd'hui écrits à la main dans `lib/data/`. Et si la CI n'est pas encore
+verte : <https://github.com/emifrog/mapfeux/actions>.
 
 ---
 
@@ -205,12 +188,14 @@ Neuf migrations appliquées sur le projet Supabase hébergé.
 - ⚠️ Import manuel et contrôlé, pas de job fréquent : ce référentiel change deux
   fois par an
 
-### API 🟢
+### API ✅
 
 - ✅ Migration `api.municipalities` — vue sans géométrie, les limites passeront
   par les tuiles vectorielles (§21.1)
-- 🟢 `GET /api/v1/territories` et `/territories/{slug}` avec liens officiels
-- 🟢 `GET /api/v1/municipalities/{insee}` et `/search`
+- ✅ `GET /api/v1/territories` — hiérarchie complète retournée par le serveur réel
+- 🟢 `GET /api/v1/territories/{slug}` avec liens officiels
+- 🟢 `GET /api/v1/municipalities/{insee}` et `/search` — répondent, mais sur une
+  table vide
 - 🟢 `POST /api/v1/location/resolve` — position transmise en corps de requête et
   non en URL, car les URL atterrissent dans les journaux des CDN (§22.2)
 - ✅ Couche d'accès partagée entre pages et endpoints : une page rendue serveur
@@ -359,7 +344,6 @@ Durée indicative : 2 à 3 semaines. EPIC-10.
 
 | Sujet | Nature | Échéance |
 |---|---|---|
-| Schéma `api` non exposé | `PGRST106` sur toutes les requêtes | Immédiat |
 | CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | Lot 2 |
 | Aucun test de composant | La recherche et la carte n'ont que le typage | Lot 9 (Playwright) |

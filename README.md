@@ -92,8 +92,25 @@ pnpm db:push        # applique supabase/migrations dans l'ordre
 pnpm db:types       # régénère les types TypeScript du schéma api
 ```
 
-Le seed (`supabase/seed/`) s'applique une fois, à la main, depuis l'éditeur SQL
-du tableau de bord ou avec `psql`.
+#### Données de référence
+
+Les migrations construisent le schéma ; le seed y verse le registre des sources
+et les territoires d'amorçage. Sans lui, l'application fonctionne mais n'affiche
+rien — `/statut` reste vide et aucun territoire n'est navigable.
+
+```bash
+micromamba run -n mapfeux-geo python scripts/apply-seed.py
+```
+
+Le script est idempotent et peut être rejoué. Le seed s'applique aussi à la main
+depuis l'éditeur SQL du tableau de bord.
+
+> **Piège sur `DATABASE_URL`.** Les mots de passe générés par Supabase
+> contiennent souvent des caractères réservés d'URL. Un `@` non encodé décale la
+> séparation utilisateur/hôte et produit une erreur de résolution DNS
+> trompeuse — on croit à un problème réseau alors qu'il s'agit d'un format.
+> Encoder le mot de passe en pourcent : `@` devient `%40`. Le script
+> `apply-seed.py` le fait automatiquement.
 
 ## Commandes
 
