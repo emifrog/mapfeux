@@ -33,6 +33,7 @@ Supabase doit être consignée ici et validée **avant** implémentation.
 | ADR-021 | Préfixe d'identifiant public, figé avant la première URL | réservé, [décision ouverte](../strategie.md#84-préfixe-didentifiant-public) |
 | ADR-022 | Accessibilité : RGAA 4.1 niveau AA visé, déclaration publiée | réservé |
 | ADR-023 | Politique de republication des informations officielles | réservé, à rédiger en J4 |
+| [ADR-024](024-recherche-spatiale-en-memoire.md) | Recherche des candidats de regroupement en mémoire | accepté, à réexaminer à l'échelle nationale |
 
 Les ADR 001 à 013 sont réservés par le cahier. Leur numérotation est figée ;
 seul leur contenu reste à rédiger, au fur et à mesure des jalons qui les mettent

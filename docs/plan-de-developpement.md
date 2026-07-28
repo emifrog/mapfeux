@@ -72,31 +72,30 @@ grand feu, pas un chaînage de l'algorithme.
 
 ## 2. Prochaine action
 
-**Trancher la politique d'affichage de la longue traîne.** Sept événements
-portent 77 % des observations, cent trois en portent 16 %. La carte les montre
-sur le même plan : un visiteur y voit un semis dont plus de huit points sur dix
-ne correspondent probablement à rien.
+**Déclencher l'ingestion automatiquement.** La chaîne complète tourne en une
+commande et le regroupement par tranches donne le même résultat qu'un recalcul
+en bloc — la propriété qui autorisait à planifier. Il n'y a plus d'obstacle
+technique, seulement une décision : où tourne l'ordonnanceur. Tant qu'elle
+n'est pas prise, le site affiche une fraîcheur exacte et mauvaise, puisque la
+donnée n'est rafraîchie que quand quelqu'un lance le script à la main.
 
-Ce n'est pas un réglage d'algorithme mais une décision de produit, et elle
-précède l'ouverture : une carte illisible dessert autant qu'une carte fausse.
-Le cahier interdit de masquer une observation, donc la réponse est une vue par
-défaut hiérarchisée, avec une commande explicite pour tout afficher.
+C'est la [décision ouverte §8.1](strategie.md#8-décisions-ouvertes), et elle
+n'est plus reportable : la fraîcheur est ce que le produit promet.
 
-Deux autres chantiers sont mûrs : le regroupement reste lent — le coût est
-dominé par les allers-retours réseau, pas par le calcul, ce qui appelle à
-pousser la boucle côté serveur — et l'ingestion n'est ni planifiée ni branchée
-sur le rafraîchissement des snapshots.
+Le chantier suivant est **la couverture nationale** : géométries des
+départements, agrégation à petite échelle, tuiles PMTiles. Aujourd'hui seuls le
+06 et le 83 ont des limites communales, et l'échelle nationale n'a rien à
+montrer.
 
 En parallèle, de votre côté :
 
 - ouvrir les préalables de la [phase 0](strategie.md#3-phase-0--préalables-non-techniques),
   en particulier l'autorisation de cumul — c'est un point d'arrêt du projet ;
+- demander l'**archive FIRMS** (§3.4 de la stratégie) : le flux temps réel ne
+  couvre qu'environ quatre mois glissants, donc une seule saison. La calibration
+  multi-saisons ne dépend plus que de cette donnée ;
 - trancher les [décisions ouvertes](strategie.md#8-décisions-ouvertes), dont
-  l'ordonnancement et le préfixe d'identifiant public ;
-- `pnpm db:push` pour les deux migrations en attente
-  (`20260727130000_api_municipalities.sql`,
-  `20260728100000_source_status_freshness.sql`) ;
-- `pnpm db:types` pour générer les types du schéma `api`.
+  l'ordonnancement et le préfixe d'identifiant public.
 
 ---
 

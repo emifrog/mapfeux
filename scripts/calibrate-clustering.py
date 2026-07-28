@@ -2,6 +2,7 @@
 
 Usage :
     micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py
+    micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py --axes
 
 Référence : cahier §17.2 et §24.8.
 
@@ -15,6 +16,16 @@ symétriques :
   décrit un phénomène qui n'a jamais existé — la faute la plus grave, puisqu'elle
   est invisible sans vérification terrain.
 
+Par défaut le balayage est **croisé** : rayon × fenêtre × seuil. Une première
+version ne faisait varier qu'un paramètre à la fois, parce qu'un jeu coûtait
+deux minutes. Elle avait montré des résultats non monotones, que des variations
+isolées ne permettaient pas d'expliquer : on ne voit pas une interaction en
+regardant les axes séparément. Le regroupement en mémoire ramène le coût à
+quelques secondes, ce qui rend le produit cartésien abordable.
+
+`--axes` retrouve l'ancien mode, une variation par ligne, utile pour une
+lecture rapide.
+
 Aucun indicateur ne tranche seul. Le tableau sert à un arbitrage humain, il ne
 choisit pas à sa place.
 
@@ -23,6 +34,7 @@ L'état final de la base est restauré avec les paramètres de référence.
 
 from __future__ import annotations
 
+import csv
 import pathlib
 import sys
 import time
@@ -40,20 +52,49 @@ from geo_worker.pipelines.clustering import (
 )
 
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
+RESULT_DIR = ROOT / "data" / "calibration"
 
-# Jeux à comparer. Le premier est la référence actuelle ; chaque suivant ne fait
-# varier qu'un paramètre, faute de quoi l'effet observé ne serait pas
-# attribuable.
-GRID: list[ClusteringParams] = [
-    ClusteringParams(version="calib-reference"),
-    ClusteringParams(version="calib-rayon-1500", base_radius_m=1_500),
-    ClusteringParams(version="calib-rayon-4000", base_radius_m=4_000),
-    ClusteringParams(version="calib-croissance-250", growth_m_per_hour=250),
-    ClusteringParams(version="calib-croissance-1000", growth_m_per_hour=1_000),
-    ClusteringParams(version="calib-fenetre-12h", attach_window_hours=12),
-    ClusteringParams(version="calib-seuil-0.20", min_score=0.20),
-    ClusteringParams(version="calib-seuil-0.50", min_score=0.50),
-]
+RADII = (1_000, 1_500, 2_000, 2_500, 3_000, 4_000, 5_000)
+WINDOWS = (6, 12, 24, 48)
+THRESHOLDS = (0.20, 0.35, 0.50, 0.65)
+
+# La croissance du rayon avec le temps s'était montrée quasi inerte sur ce
+# corpus : la faire varier ici quadruplerait le balayage sans rien révéler.
+GROWTH_M_PER_HOUR = 500
+
+
+def label(radius: int, window: int, threshold: float) -> str:
+    return f"calib-r{radius}-w{window}-s{threshold:.2f}"
+
+
+def crossed_grid() -> list[ClusteringParams]:
+    return [
+        ClusteringParams(
+            version=label(radius, window, threshold),
+            base_radius_m=radius,
+            growth_m_per_hour=GROWTH_M_PER_HOUR,
+            attach_window_hours=window,
+            min_score=threshold,
+        )
+        for radius in RADII
+        for window in WINDOWS
+        for threshold in THRESHOLDS
+    ]
+
+
+def axis_grid() -> list[ClusteringParams]:
+    """Une variation par ligne, à partir de la référence."""
+    return [
+        ClusteringParams(version="calib-reference"),
+        ClusteringParams(version="calib-rayon-1500", base_radius_m=1_500),
+        ClusteringParams(version="calib-rayon-4000", base_radius_m=4_000),
+        ClusteringParams(version="calib-croissance-250", growth_m_per_hour=250),
+        ClusteringParams(version="calib-croissance-1000", growth_m_per_hour=1_000),
+        ClusteringParams(version="calib-fenetre-12h", attach_window_hours=12),
+        ClusteringParams(version="calib-seuil-0.20", min_score=0.20),
+        ClusteringParams(version="calib-seuil-0.50", min_score=0.50),
+    ]
+
 
 METRICS_SQL = """
 with e as (
@@ -77,14 +118,17 @@ select
   count(*) filter (where detection_count = 1) as singletons,
   count(*) filter (where sensor_count >= 2) as multi_capteurs,
   coalesce(max(detection_count), 0) as plus_gros,
+  -- Part des observations portée par les événements les plus fournis. C'est
+  -- l'indicateur de lisibilite : quand sept evenements portent plus des trois
+  -- quarts des observations, la carte montre surtout du bruit.
+  -- (Pas de signe pour-cent dans cette requete : psycopg le lirait comme un
+  -- marqueur de parametre.)
+  coalesce(sum(detection_count) filter (where detection_count >= 5), 0) as detections_etayees,
   coalesce(round(max(diagonale_km)::numeric, 1), 0) as diagonale_max_km,
-  coalesce(round(percentile_cont(0.5) within group (order by span_hours)::numeric, 1), 0) as duree_mediane_h
+  coalesce(round(percentile_cont(0.5) within group (order by span_hours)::numeric, 1), 0)
+    as duree_mediane_h
 from e
 """
-
-
-def read_dsn() -> str:
-    return dsn_from_env_file(ENV_FILE)
 
 
 def clear(conn: psycopg.Connection[object]) -> None:
@@ -110,55 +154,107 @@ def measure(conn: psycopg.Connection[object], version: str) -> dict[str, object]
     return dict(row or {})
 
 
-def main() -> int:
+def percent(part: object, whole: object) -> int:
+    total = int(whole or 0)
+    return 0 if total == 0 else round(100 * int(part or 0) / total)
+
+
+def main(argv: list[str]) -> int:
+    grid = axis_grid() if "--axes" in argv else crossed_grid()
+
     # `flush` systématique : hors terminal, Python met la sortie en tampon par
-    # blocs, et un balayage de quinze minutes ne montrerait rien avant la fin.
-    print(f"{len(GRID)} jeux de paramètres à comparer.\n", flush=True)
+    # blocs, et un balayage de plusieurs minutes ne montrerait rien avant la fin.
+    print(f"{len(grid)} jeux de paramètres à comparer.\n", flush=True)
 
     header = (
-        f"{'jeu':<22} {'évts':>5} {'1 det':>6} {'≥2 capt':>8} "
-        f"{'+gros':>6} {'diag km':>8} {'durée h':>8} {'temps':>7}"
+        f"{'jeu':<26} {'évts':>5} {'1 det':>6} {'étayé':>6} "
+        f"{'≥2 capt':>8} {'+gros':>6} {'diag km':>8} {'durée h':>8} {'temps':>7}"
     )
     print(header, flush=True)
     print("-" * len(header), flush=True)
 
-    with psycopg.connect(read_dsn(), connect_timeout=30) as conn:
-        for params in GRID:
-            clear(conn)
-            started = time.monotonic()
-            cluster_detections(conn, params=params)
-            conn.commit()
-            elapsed = time.monotonic() - started
+    rows: list[dict[str, object]] = []
 
-            m = measure(conn, params.version)
-            singleton_pct = (
-                0
-                if m["evenements"] == 0
-                else round(100 * int(m["singletons"]) / int(m["evenements"]))
-            )
-            multi_pct = (
-                0
-                if m["evenements"] == 0
-                else round(100 * int(m["multi_capteurs"]) / int(m["evenements"]))
-            )
+    with psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn:
+        try:
+            sweep(conn, grid, rows)
+        finally:
+            # Une interruption ne doit pas laisser la base sur un jeu
+            # expérimental : le site lit la même table, et servirait alors une
+            # carte produite par des paramètres qu'on ne publie pas.
+            restore(conn)
 
-            print(
-                f"{params.version:<22} {m['evenements']:>5} {str(singleton_pct) + '%':>6} "
-                f"{str(multi_pct) + '%':>8} {m['plus_gros']:>6} "
-                f"{m['diagonale_max_km']!s:>8} {m['duree_mediane_h']!s:>8} "
-                f"{int(elapsed):>6}s",
-                flush=True,
-            )
+    if not rows:
+        print("Aucun résultat à écrire.")
+        return 1
 
-        # État final : paramètres de référence, pour ne pas laisser la base
-        # dans une configuration expérimentale.
-        clear(conn)
-        cluster_detections(conn, params=ClusteringParams())
-        conn.commit()
-        print("\nBase restaurée avec les paramètres de référence (grouping-v1).")
+    RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    destination = RESULT_DIR / ("axes.csv" if "--axes" in argv else "croise.csv")
+    with destination.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"Résultats : {destination.relative_to(ROOT)}")
 
     return 0
 
 
+def restore(conn: psycopg.Connection[object]) -> None:
+    clear(conn)
+    cluster_detections(conn, params=ClusteringParams())
+    conn.commit()
+    print(
+        "\nBase restaurée avec les paramètres de référence (grouping-v1).", flush=True
+    )
+
+
+def sweep(
+    conn: psycopg.Connection[object],
+    grid: list[ClusteringParams],
+    rows: list[dict[str, object]],
+) -> None:
+    for params in grid:
+        clear(conn)
+        started = time.monotonic()
+        cluster_detections(conn, params=params)
+        conn.commit()
+        elapsed = time.monotonic() - started
+
+        m = measure(conn, params.version)
+        singleton_pct = percent(m["singletons"], m["evenements"])
+        multi_pct = percent(m["multi_capteurs"], m["evenements"])
+        # Part des observations dans les événements à cinq détections ou plus :
+        # ce que la carte montre vraiment quand on hiérarchise.
+        substantiated_pct = percent(m["detections_etayees"], m["detections"])
+
+        print(
+            f"{params.version:<26} {m['evenements']:>5} {str(singleton_pct) + '%':>6} "
+            f"{str(substantiated_pct) + '%':>6} {str(multi_pct) + '%':>8} "
+            f"{m['plus_gros']:>6} {m['diagonale_max_km']!s:>8} "
+            f"{m['duree_mediane_h']!s:>8} {elapsed:>6.1f}s",
+            flush=True,
+        )
+
+        rows.append(
+            {
+                "version": params.version,
+                "rayon_m": params.base_radius_m,
+                "croissance_m_h": params.growth_m_per_hour,
+                "fenetre_h": params.attach_window_hours,
+                "seuil": params.min_score,
+                "evenements": m["evenements"],
+                "detections": m["detections"],
+                "singletons": m["singletons"],
+                "singletons_pct": singleton_pct,
+                "detections_etayees_pct": substantiated_pct,
+                "multi_capteurs_pct": multi_pct,
+                "plus_gros": m["plus_gros"],
+                "diagonale_max_km": m["diagonale_max_km"],
+                "duree_mediane_h": m["duree_mediane_h"],
+                "secondes": round(elapsed, 1),
+            }
+        )
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
