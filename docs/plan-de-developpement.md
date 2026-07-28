@@ -36,9 +36,14 @@ Supabase hébergé : navigateur → Next.js → PostgREST → schéma `api` → 
 recherche trouve « Nice » comme « st etienne de tinee » sans accent ni tiret, un
 point de Nice résout vers 06088, les fiches communales s'affichent.
 
-**Aucune donnée d'observation n'a encore transité.** C'est le point dur du
-moment : il manque la fiche événement, qui est l'objet central du produit
-(§1 de la [stratégie](strategie.md)), et l'import FIRMS qui l'alimentera.
+**La fiche événement est en service**, sur un jeu de démonstration. Elle passe
+son critère de sortie : les dix-neuf blocs attendus sont présents dans le HTML
+rendu par le serveur, sans exécuter la moindre ligne de JavaScript — statuts,
+horodatages, âge de la donnée, provenance, chronologie, tableau des détections,
+avertissements.
+
+**Aucune donnée d'observation réelle n'a encore transité.** C'est le point dur
+du moment : il manque l'import FIRMS qui remplacera la fixture.
 
 ### Portes de qualité — dernier passage
 
@@ -57,14 +62,12 @@ moment : il manque la fiche événement, qui est l'objet central du produit
 
 ## 2. Prochaine action
 
-**Écrire la fiche événement `/evenements/[publicId]`**, alimentée par un jeu de
-détections historiques importé à la main. C'est l'objet central du produit et
-rien ne le bloque : le schéma, les règles de statut et les composants de
-provenance sont en place depuis le lot de fondations.
-
-Le critère de sortie est exigeant et volontairement vérifiable : **la fiche
-s'affiche complètement avec JavaScript désactivé**, l'aperçu de partage est
-correct, et aucun élément n'est affiché sans provenance ni horodatage.
+**Ouvrir J2 : le client FIRMS.** C'est le dernier morceau qui sépare le produit
+de données réelles. Obtenir la clé sur
+<https://firms.modaps.eosdis.nasa.gov/api/map_key/> et la placer dans
+`services/geo-worker/.env`. La normalisation est écrite et testée depuis J1 ;
+restent le transport avec gestion du quota, l'archivage des fichiers bruts et la
+planification.
 
 En parallèle, de votre côté :
 
@@ -87,16 +90,16 @@ parallèle d'un service de sapeur-pompier professionnel. Les durées sont en
 
 | Jalon | Contenu | Estimé | Reste | État |
 |---|---|---:|---:|---|
-| J1 | Fondations et fiche événement sur données figées | 8 sem. | **5 sem.** | 🟡 fondations livrées |
+| J1 | Fondations et fiche événement sur données figées | 8 sem. | **1 sem.** | 🟡 critère de sortie atteint |
 | J2 | Ingestion FIRMS et regroupement réel | 6 sem. | 6 sem. | ⬜ normalisation déjà écrite |
 | J3 | Carte et territoires | 6 sem. | **2 sem.** | 🟡 pilote livré |
 | J4 | Informations officielles automatisées | 6 sem. | 6 sem. | ⬜ |
 | J5 | Administration, supervision, mode dégradé | 5 sem. | 5 sem. | ⬜ |
 | J6 | Recette, charge, sécurité, ouverture | 5 sem. | 5 sem. | ⬜ |
-| | | 36 sem. | **29 sem.** | |
+| | | 36 sem. | **25 sem.** | |
 
-Les fondations et la couche territoriale du pilote étant livrées, il reste
-**environ 29 semaines** au lieu de 36.
+Les fondations, la fiche événement et la couche territoriale du pilote étant
+livrées, il reste **environ 25 semaines** au lieu de 36.
 
 ⚠️ Le phasage par rapport à la saison des feux est une
 [décision ouverte](strategie.md#82-calendrier-et-saison) : les premiers jalons
@@ -126,20 +129,28 @@ historiques importé à la main.
 - ✅ Vocabulaires contrôlés et formulations publiques obligatoires centralisés
 - ✅ Dépôt publié : <https://github.com/emifrog/mapfeux>
 
+- ✅ Route `/evenements/[publicId]` rendue côté serveur, avec les trois
+  dimensions de statut jamais fusionnées et la provenance sur chaque bloc
+- ✅ Chronologie textuelle triée par heure de survenue (FR-055)
+- ✅ Tableau accessible des détections membres — alternative textuelle §8.6
+- ✅ Redirection permanente des identifiants fusionnés (§13.10)
+- ✅ Métadonnées de partage et URL canonique rendue côté serveur
+- ✅ `GET /api/v1/fires/{publicId}`, `/timeline`, `/detections`
+- ✅ Jeu de démonstration, cantonné à `supabase/seed/dev/` et signalé par un
+  bandeau sur la fiche
+
 ### Reste ⬜
 
-- ⬜ Route `/evenements/[publicId]` rendue côté serveur
-- ⬜ Chronologie textuelle sur la fiche
-- ⬜ Snapshot public par événement (§21.5)
-- ⬜ Métadonnées de partage et aperçu social
-- ⬜ Jeu de démonstration issu d'un feu historique du 06 ou du 83
+- ⬜ Snapshot public par événement (§21.5) — la fiche lit encore les tables
+  vivantes ; le snapshot est ce qui la rendra affichable pendant une panne
 - ⬜ Authentification administrateur
+- ⬜ Jeu historique réel en remplacement de la fixture
 - ⚠️ Aucune politique RLS de lecture pour les administrateurs : l'administration
   passera par des appels serveur privilégiés (§14.2). À confirmer en J5.
 
-**Critère de sortie** : la fiche s'affiche complètement avec JavaScript
-désactivé, l'aperçu de partage est correct, aucun élément n'est affiché sans
-provenance ni horodatage.
+**Critère de sortie** : ✅ atteint. Les dix-neuf blocs attendus sont présents
+dans le HTML rendu par le serveur, sans JavaScript ; aucun élément n'est affiché
+sans provenance ni horodatage.
 
 ---
 

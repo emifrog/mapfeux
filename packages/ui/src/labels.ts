@@ -9,6 +9,7 @@
  */
 
 import type {
+  ConfidenceLevel,
   EventFreshness,
   OfficialControlStatus,
   Provenance,
@@ -64,6 +65,21 @@ export const PROVENANCE_LABELS: Record<Provenance, string> = {
   editorial_correction: 'Correction éditoriale',
   external_report: 'Source externe',
 };
+
+export const CONFIDENCE_LEVEL_LABELS: Record<ConfidenceLevel, string> = {
+  low: 'Faible',
+  medium: 'Modérée',
+  high: 'Élevée',
+};
+
+/**
+ * Précision obligatoire à côté du niveau de fiabilité.
+ * Cahier §5.5, FR-049 : il ne qualifie ni la gravité, ni la surface, ni l'état
+ * opérationnel du feu. Sans cette phrase, « fiabilité élevée » se lit comme
+ * « feu important ».
+ */
+export const CONFIDENCE_LEVEL_NOTICE =
+  'La fiabilité qualifie la cohérence des observations satellitaires. Elle ne dit rien de la gravité, de la surface ni de l’état du phénomène.';
 
 export const SOURCE_FRESHNESS_LABELS: Record<SourceFreshness, string> = {
   fresh: 'À jour',
