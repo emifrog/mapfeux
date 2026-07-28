@@ -11,12 +11,65 @@ cause. Une seule implémentation, testée, ferme le sujet.
 
 from __future__ import annotations
 
+import hashlib
 import pathlib
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
 from urllib.parse import quote
+
+import psycopg
 
 
 class DsnError(RuntimeError):
     """Chaîne de connexion absente ou inexploitable."""
+
+
+def advisory_key(name: str) -> int:
+    """Clé de verrou stable, dérivée d'un nom.
+
+    `hash()` intégré ne convient pas : Python le randomise à chaque démarrage,
+    donc deux processus concurrents — précisément le cas qu'on veut détecter —
+    obtiendraient des clés différentes et ne se verraient pas.
+    """
+    digest = hashlib.blake2b(name.encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(digest, "big", signed=True)
+
+
+@contextmanager
+def exclusive_run(conn: psycopg.Connection[Any], name: str) -> Iterator[bool]:
+    """Verrou d'exécution : cède `True` si la place était libre.
+
+    Deux passes d'ingestion simultanées ne sont pas anodines. L'insertion des
+    détections est idempotente et le rattachement protégé par une contrainte
+    d'unicité, mais rien n'empêche deux processus de créer chacun un événement
+    pour la même détection orpheline : le perdant garde un événement sans
+    membre, et le recalcul des agrégats échoue dessus. Un ordonnanceur qui
+    déclenche toutes les dix minutes une chaîne qui en met parfois quinze
+    produirait ce cas régulièrement.
+
+    Le verrou est **de session** et non de transaction : la chaîne valide
+    plusieurs fois, et un verrou de transaction serait relâché dès la première
+    validation. Il tombe de lui-même si le processus meurt, la connexion étant
+    alors fermée par le serveur — pas de verrou orphelin à nettoyer.
+
+    Cela suppose une connexion directe, ou un pooler en mode session. Derrière
+    un pooler en mode **transaction**, chaque transaction peut atterrir sur une
+    connexion serveur différente : le verrou serait pris sur l'une et le travail
+    fait sur une autre, sans que rien ne le signale.
+    """
+    key = advisory_key(name)
+    with conn.cursor() as cur:
+        cur.execute("select pg_try_advisory_lock(%s)", (key,))
+        row = cur.fetchone()
+        acquired = bool(row[0]) if row is not None else False
+
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            with conn.cursor() as cur:
+                cur.execute("select pg_advisory_unlock(%s)", (key,))
 
 
 def normalise_dsn(raw: str) -> str:
@@ -68,3 +121,13 @@ def dsn_from_env_file(path: pathlib.Path) -> str:
     if raw == "":
         raise DsnError(f"DATABASE_URL absente de {path}")
     return normalise_dsn(raw)
+
+
+__all__ = [
+    "DsnError",
+    "advisory_key",
+    "dsn_from_env_file",
+    "exclusive_run",
+    "normalise_dsn",
+    "read_env_file",
+]

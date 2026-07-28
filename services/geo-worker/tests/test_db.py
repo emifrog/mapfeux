@@ -6,7 +6,13 @@ import pathlib
 
 import pytest
 
-from geo_worker.db import DsnError, dsn_from_env_file, normalise_dsn, read_env_file
+from geo_worker.db import (
+    DsnError,
+    advisory_key,
+    dsn_from_env_file,
+    normalise_dsn,
+    read_env_file,
+)
 
 HOST = "db.exemple.supabase.co:5432/postgres"
 
@@ -69,3 +75,26 @@ class TestDsnFromEnvFile:
         path.write_text("AUTRE=1\n", encoding="utf-8")
         with pytest.raises(DsnError, match="DATABASE_URL absente"):
             dsn_from_env_file(path)
+
+
+class TestAdvisoryKey:
+    def test_est_stable_entre_deux_processus(self) -> None:
+        """La clé ne doit pas dépendre de la graine de hachage de Python.
+
+        `hash()` intégré est randomisé à chaque démarrage. Deux processus
+        concurrents — le cas même que le verrou doit détecter — obtiendraient
+        alors des clés différentes et ne se verraient pas. La valeur est donc
+        figée ici : si elle change, c'est que la dérivation a changé, et les
+        verrous d'une version ne protègent plus de ceux de l'autre.
+        """
+        assert advisory_key("ingestion") == advisory_key("ingestion")
+        assert advisory_key("ingestion") == 737575022638076852
+
+    def test_distingue_deux_noms(self) -> None:
+        assert advisory_key("ingestion") != advisory_key("regroupement")
+
+    def test_tient_dans_un_entier_signe_de_64_bits(self) -> None:
+        # `pg_try_advisory_lock` attend un bigint : une clé hors bornes serait
+        # refusée par PostgreSQL, pas silencieusement tronquée.
+        for name in ("ingestion", "regroupement", "", "a" * 500):
+            assert -(2**63) <= advisory_key(name) < 2**63

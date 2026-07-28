@@ -42,18 +42,22 @@ rendu par le serveur, sans exécuter la moindre ligne de JavaScript — statuts,
 horodatages, âge de la donnée, provenance, chronologie, tableau des détections,
 avertissements.
 
-**Le produit fonctionne de bout en bout sur données réelles.** 931 détections
-importées sur 90 jours d'historique du 06 et du 83, regroupées en 122
+**Le produit fonctionne de bout en bout sur données réelles.** 939 détections
+importées sur 90 jours d'historique du 06 et du 83, regroupées en 124
 événements. Les fiches affichent de vrais feux, avec leurs communes, leurs
 capteurs, leur chronologie et leur puissance radiative.
 
-**Le critère de sortie de J2 est atteint.** Un recalcul complet du regroupement
-redonne exactement la même empreinte : 122 événements, signature identique. Le
-résultat est explicable parce qu'il est reproductible.
+**Le critère de sortie de J2 est atteint.** Un recalcul complet redonne
+exactement la même empreinte du partitionnement — `66849fb15a6445ff` — et le
+regroupement **par tranches** donne le même résultat qu'en bloc. Le contrôle est
+rejouable : `scripts/verify-clustering.py`. Le résultat est explicable parce
+qu'il est reproductible, et publiable parce que ce qui tourne toutes les dix
+minutes produit ce qui a été calibré.
 
-Le plus gros événement — 570 détections, 66 km², six jours près de Pontevès —
-présente un profil temporel sans trou et des FRP jusqu'à 2197 MW : c'est un vrai
-grand feu, pas un chaînage de l'algorithme.
+Le plus gros événement — 570 détections, six jours près de Pontevès — présente
+un profil quotidien sans trou et des FRP jusqu'à 2197 MW. Un réglage plus serré
+l'éclate en cinq foyers contigus et simultanés : c'est un vrai grand feu, pas un
+chaînage de l'algorithme.
 
 ### Portes de qualité — dernier passage
 
@@ -108,15 +112,17 @@ parallèle d'un service de sapeur-pompier professionnel. Les durées sont en
 | Jalon | Contenu | Estimé | Reste | État |
 |---|---|---:|---:|---|
 | J1 | Fondations et fiche événement sur données figées | 8 sem. | **1 sem.** | 🟡 critère de sortie atteint |
-| J2 | Ingestion FIRMS et regroupement réel | 6 sem. | **4 sem.** | 🟡 ingestion en service |
+| J2 | Ingestion FIRMS et regroupement réel | 6 sem. | **2 sem.** | 🟡 critère de sortie atteint, calibration close |
 | J3 | Carte et territoires | 6 sem. | **2 sem.** | 🟡 pilote livré |
 | J4 | Informations officielles automatisées | 6 sem. | 6 sem. | ⬜ |
 | J5 | Administration, supervision, mode dégradé | 5 sem. | 5 sem. | ⬜ |
 | J6 | Recette, charge, sécurité, ouverture | 5 sem. | 5 sem. | ⬜ |
-| | | 36 sem. | **23 sem.** | |
+| | | 36 sem. | **21 sem.** | |
 
 Les fondations, la fiche événement, la couche territoriale du pilote et
-l'ingestion FIRMS étant livrées, il reste **environ 23 semaines** au lieu de 36.
+l'ingestion FIRMS étant livrées, il reste **environ 21 semaines** au lieu de 36.
+Le reste de J2 tient à deux choses : déclencher l'ingestion et sortir les
+fichiers bruts du disque local.
 
 ⚠️ Le phasage par rapport à la saison des feux est une
 [décision ouverte](strategie.md#82-calendrier-et-saison) : les premiers jalons
@@ -180,7 +186,7 @@ sans provenance ni horodatage.
 
 ---
 
-## 5. J2 — Ingestion FIRMS et regroupement ⬜
+## 5. J2 — Ingestion FIRMS et regroupement 🟡
 
 ### Livré ✅
 
@@ -209,7 +215,11 @@ sans provenance ni horodatage.
   régression sur le double encodage qui avait déjà cassé une connexion
 - ✅ Recherche des candidats en mémoire — index de voisinage géodésique, 12
   tests dont une comparaison exhaustive. **Recalcul complet : 120,2 s → 1,8 s**,
-  empreinte du partitionnement inchangée
+  empreinte du partitionnement inchangée ([ADR-024](adr/024-recherche-spatiale-en-memoire.md))
+- ✅ Verrou d'exécution : deux passes simultanées créeraient chacune un
+  événement pour la même détection orpheline, et le perdant resterait sans
+  membre. La seconde passe sort sans erreur, comme doit le faire une tâche
+  périodique qui se recouvre
 - ✅ Contrôle de reproductibilité rejouable : `scripts/verify-clustering.py`
 - ✅ **Le regroupement par tranches donne le même résultat qu'en bloc**, vérifié
   sur 939 détections. Sans cette égalité, la carte servie au public ne serait
@@ -217,8 +227,9 @@ sans provenance ni horodatage.
 
 ### Reste ⬜
 
-- ⬜ Planification toutes les dix minutes — le point d'entrée existe, il reste à
-  le déclencher
+- ⬜ Planification toutes les dix minutes — le point d'entrée existe et se
+  protège du recouvrement ; il reste à le déclencher, ce qui suppose de trancher
+  [§8.1](strategie.md#8-décisions-ouvertes)
 - ⬜ Déplacer les fichiers bruts vers Storage — ils sont aujourd'hui sur le
   disque local, sans rétention
 - ✅ Algorithme de rattachement déterministe, paramètres versionnés (§17.2) —
@@ -228,36 +239,67 @@ sans provenance ni horodatage.
 - ✅ Score de fiabilité interne et seuils publics versionnés (§17.3)
 - ✅ Génération idempotente des entrées de chronologie (FR-058)
 - ✅ Import d'historique par tranches, corpus de calibration constitué
-- ✅ Banc de calibration : huit jeux de paramètres rejoués sur le corpus complet
-- ⬜ Calibration fine sur plusieurs saisons — une seule est chargée
+- ✅ Banc de calibration croisé : **112 combinaisons** rayon × fenêtre × seuil
+  rejouées sur le corpus complet, résultats dans
+  [`data/calibration/croise.csv`](../data/calibration/croise.csv)
+- ✅ Inspection ciblée : `scripts/inspect-clustering.py` montre le profil
+  temporel des plus gros événements, ce que les agrégats ne disent pas
+- ✅ **Les paramètres de référence sont confirmés** — voir ci-dessous
+- ⬜ Calibration fine sur plusieurs saisons — une seule est chargée, et le flux
+  temps réel FIRMS ne couvre qu'environ quatre mois glissants. Bloqué sur la
+  demande d'archive (stratégie §3.4)
 
-#### Ce que le balayage a montré
+#### Ce que le balayage croisé a montré
 
-| jeu | évts | 1 det | ≥2 capt | + gros | diag. km |
-|---|---:|---:|---:|---:|---:|
-| référence (2500 m, 500 m/h, 24 h, 0,35) | 122 | 53 % | 7 % | 570 | 15,1 |
-| rayon 1500 m | 145 | 50 % | 12 % | 171 | 7,6 |
-| rayon 4000 m | 114 | 56 % | 4 % | 691 | 15,8 |
-| croissance 250 m/h | 123 | 53 % | 7 % | 570 | 15,1 |
-| croissance 1000 m/h | 122 | 53 % | 7 % | 338 | 15,1 |
-| fenêtre 12 h | 154 | 50 % | 10 % | 300 | 11,6 |
-| seuil 0,20 | 116 | 56 % | 5 % | 662 | 15,1 |
-| seuil 0,50 | 152 | 51 % | 10 % | 319 | 10,5 |
+Le premier banc ne faisait varier qu'un paramètre à la fois — huit jeux — parce
+qu'un jeu coûtait deux minutes. Le regroupement en mémoire (ADR-024) ramène ce
+coût à deux secondes, ce qui a permis de balayer le produit cartésien. Deux des
+trois conclusions de la version précédente ne survivent pas.
 
-**La proportion d'événements à une seule détection ne bouge pas** : entre 50 %
-et 56 % quel que soit le réglage. Aucun paramètre ne la déplace, parce qu'elle
-tient à la donnée et non à l'algorithme — la moitié des détections sont vues
-une fois, par un seul capteur, et jamais revues.
+**La proportion d'observations isolées bouge, en fait beaucoup** : de 45 % à
+67 % selon le réglage. La version précédente la disait figée entre 50 et 56 % ;
+c'était l'effet d'une grille trop étroite. Elle *monte* quand on desserre, ce
+qui surprend jusqu'à ce qu'on regarde le dénominateur : des paramètres lâches
+font absorber les détections corroborantes par quelques événements géants, si
+bien que le nombre total d'événements chute plus vite que le nombre d'isolées.
 
-**La croissance du rayon est quasi inerte.** De 250 à 1000 m/h, le nombre
-d'événements ne varie pas. Le paramètre peut être figé et retiré de la surface
-de calibration.
+**La corroboration multi-capteurs n'est pas un indicateur de qualité ici.** Elle
+passe de 7 % (référence) à 28 % avec un rayon de 1000 m et une fenêtre de 48 h,
+ce qui paraît décisif. Ce n'en est pas : le taux est une fraction, et son
+dénominateur varie d'un facteur deux entre les jeux. Un réglage qui fragmente
+davantage produit mécaniquement plus d'événements à deux capteurs *en
+proportion*, sans qu'aucune observation soit mieux corroborée.
 
-**Le résultat n'est pas monotone dans les paramètres.** Une croissance de
-1000 m/h — plus permissive — produit un plus gros événement *plus petit* que
-500 m/h. Le rattachement séquentiel glouton ne garantit pas que « plus lâche »
-donne « plus fusionné » : l'intuition n'est pas un guide sûr, ce qui est
-précisément la raison d'être du banc.
+**Le chaînage, lui, se voit.** La diagonale maximale et le plus gros événement
+croissent nettement avec le rayon et la fenêtre : jusqu'à 717 détections et
+21,4 km à 4000 m / 48 h. Une diagonale de 21 km ne décrit plus un feu.
+
+#### Pourquoi la référence est conservée
+
+Le tableau seul ne tranchait pas : les deux fautes possibles produisent les
+mêmes chiffres. Un réglage qui **découpe un grand feu réel** et un réglage qui
+**sépare correctement deux feux voisins** donnent tous deux « plus d'événements,
+plus petits ».
+
+L'inspection du plus gros événement décide. Sous la référence, Pontevès
+rassemble 570 détections sur 145 h, profil quotidien continu — 113, 185, 92, 92,
+61, 25, 2 — sans un jour de trou, FRP jusqu'à 2197 MW.
+
+Sous le réglage serré (1000 m, 48 h, 0,50), le même feu éclate en au moins cinq
+événements : Pontevès 89, Montfort-sur-Argens 50, Correns 33, Pontevès 27,
+Cotignac 24. Tous **contigus** — dans une boîte de 4 km sur 5 — et tous
+**simultanés**, actifs du 21 au 25 juillet. Des feux distincts se séparent dans
+l'espace ou dans le temps ; ceux-là ne se séparent ni dans l'un ni dans l'autre.
+C'est un découpage, pas une distinction.
+
+**Limite assumée** : que Pontevès soit un feu unique ou un complexe de foyers
+adjacents ne se tranche pas depuis la donnée thermique satellitaire. Il faudra
+l'information officielle (J4). D'ici là, la fiche décrit ce qui est observé —
+une zone d'anomalies thermiques contiguës et continues — et rien de plus.
+
+**La croissance du rayon reste quasi inerte** ; c'est la seule conclusion de la
+version précédente qui tient. Le paramètre est figé hors de la surface de
+calibration.
 
 **Les temps mesurés ne sont pas exploitables** : de 116 s à 609 s pour un
 travail identique. La variance confirme que le coût est dominé par les
@@ -285,14 +327,15 @@ Ce n'est pas un défaut de réglage, c'est la nature du signal satellitaire : un
 poignée de vrais feux, et une longue traîne d'anomalies thermiques ponctuelles —
 brûlages agricoles, sites industriels, artefacts.
 
-La carte affiche aujourd'hui les 122 sur le même plan. Un visiteur y voit un
-semis dont plus de huit points sur dix ne correspondent probablement à rien. Ce
-n'est pas une question d'algorithme mais de **politique d'affichage** :
-- ⬜ Vue par défaut mettant au premier plan les événements étayés, sans masquer
-  les autres — le cahier interdit de dissimuler une observation (§17.7)
-- ⬜ Commande explicite pour tout afficher, et libellé disant ce qui est filtré
-- ⚠️ À trancher avant l'ouverture : une carte illisible dessert autant qu'une
-  carte fausse.
+Ce n'est pas une question d'algorithme mais de **politique d'affichage**, et
+elle est tranchée :
+- ✅ Hiérarchie visuelle : disques pleins pour les événements étayés, anneaux
+  creux et rayon réduit pour les observations isolées. Rien n'est masqué — le
+  cahier l'interdit (§17.7)
+- ✅ Liste scindée en « Événements étayés » et « Observations isolées », chacune
+  comptée, avec la phrase qui dit ce que contient la seconde : brûlages
+  agricoles, sites industriels, artefacts. Vérifié sur données réelles :
+  **20 étayés, 103 isolées**
 - ⬜ Fusion et séparation manuelles réversibles
 - ⬜ `GET /api/v1/fires` avec bbox obligatoire au-delà du seuil national
 - ⬜ Détection des candidats à la fusion, sans fusion silencieuse (§17.2, étape 8)

@@ -125,8 +125,19 @@ select
   -- marqueur de parametre.)
   coalesce(sum(detection_count) filter (where detection_count >= 5), 0) as detections_etayees,
   coalesce(round(max(diagonale_km)::numeric, 1), 0) as diagonale_max_km,
-  coalesce(round(percentile_cont(0.5) within group (order by span_hours)::numeric, 1), 0)
-    as duree_mediane_h
+  -- Mediane calculee sur les seuls evenements a plusieurs detections. Prise sur
+  -- l'ensemble, elle valait zero partout : plus de la moitie des evenements sont
+  -- des observations isolees, dont la duree est nulle par construction. La
+  -- colonne avait donc l'apparence d'une mesure sans en etre une.
+  coalesce(
+    round(
+      percentile_cont(0.5) within group (
+        order by span_hours
+      ) filter (where detection_count > 1)::numeric,
+      1
+    ),
+    0
+  ) as duree_mediane_h
 from e
 """
 

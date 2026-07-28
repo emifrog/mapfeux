@@ -17,6 +17,11 @@ précédents intacts plutôt que d'en publier de faux.
 Seuls les événements touchés voient leur snapshot reconstruit : en reconstruire
 la totalité à chaque passage coûterait le prix d'une saison pour la valeur de
 dix minutes.
+
+Une seule passe à la fois. Un ordonnanceur qui déclenche toutes les dix minutes
+une chaîne qui en met parfois quinze superposerait deux exécutions ; le verrou
+fait sortir la seconde sans erreur, ce qui est le comportement attendu d'une
+tâche périodique.
 """
 
 from __future__ import annotations
@@ -31,7 +36,7 @@ import psycopg
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
-from geo_worker.db import dsn_from_env_file, read_env_file
+from geo_worker.db import dsn_from_env_file, exclusive_run, read_env_file
 from geo_worker.pipelines.clustering import (
     cluster_detections,
 )
@@ -136,7 +141,16 @@ def main(argv: list[str]) -> int:
     started = datetime.now(UTC)
     print(f"emprise : {bbox.as_firms_area()}\n", flush=True)
 
-    with psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn:
+    with (
+        psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn,
+        exclusive_run(conn, "ingestion") as acquired,
+    ):
+        if not acquired:
+            print("Une passe d'ingestion est déjà en cours. Rien à faire.")
+            # Sortie normale : pour un ordonnanceur périodique, se recouvrir est
+            # un fonctionnement attendu, pas une panne à signaler.
+            return 0
+
         with httpx.Client() as client:
             inserted, failures = step_import(conn, client, map_key, bbox)
         print(
