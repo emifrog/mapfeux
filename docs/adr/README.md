@@ -26,6 +26,7 @@ Supabase doit être consignée ici et validée **avant** implémentation.
 | [ADR-014](014-environnement-sans-docker.md) | Environnement de développement et d'exécution sans Docker | accepté |
 | [ADR-015](015-partitionnement-des-detections.md) | Partitionnement de `fire.detections` dès l'origine | accepté |
 | [ADR-016](016-file-de-taches-postgresql.md) | File de tâches PostgreSQL au lieu de Celery et Redis | accepté, réversible |
+| [ADR-017](017-source-des-limites-communales.md) | Source des limites communales pour le pilote | accepté, à réexaminer avant le jalon F |
 
 Les ADR 001 à 013 sont réservés par le cahier. Leur numérotation est figée ;
 seul leur contenu reste à rédiger, au fur et à mesure des lots qui les mettent
@@ -53,3 +54,6 @@ en œuvre.
    `supabase/config.toml`, qui ne configure que le Supabase local. Sur un projet
    hébergé, elle se règle dans Project Settings → API → Exposed schemas. Le
    cahier ne le mentionnait pas.
+9. **§9.5 et §16.7** — les limites communales du pilote proviennent de l'API
+   Découpage administratif plutôt que des archives Géoplateforme (ADR-017). La
+   version du COG n'est donc pas enregistrée.

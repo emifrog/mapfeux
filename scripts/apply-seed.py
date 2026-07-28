@@ -25,12 +25,17 @@ SEED_DIR = ROOT / "supabase" / "seed"
 
 
 def read_dsn() -> str:
-    """Lit DATABASE_URL et encode le mot de passe si nécessaire.
+    """Lit DATABASE_URL, en réparant le seul défaut courant : un `@` non encodé.
 
-    Les mots de passe générés par Supabase contiennent fréquemment des
-    caractères réservés d'URL. Un `@` non encodé décale la séparation
-    utilisateur/hôte et produit une erreur de résolution DNS trompeuse, qui
-    donne l'impression d'un problème réseau plutôt que de format.
+    Les mots de passe générés par Supabase contiennent fréquemment un `@`. Collé
+    tel quel dans une URL, il déplace la séparation utilisateur/hôte et produit
+    une erreur de résolution DNS trompeuse, qui fait chercher un problème réseau
+    là où il n'y a qu'un problème de format.
+
+    Le correctif est délibérément étroit : il n'agit que si la partie autorité
+    contient plus d'une arobase. Encoder inconditionnellement produirait un
+    double encodage sur une chaîne déjà correcte — `%40` deviendrait `%2540` —
+    et l'authentification échouerait sans que la cause soit visible.
     """
     if not ENV_FILE.exists():
         sys.exit(f"Fichier introuvable : {ENV_FILE}")
@@ -41,13 +46,18 @@ def read_dsn() -> str:
 
         dsn = line.split("=", 1)[1].strip()
         scheme, sep, rest = dsn.partition("://")
-        if sep == "" or "@" not in rest:
+        if sep == "":
+            return dsn
+
+        authority, slash, path = rest.partition("/")
+        if authority.count("@") <= 1:
             return dsn
 
         # Un nom d'hôte ne contient jamais d'arobase : la dernière sépare.
-        userinfo, _, hostpart = rest.rpartition("@")
+        userinfo, _, hostpart = authority.rpartition("@")
         user, _, password = userinfo.partition(":")
-        return f"{scheme}://{user}:{quote(password, safe='')}@{hostpart}"
+        print("DATABASE_URL : mot de passe encodé en pourcent pour cette connexion")
+        return f"{scheme}://{user}:{quote(password, safe='')}@{hostpart}{slash}{path}"
 
     sys.exit(f"DATABASE_URL absente de {ENV_FILE}")
 
@@ -57,7 +67,17 @@ def main() -> None:
     if not seeds:
         sys.exit(f"Aucun fichier de seed dans {SEED_DIR}")
 
-    with psycopg.connect(read_dsn(), connect_timeout=30) as conn:
+    try:
+        conn = psycopg.connect(read_dsn(), connect_timeout=30)
+    except psycopg.OperationalError as exc:
+        sys.exit(
+            f"Connexion impossible : {exc}\n"
+            "Vérifier DATABASE_URL dans services/geo-worker/.env. Les caractères "
+            "réservés du mot de passe doivent y être encodés en pourcent : "
+            "@ devient %40."
+        )
+
+    with conn:
         for seed in seeds:
             with conn.cursor() as cur:
                 cur.execute(seed.read_text(encoding="utf-8"))

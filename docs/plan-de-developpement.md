@@ -1,6 +1,6 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 27 juillet 2026
+**Dernière mise à jour** : 28 juillet 2026
 **Référence fonctionnelle** : [MapFeux_Cahier_de_developpement_v1.1.md](../MapFeux_Cahier_de_developpement_v1.1.md)
 **Écarts assumés au cahier** : [docs/adr/README.md](adr/README.md)
 
@@ -31,16 +31,14 @@ worker Python dont la pile géospatiale fonctionne sous Windows sans Docker.
 
 **La chaîne complète répond**, vérifiée de bout en bout contre le projet
 Supabase hébergé : navigateur → Next.js → PostgREST → schéma `api` → PostGIS.
-`/api/v1/status` retourne les cinq sources en `unavailable`, `/api/v1/territories`
-la hiérarchie France → PACA → 06 et 83, et `/territoire/alpes-maritimes`
-s'affiche avec sa carte.
 
-**Lot 2 : la moitié web est en place**, la moitié données ne l'est pas.
-`geo.municipalities` reste vide : les pages commune répondent 404 et la
-recherche ne renvoie rien jusqu'à l'import IGN.
+**Lot 2 terminé pour le pilote.** 316 communes importées — 163 dans les
+Alpes-Maritimes, 153 dans le Var. La recherche trouve « Nice » comme
+« st etienne de tinee » sans accent ni tiret, un point de Nice résout vers
+06088, et les fiches communales s'affichent.
 
-**Aucune donnée d'observation n'a encore transité.** C'est le point dur du
-moment.
+**Le lot 3 peut démarrer** : les détections FIRMS ont désormais un référentiel
+communal où se rattacher. Aucune donnée d'observation n'a encore transité.
 
 ### Portes de qualité — dernier passage
 
@@ -51,16 +49,16 @@ moment.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 40 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 12 fichiers |
-| Worker | `mypy src` | ✅ strict, 10 fichiers |
-| Worker | `pytest` | ✅ 23 tests |
+| Worker | `ruff check` / `ruff format --check` | ✅ 17 fichiers |
+| Worker | `mypy src` | ✅ strict, 12 fichiers |
+| Worker | `pytest` | ✅ 39 tests |
 
 ### Jalons du cahier §26.3
 
 | Jalon | Contenu | État |
 |---|---|---|
 | — | Fondations : monorepo, Supabase, CI | ✅ |
-| A | Carte territoriale : France, départements, communes, recherche | ⬜ |
+| A | Carte territoriale : France, départements, communes, recherche | 🟡 atteint sur le 06 et le 83 |
 | B | Détections FIRMS visualisées sur 06 et 83 | ⬜ |
 | C | Événements : regroupement, provenance, chronologie, admin | ⬜ |
 | D | Panache indicatif reproductible | ⬜ |
@@ -71,9 +69,17 @@ moment.
 
 ## 2. Prochaine action
 
-**Écrire l'import IGN ADMIN EXPRESS.** C'est le dernier verrou du lot 2 : sans
-communes en base, la recherche ne renvoie rien, les pages commune répondent 404
-et le lot 3 n'aura nulle part où rattacher les détections.
+**Ouvrir le lot 3 : import NASA FIRMS.** Obtenir la clé sur
+<https://firms.modaps.eosdis.nasa.gov/api/map_key/> et la placer dans
+`services/geo-worker/.env`, puis écrire le client HTTP avec gestion du quota.
+La normalisation des détections est déjà écrite et testée depuis le lot 1 ;
+restent le transport, l'archivage des fichiers bruts et la planification.
+
+Deux migrations attendent `pnpm db:push` de votre côté :
+`20260727130000_api_municipalities.sql` et
+`20260728100000_source_status_freshness.sql`. La seconde a été appliquée
+directement pour vérification — `create or replace view`, donc rejouable sans
+effet de bord.
 
 Accessoirement : `pnpm db:types` pour générer les types du schéma `api`,
 aujourd'hui écrits à la main dans `lib/data/`. Et si la CI n'est pas encore
@@ -175,18 +181,28 @@ Neuf migrations appliquées sur le projet Supabase hébergé.
 
 ---
 
-## 4. Lot 2 — Territoires et carte 🟡
+## 4. Lot 2 — Territoires et carte ✅ pour le pilote
 
 **Jalon A.** Durée indicative : 2 semaines. EPIC-02.
 
-### Import des référentiels ⬜ — **le verrou**
+### Import des référentiels ✅ sur le 06 et le 83
 
-- ⬜ Connecteur Géoplateforme IGN, en respectant la limite de 10 requêtes/seconde
-- ⬜ Import ADMIN EXPRESS COG : régions, départements, communes
-- ⬜ Staging, `ST_MakeValid`, comparaison de version, publication transactionnelle
-- ⬜ Géométries simplifiées par palier de zoom, génération PMTiles
+- ✅ Connecteur de limites communales — source arbitrée par
+  [ADR-017](adr/017-source-des-limites-communales.md)
+- ✅ 316 communes importées : 163 dans le 06, 153 dans le 83, aucun rejet
+- ✅ Staging, `ST_MakeValid`, `ST_CollectionExtract`, publication transactionnelle
+- ✅ Communes disparues datées et non supprimées — une fusion n'efface pas
+  l'historique (§13.2)
+- ✅ Import branché sur le cycle de vie `import_run`, visible sur `/statut`
+- ⬜ Géométries des régions et départements : seuls les quatre territoires du
+  seed existent, avec un centre mais sans emprise
+- ⬜ Géométries simplifiées par palier de zoom et PMTiles — sans objet tant
+  qu'aucune limite n'est dessinée sur la carte
 - ⚠️ Import manuel et contrôlé, pas de job fréquent : ce référentiel change deux
   fois par an
+- ⚠️ `source_version` enregistre le fournisseur et la date d'import, pas un
+  millésime COG officiel. Reproductibilité plus faible que ne le demande le
+  §9.5 — assumé et documenté en ADR-017.
 
 ### API ✅
 
@@ -194,21 +210,22 @@ Neuf migrations appliquées sur le projet Supabase hébergé.
   par les tuiles vectorielles (§21.1)
 - ✅ `GET /api/v1/territories` — hiérarchie complète retournée par le serveur réel
 - 🟢 `GET /api/v1/territories/{slug}` avec liens officiels
-- 🟢 `GET /api/v1/municipalities/{insee}` et `/search` — répondent, mais sur une
-  table vide
-- 🟢 `POST /api/v1/location/resolve` — position transmise en corps de requête et
-  non en URL, car les URL atterrissent dans les journaux des CDN (§22.2)
+- ✅ `GET /api/v1/municipalities/{insee}` et `/search` — vérifiés sur données
+  réelles, y compris la recherche sans accent ni tiret et par code postal
+- ✅ `POST /api/v1/location/resolve` — un point de Nice résout vers 06088.
+  Position transmise en corps de requête et non en URL, car les URL
+  atterrissent dans les journaux des CDN (§22.2)
 - ✅ Couche d'accès partagée entre pages et endpoints : une page rendue serveur
   n'appelle pas sa propre API par HTTP
 
-### Interface 🟢
+### Interface ✅
 
 - ✅ Carte MapLibre, fond Géoplateforme IGN avec attribution permanente —
   tuiles affichées, vérifié dans un navigateur
-- 🟢 Recherche de commune : combobox ARIA, navigation clavier, annulation des
+- ✅ Recherche de commune : combobox ARIA, navigation clavier, annulation des
   requêtes obsolètes, dégradation explicite en cas de panne (FR-026)
-- 🟢 Pages `/carte`, `/territoire/[slug]`, `/commune/[insee]`
-- 🟢 Accueil listant les territoires ouverts
+- ✅ Pages `/carte`, `/territoire/[slug]`, `/commune/[insee]`
+- ✅ Accueil listant les territoires ouverts
 - ⬜ Sélecteur de territoire groupé par région (FR-012)
 - ⬜ « Autour de moi » — l'endpoint existe, le bouton reste à poser
 - ⬜ Couches de détections et d'événements — lot 3

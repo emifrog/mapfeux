@@ -60,6 +60,24 @@ class ThermalDetection:
 
 
 @dataclass(frozen=True, slots=True)
+class MunicipalityBoundary:
+    """Limite communale normalisée, prête pour `geo.municipalities`."""
+
+    insee_code: str
+    name: str
+    department_code: str
+    postal_codes: tuple[str, ...]
+    # Géométrie GeoJSON sérialisée : la validation et la conversion en
+    # MultiPolygon sont faites par PostGIS, qui le fait mieux et sans charger
+    # la géométrie en mémoire Python.
+    geometry_geojson: str
+    centroid_lon: float | None
+    centroid_lat: float | None
+    area_km2: float | None
+    source_version: str
+
+
+@dataclass(frozen=True, slots=True)
 class WindSample:
     """Vent en un point et une échéance."""
 
