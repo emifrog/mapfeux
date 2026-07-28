@@ -10,11 +10,20 @@ donner le même résultat, sans quoi aucun résultat n'est explicable.
 Un traitement automatique ne crée que des événements au niveau de vérification
 `probable_event`. Il ne peut ni les confirmer officiellement, ni leur donner un
 statut opérationnel : la base le refuserait de toute façon (FR-047).
+
+La recherche des candidats se fait **en mémoire**. Une première version
+interrogeait la base pour chaque détection : sur 931 détections, près de trois
+mille allers-retours et deux minutes, presque entièrement passées à attendre le
+réseau. Les positions ne changent jamais, seule l'appartenance évolue : un index
+construit une fois suffit, et la boucle reste identique. Les distances restent
+mesurées sur l'ellipsoïde WGS84, comme le faisait PostGIS.
 """
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from typing import Any
 
 import psycopg
@@ -28,6 +37,7 @@ from geo_worker.clustering import (
     spatial_window_m,
 )
 from geo_worker.logging import get_logger
+from geo_worker.spatial import NeighbourIndex
 
 logger = get_logger(__name__)
 
@@ -43,7 +53,28 @@ class ClusteringResult:
         return self.attached + self.created
 
 
-def _unattached_detections(conn: psycopg.Connection[Any], limit: int) -> list[dict[str, Any]]:
+@dataclass
+class _Event:
+    """État courant d'un événement pendant la passe.
+
+    `public_id` sert de dernier critère de départage. Pour un événement créé
+    dans cette passe, il n'est pas encore attribué : on lui substitue son rang
+    de création, en chaîne à largeur fixe. La substitution est sans risque car
+    deux événements ne sont comparés sur `public_id` qu'à `created_at` égal, et
+    les nouveaux portent tous l'horodatage de la transaction courante, qui
+    diffère de celui de tout événement déjà en base.
+    """
+
+    event_id: str
+    public_id: str
+    created_at: datetime
+    first_detected_at: datetime
+    last_detected_at: datetime
+    lon: float
+    lat: float
+
+
+def _pending_detections(conn: psycopg.Connection[Any], limit: int) -> list[dict[str, Any]]:
     """Détections publiables sans événement, dans un ordre total et stable.
 
     L'ordre chronologique n'est pas seulement esthétique : la fenêtre spatiale
@@ -72,210 +103,280 @@ def _unattached_detections(conn: psycopg.Connection[Any], limit: int) -> list[di
         return cur.fetchall()
 
 
-def _candidates(
-    conn: psycopg.Connection[Any],
-    *,
-    detection: dict[str, Any],
-    params: ClusteringParams,
-) -> list[dict[str, Any]]:
-    """Événements auxquels la détection pourrait se rattacher.
+def _existing_events(
+    conn: psycopg.Connection[Any], *, floor: datetime
+) -> tuple[list[_Event], list[float], list[float], list[int]]:
+    """Événements rattachables et positions de leurs membres.
 
-    La distance est mesurée jusqu'à la détection membre la plus proche, pas
-    jusqu'au centre de l'événement : un feu allongé sur cinq kilomètres a un
-    centre éloigné de ses deux extrémités, et mesurer depuis le centre le
-    couperait en deux événements.
+    `floor` écarte ce qui ne pourra jamais servir : un événement dont la
+    dernière observation précède la plus ancienne détection en attente de plus
+    que la fenêtre de rattachement est hors d'atteinte, quel que soit l'ordre de
+    traitement. La borne haute, elle, dépend de chaque détection et se vérifie
+    dans la boucle.
+
+    La distance est mesurée jusqu'au membre le plus proche, pas jusqu'au centre :
+    un feu allongé sur cinq kilomètres a un centre éloigné de ses deux
+    extrémités, et mesurer depuis le centre le couperait en deux événements.
     """
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            with point as (
-              select extensions.st_setsrid(
-                extensions.st_makepoint(%(lon)s::double precision, %(lat)s::double precision),
-                4326
-              )::extensions.geography as g
-            )
-            select
-              e.id,
-              e.public_id,
-              e.created_at,
-              extract(epoch from (%(acquired_at)s - e.last_detected_at)) / 3600.0 as hours_elapsed,
-              min(extensions.st_distance(d.location::extensions.geography, point.g)) as distance_m
+            select e.id, e.public_id, e.created_at,
+                   e.first_detected_at, e.last_detected_at,
+                   extensions.st_x(e.representative_point) as event_lon,
+                   extensions.st_y(e.representative_point) as event_lat,
+                   extensions.st_x(d.location) as lon,
+                   extensions.st_y(d.location) as lat
             from fire.events e
             join fire.event_detections ed on ed.event_id = e.id
             join fire.detections d
               on d.id = ed.detection_id and d.acquired_at = ed.detection_acquired_at
-            cross join point
             where e.freshness_status <> 'archived'
-              and e.last_detected_at <= %(acquired_at)s
-              and e.last_detected_at >= %(acquired_at)s - make_interval(
-                    hours => %(window_hours)s::integer
-                  )
-              and extensions.st_dwithin(
-                    d.location::extensions.geography, point.g, %(max_radius)s::double precision
-                  )
-            group by e.id, e.public_id, e.created_at, e.last_detected_at
-            -- Ordre total : le score départage, puis la date de création, puis
-            -- l'identifiant. Sans quoi deux exécutions pourraient différer.
-            order by distance_m, e.created_at, e.public_id
+              and e.last_detected_at >= %(floor)s
+            order by e.created_at, e.public_id
             """,
-            {
-                "lon": detection["lon"],
-                "lat": detection["lat"],
-                "acquired_at": detection["acquired_at"],
-                "window_hours": int(params.attach_window_hours),
-                "max_radius": params.max_radius_m,
-            },
+            {"floor": floor},
         )
-        return cur.fetchall()
+        rows = cur.fetchall()
+
+    events: list[_Event] = []
+    lons: list[float] = []
+    lats: list[float] = []
+    owners: list[int] = []
+    by_id: dict[str, int] = {}
+
+    for row in rows:
+        event_id = str(row["id"])
+        slot = by_id.get(event_id)
+        if slot is None:
+            slot = len(events)
+            by_id[event_id] = slot
+            events.append(
+                _Event(
+                    event_id=event_id,
+                    public_id=str(row["public_id"]),
+                    created_at=row["created_at"],
+                    first_detected_at=row["first_detected_at"],
+                    last_detected_at=row["last_detected_at"],
+                    lon=float(row["event_lon"]),
+                    lat=float(row["event_lat"]),
+                )
+            )
+        lons.append(float(row["lon"]))
+        lats.append(float(row["lat"]))
+        owners.append(slot)
+
+    return events, lons, lats, owners
 
 
-def _create_event(
-    conn: psycopg.Connection[Any], *, detection: dict[str, Any], params: ClusteringParams
-) -> str:
+def _transaction_now(conn: psycopg.Connection[Any]) -> datetime:
+    with conn.cursor() as cur:
+        cur.execute("select now()")
+        row = cur.fetchone()
+        if row is None:
+            raise RuntimeError("La base n'a pas retourné son horloge.")
+        return row[0]  # type: ignore[no-any-return]
+
+
+def _write_new_events(
+    conn: psycopg.Connection[Any], events: list[_Event], params: ClusteringParams
+) -> None:
+    """Insère les événements créés dans la passe et récupère leur `public_id`.
+
+    L'identifiant est engendré côté client : sans lui, il faudrait se fier à
+    l'ordre du `returning` pour associer chaque ligne à son état en mémoire, ce
+    que PostgreSQL ne garantit pas. L'ordinalité, elle, fixe l'ordre
+    d'évaluation des valeurs par défaut, donc l'attribution des `public_id`
+    suit l'ordre de création.
+    """
+    if not events:
+        return
+
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
             insert into fire.events (
-              freshness_status, verification_status,
+              id, freshness_status, verification_status,
               first_detected_at, last_detected_at, representative_point,
               detection_count, sensor_count, confidence_level, confidence_score,
               algorithm_version
             )
-            values (
-              'new', 'probable_event',
-              %(acquired_at)s, %(acquired_at)s,
-              extensions.st_setsrid(
-                extensions.st_makepoint(%(lon)s::double precision, %(lat)s::double precision),
-                4326
-              ),
+            select
+              t.id, 'new', 'probable_event',
+              t.first_at, t.last_at,
+              extensions.st_setsrid(extensions.st_makepoint(t.lon, t.lat), 4326),
               0, 0, 'low', 0, %(version)s
-            )
+            from unnest(
+              %(ids)s::uuid[], %(first_at)s::timestamptz[], %(last_at)s::timestamptz[],
+              %(lons)s::double precision[], %(lats)s::double precision[]
+            ) with ordinality as t(id, first_at, last_at, lon, lat, ord)
+            order by t.ord
             returning id, public_id
             """,
             {
-                "acquired_at": detection["acquired_at"],
-                "lon": detection["lon"],
-                "lat": detection["lat"],
                 "version": params.version,
+                "ids": [e.event_id for e in events],
+                "first_at": [e.first_detected_at for e in events],
+                "last_at": [e.last_detected_at for e in events],
+                "lons": [e.lon for e in events],
+                "lats": [e.lat for e in events],
             },
         )
-        row = cur.fetchone()
-        if row is None:
-            raise RuntimeError("Création d'événement sans retour.")
-        return str(row["id"])
+        assigned = {str(row["id"]): str(row["public_id"]) for row in cur.fetchall()}
+
+    for event in events:
+        event.public_id = assigned[event.event_id]
 
 
-def _attach(
+def _write_attachments(
     conn: psycopg.Connection[Any],
-    *,
-    event_id: str,
-    detection: dict[str, Any],
-    score: float,
+    rows: list[tuple[str, str, datetime, float]],
     params: ClusteringParams,
 ) -> None:
+    if not rows:
+        return
+
     with conn.cursor() as cur:
         cur.execute(
             """
             insert into fire.event_detections (
               event_id, detection_id, detection_acquired_at, method, score, algorithm_version
             )
-            values (%(event_id)s, %(detection_id)s, %(acquired_at)s, 'auto', %(score)s, %(version)s)
+            select t.event_id, t.detection_id, t.acquired_at, 'auto', t.score, %(version)s
+            from unnest(
+              %(event_ids)s::uuid[], %(detection_ids)s::uuid[],
+              %(acquired)s::timestamptz[], %(scores)s::numeric[]
+            ) as t(event_id, detection_id, acquired_at, score)
             on conflict (detection_id, detection_acquired_at) do nothing
             """,
             {
-                "event_id": event_id,
-                "detection_id": detection["id"],
-                "acquired_at": detection["acquired_at"],
-                "score": round(score, 3),
                 "version": params.version,
+                "event_ids": [r[0] for r in rows],
+                "detection_ids": [r[1] for r in rows],
+                "acquired": [r[2] for r in rows],
+                "scores": [round(r[3], 3) for r in rows],
             },
         )
 
-        # Seules les bornes temporelles sont mises à jour dans la boucle, en
-        # temps constant. La fenêtre spatiale de la détection suivante dépend
-        # de `last_detected_at` : il doit rester exact. Les autres agrégats
-        # n'influencent aucune décision de rattachement, et sont recalculés une
-        # seule fois en fin de passe.
-        cur.execute(
-            """
-            update fire.events
-            set last_detected_at = greatest(last_detected_at, %(acquired_at)s),
-                first_detected_at = least(first_detected_at, %(acquired_at)s)
-            where id = %(event_id)s
-            """,
-            {"event_id": event_id, "acquired_at": detection["acquired_at"]},
-        )
 
+def _finalize(
+    conn: psycopg.Connection[Any], event_ids: list[str], params: ClusteringParams
+) -> None:
+    """Recalcule les agrégats, la fiabilité, puis publie la chronologie.
 
-def _finalize(conn: psycopg.Connection[Any], event_id: str, params: ClusteringParams) -> None:
-    """Recalcule les agrégats puis la fiabilité, et publie la chronologie."""
+    Les trois étapes sont groupées sur l'ensemble des événements touchés. Les
+    faire événement par événement coûtait trois allers-retours chacun, pour un
+    résultat identique.
+    """
+    if not event_ids:
+        return
+
     with conn.cursor(row_factory=dict_row) as cur:
-        cur.execute("select * from fire.recompute_event_aggregates(%s)", (event_id,))
-        stats = cur.fetchone()
-        if stats is None:
-            raise RuntimeError(f"Agrégats introuvables pour {event_id}.")
-
-        score = confidence_score(
-            detection_count=stats["detection_count"],
-            sensor_count=stats["sensor_count"],
-            mean_provider_confidence=(
-                None if stats["mean_confidence"] is None else float(stats["mean_confidence"])
-            ),
-            known_source_count=stats["known_source_count"],
-            span_hours=float(stats["span_hours"]),
+        cur.execute(
+            """
+            select t.id, r.*
+            from unnest(%(ids)s::uuid[]) with ordinality as t(id, ord),
+                 lateral fire.recompute_event_aggregates(t.id) as r
+            order by t.ord
+            """,
+            {"ids": event_ids},
         )
+        stats = cur.fetchall()
+
+        scores: list[float] = []
+        levels: list[str] = []
+        for row in stats:
+            score = confidence_score(
+                detection_count=row["detection_count"],
+                sensor_count=row["sensor_count"],
+                mean_provider_confidence=(
+                    None if row["mean_confidence"] is None else float(row["mean_confidence"])
+                ),
+                known_source_count=row["known_source_count"],
+                span_hours=float(row["span_hours"]),
+            )
+            scores.append(score)
+            levels.append(confidence_level(score))
 
         cur.execute(
             """
-            update fire.events
-            set confidence_score = %(score)s,
-                confidence_level = %(level)s,
+            update fire.events e
+            set confidence_score = t.score,
+                confidence_level = t.level::app.confidence_level,
                 algorithm_version = %(version)s
-            where id = %(id)s
-            returning public_id, first_detected_at, last_detected_at, detection_count, sensor_count
+            from unnest(%(ids)s::uuid[], %(scores)s::numeric[], %(levels)s::text[])
+                 as t(id, score, level)
+            where e.id = t.id
+            returning e.id, e.public_id, e.first_detected_at, e.last_detected_at,
+                      e.detection_count, e.sensor_count
             """,
             {
-                "score": score,
-                "level": confidence_level(score),
                 "version": params.version,
-                "id": event_id,
+                "ids": [str(row["id"]) for row in stats],
+                "scores": scores,
+                "levels": levels,
             },
         )
-        event = cur.fetchone()
-        if event is None:
-            return
+        updated = cur.fetchall()
 
         # Chronologie. Les clés de déduplication rendent la génération
         # rejouable : réexécuter le regroupement ne duplique aucune entrée
         # (FR-058).
+        entries: list[tuple[str, str, str, datetime, str, str, str]] = []
+        for event in updated:
+            event_id = str(event["id"])
+            public_id = str(event["public_id"])
+            entries.append(
+                (
+                    event_id,
+                    "detection",
+                    "observation",
+                    event["first_detected_at"],
+                    "Première détection thermique",
+                    "Anomalie thermique observée par satellite.",
+                    f"{public_id}:first-detection",
+                )
+            )
+            entries.append(
+                (
+                    event_id,
+                    "grouping",
+                    "algorithmic_inference",
+                    event["last_detected_at"],
+                    "Regroupement en événement probable",
+                    (
+                        f"{event['detection_count']} détection(s) sur "
+                        f"{event['sensor_count']} capteur(s) regroupées par l'algorithme "
+                        f"{params.version}."
+                    ),
+                    f"{public_id}:grouping:{params.version}",
+                )
+            )
+
         cur.execute(
             """
             insert into fire.event_timeline_entries (
               event_id, entry_type, provenance, occurred_at, title, summary,
               visibility, deduplication_key
             )
-            values
-              (%(id)s, 'detection', 'observation', %(first)s,
-               'Première détection thermique',
-               'Anomalie thermique observée par satellite.',
-               'public', %(key_first)s),
-              (%(id)s, 'grouping', 'algorithmic_inference', %(last)s,
-               'Regroupement en événement probable',
-               %(summary)s,
-               'public', %(key_group)s)
+            select t.event_id, t.entry_type::fire.timeline_entry_type,
+                   t.provenance::app.provenance, t.occurred_at, t.title, t.summary,
+                   'public', t.dedup_key
+            from unnest(
+              %(event_ids)s::uuid[], %(types)s::text[], %(provenances)s::text[],
+              %(occurred)s::timestamptz[], %(titles)s::text[], %(summaries)s::text[],
+              %(keys)s::text[]
+            ) as t(event_id, entry_type, provenance, occurred_at, title, summary, dedup_key)
             on conflict (deduplication_key) do nothing
             """,
             {
-                "id": event_id,
-                "first": event["first_detected_at"],
-                "last": event["last_detected_at"],
-                "key_first": f"{event['public_id']}:first-detection",
-                "key_group": f"{event['public_id']}:grouping:{params.version}",
-                "summary": (
-                    f"{event['detection_count']} détection(s) sur "
-                    f"{event['sensor_count']} capteur(s) regroupées par l'algorithme "
-                    f"{params.version}."
-                ),
+                "event_ids": [e[0] for e in entries],
+                "types": [e[1] for e in entries],
+                "provenances": [e[2] for e in entries],
+                "occurred": [e[3] for e in entries],
+                "titles": [e[4] for e in entries],
+                "summaries": [e[5] for e in entries],
+                "keys": [e[6] for e in entries],
             },
         )
 
@@ -290,40 +391,105 @@ def cluster_detections(
     settings = params or ClusteringParams()
     result = ClusteringResult()
 
-    detections = _unattached_detections(conn, limit)
+    detections = _pending_detections(conn, limit)
     logger.info("clustering.started", pending=len(detections), version=settings.version)
 
-    for detection in detections:
-        best_event: str | None = None
-        best_score = 0.0
+    if not detections:
+        logger.info("clustering.finished", attached=0, created=0, events=0)
+        return result
 
-        for candidate in _candidates(conn, detection=detection, params=settings):
-            hours = float(candidate["hours_elapsed"])
+    window = timedelta(hours=settings.attach_window_hours)
+    floor = detections[0]["acquired_at"] - window
+    events, lons, lats, owners = _existing_events(conn, floor=floor)
+    created_at = _transaction_now(conn)
+
+    # Un seul index pour les membres déjà rattachés et les détections en attente.
+    # Les positions sont figées ; seul `owners` évolue au fil de la boucle, ce
+    # qui rend visibles aux détections suivantes les événements créés à l'instant.
+    base = len(lons)
+    lons.extend(float(d["lon"]) for d in detections)
+    lats.extend(float(d["lat"]) for d in detections)
+    owners.extend(-1 for _ in detections)
+    index = NeighbourIndex(lons, lats)
+
+    attachments: list[tuple[str, str, datetime, float]] = []
+    new_events: list[_Event] = []
+
+    for position, detection in enumerate(detections):
+        acquired_at = detection["acquired_at"]
+
+        # Distance au membre le plus proche, par événement.
+        nearest: dict[int, float] = {}
+        for point, distance in index.within(
+            float(detection["lon"]), float(detection["lat"]), settings.max_radius_m
+        ):
+            slot = owners[point]
+            if slot < 0:
+                continue
+            if distance < nearest.get(slot, float("inf")):
+                nearest[slot] = distance
+
+        # Ordre total : la distance, puis la date de création, puis
+        # l'identifiant public. Sans lui, deux exécutions pourraient différer.
+        candidates = sorted(
+            (distance, events[slot].created_at, events[slot].public_id, slot)
+            for slot, distance in nearest.items()
+            if events[slot].last_detected_at <= acquired_at
+            and events[slot].last_detected_at >= acquired_at - window
+        )
+
+        best_slot: int | None = None
+        best_score = 0.0
+        for distance, _, _, slot in candidates:
+            hours = (acquired_at - events[slot].last_detected_at).total_seconds() / 3600.0
             score = attachment_score(
-                distance_m=float(candidate["distance_m"]),
+                distance_m=distance,
                 hours_elapsed=max(0.0, hours),
                 params=settings,
             )
             if score > best_score:
                 best_score = score
-                best_event = str(candidate["id"])
+                best_slot = slot
 
-        if best_event is not None and best_score >= settings.min_score:
-            event_id = best_event
-            _attach(conn, event_id=event_id, detection=detection, score=best_score, params=settings)
+        if best_slot is not None and best_score >= settings.min_score:
+            slot = best_slot
+            score = best_score
             result.attached += 1
         else:
-            event_id = _create_event(conn, detection=detection, params=settings)
-            _attach(conn, event_id=event_id, detection=detection, score=1.0, params=settings)
+            slot = len(events)
+            event = _Event(
+                event_id=str(uuid.uuid4()),
+                # Rang de création à largeur fixe : ordonne les nouveaux
+                # événements entre eux tant que leur identifiant public n'est
+                # pas attribué.
+                public_id=f"{len(new_events):012d}",
+                created_at=created_at,
+                first_detected_at=acquired_at,
+                last_detected_at=acquired_at,
+                lon=float(detection["lon"]),
+                lat=float(detection["lat"]),
+            )
+            events.append(event)
+            new_events.append(event)
+            score = 1.0
             result.created += 1
 
-        result.touched_events.add(event_id)
+        target = events[slot]
+        # La fenêtre spatiale de la détection suivante dépend de la dernière
+        # observation : elle doit rester exacte tout au long de la passe.
+        target.last_detected_at = max(target.last_detected_at, acquired_at)
+        target.first_detected_at = min(target.first_detected_at, acquired_at)
+        owners[base + position] = slot
 
+        attachments.append((target.event_id, str(detection["id"]), acquired_at, score))
+        result.touched_events.add(target.event_id)
+
+    _write_new_events(conn, new_events, settings)
+    _write_attachments(conn, attachments, settings)
     # Agrégats complets une seule fois par événement. Les recalculer à chaque
     # rattachement rendait le coût quadratique : sur un événement de 570
     # membres, la 570e détection déclenchait un 570e recalcul de l'ensemble.
-    for event_id in sorted(result.touched_events):
-        _finalize(conn, event_id, settings)
+    _finalize(conn, sorted(result.touched_events), settings)
 
     logger.info(
         "clustering.finished",

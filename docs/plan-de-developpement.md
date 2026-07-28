@@ -66,7 +66,7 @@ grand feu, pas un chaînage de l'algorithme.
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 17 fichiers |
 | Worker | `mypy src` | ✅ strict, 12 fichiers |
-| Worker | `pytest` | ✅ 94 tests |
+| Worker | `pytest` | ✅ 106 tests |
 
 ---
 
@@ -208,6 +208,13 @@ sans provenance ni horodatage.
   bout en bout, 6 s sur le chemin incrémental
 - ✅ Lecture du DSN factorisée dans `geo_worker.db`, avec 12 tests dont une
   régression sur le double encodage qui avait déjà cassé une connexion
+- ✅ Recherche des candidats en mémoire — index de voisinage géodésique, 12
+  tests dont une comparaison exhaustive. **Recalcul complet : 120,2 s → 1,8 s**,
+  empreinte du partitionnement inchangée
+- ✅ Contrôle de reproductibilité rejouable : `scripts/verify-clustering.py`
+- ✅ **Le regroupement par tranches donne le même résultat qu'en bloc**, vérifié
+  sur 939 détections. Sans cette égalité, la carte servie au public ne serait
+  pas celle qu'on a calibrée
 
 ### Reste ⬜
 

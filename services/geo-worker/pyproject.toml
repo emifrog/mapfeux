@@ -50,7 +50,7 @@ disallow_untyped_defs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["cfgrib.*", "rasterio.*", "geopandas.*", "shapely.*", "apscheduler.*"]
+module = ["cfgrib.*", "rasterio.*", "geopandas.*", "shapely.*", "apscheduler.*", "scipy.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
