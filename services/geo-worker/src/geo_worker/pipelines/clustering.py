@@ -191,6 +191,21 @@ def _attach(
             },
         )
 
+        # Seules les bornes temporelles sont mises à jour dans la boucle, en
+        # temps constant. La fenêtre spatiale de la détection suivante dépend
+        # de `last_detected_at` : il doit rester exact. Les autres agrégats
+        # n'influencent aucune décision de rattachement, et sont recalculés une
+        # seule fois en fin de passe.
+        cur.execute(
+            """
+            update fire.events
+            set last_detected_at = greatest(last_detected_at, %(acquired_at)s),
+                first_detected_at = least(first_detected_at, %(acquired_at)s)
+            where id = %(event_id)s
+            """,
+            {"event_id": event_id, "acquired_at": detection["acquired_at"]},
+        )
+
 
 def _finalize(conn: psycopg.Connection[Any], event_id: str, params: ClusteringParams) -> None:
     """Recalcule les agrégats puis la fiabilité, et publie la chronologie."""
@@ -304,9 +319,10 @@ def cluster_detections(
 
         result.touched_events.add(event_id)
 
-        # Les agrégats sont rafraîchis à chaque rattachement, et non en fin de
-        # passe : la fenêtre spatiale de la détection suivante dépend de
-        # `last_detected_at`, qui vient d'être modifié.
+    # Agrégats complets une seule fois par événement. Les recalculer à chaque
+    # rattachement rendait le coût quadratique : sur un événement de 570
+    # membres, la 570e détection déclenchait un 570e recalcul de l'ensemble.
+    for event_id in sorted(result.touched_events):
         _finalize(conn, event_id, settings)
 
     logger.info(

@@ -244,6 +244,11 @@ stables ; deux exécutions successives donnent le même résultat.
 
 ### Reste ⬜
 
+- ✅ Affichage des événements sur la carte, cliquables vers leur fiche
+- ✅ Liste textuelle rendue serveur, fonctionnelle sans JavaScript (§8.6)
+- ✅ Légende avec pastille **et** libellé, expliquant que la taille d'un marqueur
+  suit le nombre d'observations et non la gravité (FR-049)
+- ✅ `GET /api/v1/fires`, emprise obligatoire, rechargement au déplacement (FR-007)
 - ⬜ **Génération PMTiles**, sans GeoJSON national servi en direct
 - ⬜ Agrégation par département à l'échelle nationale (§21.3)
 - ⬜ Géométries des régions et départements : seuls les quatre territoires du
@@ -336,7 +341,9 @@ site reste consultable et dit exactement ce qui manque et depuis quand.
 | Schémas `meteo`, `air`, `radar` vides | Tables reportées en v2 avec le panache | v2 |
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Fichiers bruts FIRMS sur disque local | Ni Storage, ni rétention : ils s'accumulent | J2 |
-| Regroupement trop lent | 931 détections en 3 min 23 s. Les agrégats sont recalculés après **chaque** détection, d'où un coût quadratique sur les gros événements. Tiendra pas à 40 000 détections/jour (§6.3) | J2 |
+| Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
+| Calibration limitée à une saison | L'API FIRMS NRT ne sert qu'une fenêtre glissante d'environ quatre mois. Juillet 2025 renvoie zéro ligne. Les saisons antérieures exigent une demande à l'archive FIRMS | Avant le jalon C |
+| `api.fire_events` expose l'`id` interne | §15.1 demande des identifiants publics opaques. Non exploité par nos réponses, mais lisible via PostgREST | J6 |
 | Coût d'un pic non chiffré | Conditionne un point d'arrêt | Phase 0 |
 | Réponse à la première erreur publique | Runbook éditorial absent | Avant J6 |
 

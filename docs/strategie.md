@@ -100,7 +100,24 @@ limites de quota, contact.
 - **API Découpage administratif (Etalab)** — source effectivement utilisée pour
   les limites communales du pilote ; voir [ADR-017](adr/017-source-des-limites-communales.md).
 
-### 3.4 Estimation du coût d'un pic
+### 3.4 Demander l'archive FIRMS
+
+**À engager tôt : la livraison n'est pas immédiate.**
+
+Constaté en exploitation : l'API Area de FIRMS ne sert que les jeux NRT, sur une
+fenêtre glissante d'environ quatre mois. Une requête datée de juillet 2025
+répond 200 avec zéro ligne — pas une erreur, simplement rien.
+
+Or le critère de sortie du regroupement suppose une calibration sur plusieurs
+saisons. Sans archive, elle se limite à la saison en cours, ce qui suffit à
+vérifier la reproductibilité mais pas à régler les seuils contre des cas
+variés : petit feu de broussailles, grand feu de forêt, torchère industrielle,
+fausse détection.
+
+L'archive s'obtient par une demande auprès de FIRMS, livrée en différé. Elle
+conditionne le jalon des événements, donc l'un des points d'arrêt du §7.
+
+### 3.5 Estimation du coût d'un pic
 
 Déplacée en phase 0 : elle conditionne un point d'arrêt (§7), et un pic de
 trafic peut survenir le lendemain de la première publication. Une demi-journée
