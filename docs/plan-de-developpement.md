@@ -42,14 +42,18 @@ rendu par le serveur, sans exécuter la moindre ligne de JavaScript — statuts,
 horodatages, âge de la donnée, provenance, chronologie, tableau des détections,
 avertissements.
 
-**Les détections FIRMS réelles arrivent en base.** Douze observations VIIRS sur
-le 06 et le 83 dans les dernières 24 heures, issues de trois satellites. Le
-rejeu de l'import ne crée aucun doublon : douze déjà connues, zéro insertion.
-`/statut` affiche FIRMS « à jour » avec la date de la donnée elle-même.
+**Le produit fonctionne de bout en bout sur données réelles.** 931 détections
+importées sur 90 jours d'historique du 06 et du 83, regroupées en 122
+événements. Les fiches affichent de vrais feux, avec leurs communes, leurs
+capteurs, leur chronologie et leur puissance radiative.
 
-**Il manque le regroupement en événements.** Les détections sont stockées mais
-pas encore rattachées : la fiche n'affiche donc que la fixture de démonstration.
-C'est le point dur du moment.
+**Le critère de sortie de J2 est atteint.** Un recalcul complet du regroupement
+redonne exactement la même empreinte : 122 événements, signature identique. Le
+résultat est explicable parce qu'il est reproductible.
+
+Le plus gros événement — 570 détections, 66 km², six jours près de Pontevès —
+présente un profil temporel sans trou et des FRP jusqu'à 2197 MW : c'est un vrai
+grand feu, pas un chaînage de l'algorithme.
 
 ### Portes de qualité — dernier passage
 
@@ -62,20 +66,22 @@ C'est le point dur du moment.
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 17 fichiers |
 | Worker | `mypy src` | ✅ strict, 12 fichiers |
-| Worker | `pytest` | ✅ 57 tests |
+| Worker | `pytest` | ✅ 83 tests |
 
 ---
 
 ## 2. Prochaine action
 
-**Écrire l'algorithme de rattachement (§17.2).** Les détections réelles sont en
-base ; il leur manque d'être regroupées en événements pour que la fiche cesse de
-n'afficher qu'une fixture.
+**Corriger la performance du regroupement.** 3 min 23 s pour 931 détections ne
+tiendra pas face aux dizaines de milliers par jour du §6.3. La cause est
+identifiée : les agrégats sont recalculés après *chaque* détection rattachée, ce
+qui devient quadratique sur un événement de 570 membres. La correction consiste
+à ne recalculer qu'en fin de passe, en conservant à jour le seul
+`last_detected_at` dont dépend la fenêtre spatiale.
 
-Le cahier donne les paramètres de départ : distance de base 2 à 3 km, extension
-de 0,5 km par heure, fenêtre de rattachement de 18 à 24 heures. Ils devront être
-calibrés sur des saisons historiques, ce qui suppose d'importer plusieurs jours
-avec `--days`.
+Ensuite, deux directions au choix : la calibration fine des paramètres sur
+plusieurs saisons, ou `GET /api/v1/fires` et l'affichage des événements sur la
+carte — qui rendrait le travail visible.
 
 En parallèle, de votre côté :
 
@@ -198,12 +204,17 @@ sans provenance ni horodatage.
 - ⬜ Planification toutes les dix minutes
 - ⬜ Déplacer les fichiers bruts vers Storage — ils sont aujourd'hui sur le
   disque local, sans rétention
-- ⬜ Algorithme de rattachement déterministe, paramètres externalisés (§17.2)
-- ⬜ Calibration sur au moins trois saisons historiques du 06 et du 83
-- ⬜ Score de fiabilité interne et seuils publics versionnés
-- ⬜ Génération automatique et idempotente des entrées de chronologie (FR-058)
+- ✅ Algorithme de rattachement déterministe, paramètres versionnés (§17.2) —
+  26 tests sur les fonctions pures
+- ✅ Reproductibilité vérifiée sur 90 jours réels : recalcul complet, empreinte
+  identique
+- ✅ Score de fiabilité interne et seuils publics versionnés (§17.3)
+- ✅ Génération idempotente des entrées de chronologie (FR-058)
+- ✅ Import d'historique par tranches, corpus de calibration constitué
+- ⬜ Calibration fine sur plusieurs saisons — une seule est chargée
 - ⬜ Fusion et séparation manuelles réversibles
 - ⬜ `GET /api/v1/fires` avec bbox obligatoire au-delà du seuil national
+- ⬜ Détection des candidats à la fusion, sans fusion silencieuse (§17.2, étape 8)
 - ⬜ ADR-006 et ADR-012 à rédiger
 - ⚠️ L'ordonnanceur reste une [décision ouverte](strategie.md#81-ordonnancement--revenir-à-celery-et-redis).
 
@@ -325,6 +336,7 @@ site reste consultable et dit exactement ce qui manque et depuis quand.
 | Schémas `meteo`, `air`, `radar` vides | Tables reportées en v2 avec le panache | v2 |
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Fichiers bruts FIRMS sur disque local | Ni Storage, ni rétention : ils s'accumulent | J2 |
+| Regroupement trop lent | 931 détections en 3 min 23 s. Les agrégats sont recalculés après **chaque** détection, d'où un coût quadratique sur les gros événements. Tiendra pas à 40 000 détections/jour (§6.3) | J2 |
 | Coût d'un pic non chiffré | Conditionne un point d'arrêt | Phase 0 |
 | Réponse à la première erreur publique | Runbook éditorial absent | Avant J6 |
 

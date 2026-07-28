@@ -3,7 +3,12 @@
 Usage :
     micromamba run -n mapfeux-geo python scripts/import-firms.py
     micromamba run -n mapfeux-geo python scripts/import-firms.py --days 3
+    micromamba run -n mapfeux-geo python scripts/import-firms.py --history 60
     micromamba run -n mapfeux-geo python scripts/import-firms.py --bbox 5.9,42.9,7.8,44.4
+
+`--history N` remonte N jours en arrière par tranches de dix, la limite d'une
+requête à l'API Area. Sert à constituer le corpus de calibration du
+regroupement : un algorithme de rattachement ne se valide pas sur une journée.
 
 Référence : cahier §16.1 et §16.3.
 
@@ -20,7 +25,7 @@ from __future__ import annotations
 import hashlib
 import pathlib
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
 
 import httpx
@@ -36,6 +41,7 @@ from geo_worker.pipelines.detections import (
 from geo_worker.pipelines.import_run import ImportRunError, import_run
 from geo_worker.providers.firms import (
     DEFAULT_PRODUCTS,
+    MAX_DAY_RANGE,
     FirmsClient,
     FirmsQuotaError,
     FirmsUnavailableError,
@@ -88,32 +94,55 @@ def archive(product: str, body: str, stamp: datetime) -> tuple[pathlib.Path, str
     return path, checksum
 
 
-def parse_args(argv: list[str]) -> tuple[int, BoundingBox]:
-    days = 1
+def option(argv: list[str], name: str) -> str | None:
+    if name not in argv:
+        return None
+    index = argv.index(name)
+    if index + 1 >= len(argv):
+        sys.exit(f"{name} attend une valeur.")
+    return argv[index + 1]
+
+
+def parse_args(argv: list[str]) -> tuple[int, int, BoundingBox]:
+    """Retourne (jours par requête, jours d'historique, emprise)."""
+    days = int(option(argv, "--days") or 1)
+    history = int(option(argv, "--history") or 0)
+
     bbox = FRANCE_WITH_BUFFER
-
-    if "--days" in argv:
-        index = argv.index("--days")
-        if index + 1 >= len(argv):
-            sys.exit("--days attend un nombre de jours.")
-        days = int(argv[index + 1])
-
-    if "--bbox" in argv:
-        index = argv.index("--bbox")
-        if index + 1 >= len(argv):
-            sys.exit("--bbox attend minLon,minLat,maxLon,maxLat.")
-        parts = [float(p) for p in argv[index + 1].split(",")]
+    raw_bbox = option(argv, "--bbox")
+    if raw_bbox is not None:
+        parts = [float(p) for p in raw_bbox.split(",")]
         if len(parts) != 4:
             sys.exit("--bbox attend quatre valeurs séparées par des virgules.")
         bbox = BoundingBox(
             min_lon=parts[0], min_lat=parts[1], max_lon=parts[2], max_lat=parts[3]
         )
 
-    return days, bbox
+    if history > 0:
+        days = MAX_DAY_RANGE
+
+    return days, history, bbox
+
+
+def windows(history_days: int, chunk: int, now: datetime) -> list[datetime | None]:
+    """Dates de début des tranches, de la plus ancienne à la plus récente.
+
+    `None` signifie « les N derniers jours », forme sans date que l'API accepte
+    et qui suit la fenêtre courante sans qu'on ait à la calculer.
+    """
+    if history_days <= 0:
+        return [None]
+
+    starts: list[datetime] = []
+    offset = history_days
+    while offset > 0:
+        starts.append(now - timedelta(days=offset))
+        offset -= chunk
+    return list(starts)
 
 
 def main(argv: list[str]) -> int:
-    days, bbox = parse_args(argv)
+    days, history, bbox = parse_args(argv)
     env = read_env()
 
     map_key = env.get("FIRMS_MAP_KEY", "")
@@ -126,8 +155,13 @@ def main(argv: list[str]) -> int:
     dsn = build_dsn(env.get("DATABASE_URL", ""))
     stamp = datetime.now(UTC)
 
+    chunks = windows(history, days, stamp)
+
     print(f"emprise : {bbox.as_firms_area()}")
-    print(f"fenêtre : {days} jour(s)\n")
+    if history > 0:
+        print(f"historique : {history} jour(s) en {len(chunks)} tranche(s) de {days}\n")
+    else:
+        print(f"fenêtre : {days} jour(s)\n")
 
     total_inserted = 0
     failures = 0
@@ -136,50 +170,86 @@ def main(argv: list[str]) -> int:
         firms = FirmsClient(http, map_key)
 
         for product in DEFAULT_PRODUCTS:
+            suffix = ":history" if history > 0 else ""
             try:
+                # Un seul import_run par produit, quelles que soient les
+                # tranches : c'est le produit qui réussit ou échoue du point de
+                # vue de l'exploitation, pas chaque requête.
                 with import_run(
-                    conn, source_key="firms", job_name=f"detections:{product}"
+                    conn, source_key="firms", job_name=f"detections:{product}{suffix}"
                 ) as counters:
-                    body = firms.fetch_area(product=product, bbox=bbox, day_range=days)
+                    product_inserted = 0
+                    product_known = 0
+                    latest = None
 
-                    # Archivage avant analyse. §16.1, étape 6.
-                    path, checksum = archive(product, body, stamp)
-                    counters.artifact_path = str(path.relative_to(ROOT))
-                    counters.checksum = checksum
+                    for start in chunks:
+                        try:
+                            body = firms.fetch_area(
+                                product=product,
+                                bbox=bbox,
+                                day_range=days,
+                                start_date=start,
+                            )
+                        except FirmsUnavailableError as exc:
+                            # Une tranche hors de la fenêtre disponible ou en
+                            # erreur ne doit pas faire perdre les autres : le
+                            # rejet est isolé et compté (§16.2).
+                            print(
+                                f"  tranche {start.date() if start else 'courante'} : {exc}"
+                            )
+                            counters.records_rejected += 1
+                            continue
 
-                    detections, rejections = parse_csv(body, product=product)
-                    unique = list(deduplicate(detections))
+                        # Archivage avant analyse. §16.1, étape 6.
+                        label = (
+                            product if start is None else f"{product}_{start.date()}"
+                        )
+                        path, checksum = archive(label, body, stamp)
+                        counters.artifact_path = str(path.relative_to(ROOT))
+                        counters.checksum = checksum
 
-                    counters.records_read = len(detections) + len(rejections)
-                    counters.records_rejected = len(rejections)
-                    for rejection in rejections[:3]:
-                        print(f"  rejet : {rejection}")
+                        detections, rejections = parse_csv(body, product=product)
+                        unique = list(deduplicate(detections))
 
-                    inserted = insert_detections(
-                        conn,
-                        detections=unique,
-                        source_key="firms",
-                        import_run_id=None,
-                    )
-                    conn.commit()
+                        counters.records_read += len(detections) + len(rejections)
+                        counters.records_rejected += len(rejections)
+                        for rejection in rejections[:3]:
+                            print(f"  rejet : {rejection}")
 
-                    counters.records_inserted = inserted.inserted
+                        inserted = insert_detections(
+                            conn,
+                            detections=unique,
+                            source_key="firms",
+                            import_run_id=None,
+                        )
+                        conn.commit()
+
+                        product_inserted += inserted.inserted
+                        product_known += inserted.already_known
+
+                        chunk_latest = most_recent_acquisition(unique)
+                        if chunk_latest is not None and (
+                            latest is None or chunk_latest > latest
+                        ):
+                            latest = chunk_latest
+
+                    counters.records_inserted = product_inserted
                     # Une republication déjà connue n'est ni une insertion ni un
                     # rejet : elle est comptée à part pour que /statut ne
                     # présente pas un import correct comme un import vide.
                     counters.metrics = {
-                        "already_known": inserted.already_known,
+                        "already_known": product_known,
                         "product": product,
+                        "chunks": len(chunks),
                     }
                     # Date de la donnée, pas de l'import : c'est elle qui fait
                     # la fraîcheur affichée (§5.13).
-                    counters.source_data_at = most_recent_acquisition(unique)
+                    counters.source_data_at = latest
 
-                    total_inserted += inserted.inserted
+                    total_inserted += product_inserted
                     print(
-                        f"{product:<20} {inserted.inserted} nouvelles, "
-                        f"{inserted.already_known} déjà connues, "
-                        f"{len(rejections)} rejetées"
+                        f"{product:<20} {product_inserted} nouvelles, "
+                        f"{product_known} déjà connues"
                     )
 
             except FirmsQuotaError as exc:

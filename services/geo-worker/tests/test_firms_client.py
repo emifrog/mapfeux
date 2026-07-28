@@ -95,8 +95,23 @@ class TestFirmsClient:
         firms = client_with(handler)
         with pytest.raises(ValueError, match="day_range"):
             firms.fetch_area(product="MODIS_NRT", bbox=FRANCE, day_range=0)
+        # L'API répond 400 « Invalid day range. Expects [1..5] » au-delà de cinq.
+        # La borne est vérifiée ici pour éviter un aller-retour réseau inutile.
         with pytest.raises(ValueError, match="day_range"):
-            firms.fetch_area(product="MODIS_NRT", bbox=FRANCE, day_range=11)
+            firms.fetch_area(product="MODIS_NRT", bbox=FRANCE, day_range=6)
+        firms.fetch_area(product="MODIS_NRT", bbox=FRANCE, day_range=5)
+
+    def test_ajoute_la_date_de_debut(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert str(request.url).endswith("/5/2026-06-15")
+            return httpx.Response(200, text=CSV_BODY)
+
+        client_with(handler).fetch_area(
+            product="VIIRS_NOAA20_NRT",
+            bbox=FRANCE,
+            day_range=5,
+            start_date=datetime(2026, 6, 15, 12, 0, tzinfo=UTC),
+        )
 
     def test_parcourt_tous_les_produits_configures(self) -> None:
         seen: list[str] = []

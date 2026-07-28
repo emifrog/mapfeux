@@ -36,8 +36,9 @@ DEFAULT_PRODUCTS: tuple[str, ...] = (
     "MODIS_NRT",
 )
 
-# L'API Area accepte au plus dix jours par requête.
-MAX_DAY_RANGE = 10
+# L'API Area accepte au plus cinq jours par requête. Vérifié contre le service :
+# au-delà elle répond 400 « Invalid day range. Expects [1..5] ».
+MAX_DAY_RANGE = 5
 
 # Précision retenue pour la clé d'idempotence. FIRMS publie 5 décimales ; figer
 # l'arrondi évite qu'une variation de formatage côté fournisseur ne produise une
@@ -317,7 +318,12 @@ class FirmsClient:
             )
 
         if response.status_code >= 400:
-            raise FirmsUnavailableError(f"FIRMS a répondu {response.status_code}.")
+            # Le corps porte l'explication — « Invalid day range », « Invalid
+            # MAP_KEY »… La taire obligerait à sonder l'API à la main pour
+            # comprendre. Il est tronqué et l'URL n'est jamais journalisée :
+            # c'est elle, et non le message, qui contient la clé.
+            detail = response.text.strip().replace("\n", " ")[:160]
+            raise FirmsUnavailableError(f"FIRMS a répondu {response.status_code} : {detail}")
 
         body = response.text
         if not looks_like_csv(body):
