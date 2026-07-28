@@ -42,8 +42,14 @@ rendu par le serveur, sans exécuter la moindre ligne de JavaScript — statuts,
 horodatages, âge de la donnée, provenance, chronologie, tableau des détections,
 avertissements.
 
-**Aucune donnée d'observation réelle n'a encore transité.** C'est le point dur
-du moment : il manque l'import FIRMS qui remplacera la fixture.
+**Les détections FIRMS réelles arrivent en base.** Douze observations VIIRS sur
+le 06 et le 83 dans les dernières 24 heures, issues de trois satellites. Le
+rejeu de l'import ne crée aucun doublon : douze déjà connues, zéro insertion.
+`/statut` affiche FIRMS « à jour » avec la date de la donnée elle-même.
+
+**Il manque le regroupement en événements.** Les détections sont stockées mais
+pas encore rattachées : la fiche n'affiche donc que la fixture de démonstration.
+C'est le point dur du moment.
 
 ### Portes de qualité — dernier passage
 
@@ -56,18 +62,20 @@ du moment : il manque l'import FIRMS qui remplacera la fixture.
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 17 fichiers |
 | Worker | `mypy src` | ✅ strict, 12 fichiers |
-| Worker | `pytest` | ✅ 39 tests |
+| Worker | `pytest` | ✅ 57 tests |
 
 ---
 
 ## 2. Prochaine action
 
-**Ouvrir J2 : le client FIRMS.** C'est le dernier morceau qui sépare le produit
-de données réelles. Obtenir la clé sur
-<https://firms.modaps.eosdis.nasa.gov/api/map_key/> et la placer dans
-`services/geo-worker/.env`. La normalisation est écrite et testée depuis J1 ;
-restent le transport avec gestion du quota, l'archivage des fichiers bruts et la
-planification.
+**Écrire l'algorithme de rattachement (§17.2).** Les détections réelles sont en
+base ; il leur manque d'être regroupées en événements pour que la fiche cesse de
+n'afficher qu'une fixture.
+
+Le cahier donne les paramètres de départ : distance de base 2 à 3 km, extension
+de 0,5 km par heure, fenêtre de rattachement de 18 à 24 heures. Ils devront être
+calibrés sur des saisons historiques, ce qui suppose d'importer plusieurs jours
+avec `--days`.
 
 En parallèle, de votre côté :
 
@@ -91,15 +99,15 @@ parallèle d'un service de sapeur-pompier professionnel. Les durées sont en
 | Jalon | Contenu | Estimé | Reste | État |
 |---|---|---:|---:|---|
 | J1 | Fondations et fiche événement sur données figées | 8 sem. | **1 sem.** | 🟡 critère de sortie atteint |
-| J2 | Ingestion FIRMS et regroupement réel | 6 sem. | 6 sem. | ⬜ normalisation déjà écrite |
+| J2 | Ingestion FIRMS et regroupement réel | 6 sem. | **4 sem.** | 🟡 ingestion en service |
 | J3 | Carte et territoires | 6 sem. | **2 sem.** | 🟡 pilote livré |
 | J4 | Informations officielles automatisées | 6 sem. | 6 sem. | ⬜ |
 | J5 | Administration, supervision, mode dégradé | 5 sem. | 5 sem. | ⬜ |
 | J6 | Recette, charge, sécurité, ouverture | 5 sem. | 5 sem. | ⬜ |
-| | | 36 sem. | **25 sem.** | |
+| | | 36 sem. | **23 sem.** | |
 
-Les fondations, la fiche événement et la couche territoriale du pilote étant
-livrées, il reste **environ 25 semaines** au lieu de 36.
+Les fondations, la fiche événement, la couche territoriale du pilote et
+l'ingestion FIRMS étant livrées, il reste **environ 23 semaines** au lieu de 36.
 
 ⚠️ Le phasage par rapport à la saison des feux est une
 [décision ouverte](strategie.md#82-calendrier-et-saison) : les premiers jalons
@@ -173,13 +181,23 @@ sans provenance ni horodatage.
   des communes
 - ✅ Environnement micromamba : ecCodes, GDAL, cfgrib, geopandas, rasterio
 
+- ✅ Client HTTP avec gestion du 429 et de son `Retry-After` — 18 tests
+- ✅ Détection des réponses 200 qui ne sont pas des CSV. FIRMS répond ainsi sur
+  clé invalide : sans ce contrôle, l'import serait déclaré réussi en n'ayant
+  rien importé, le pire des résultats puisqu'il est silencieux
+- ✅ Découpage spatial de l'emprise avec tampon frontalier
+- ✅ Archivage du fichier brut **avant** analyse, avec empreinte SHA-256
+- ✅ Insertion idempotente vérifiée sur données réelles : rejeu à zéro doublon
+- ✅ Un `import_run` par produit — un capteur indisponible n'empêche pas les
+  autres, et `/statut` montre lequel a échoué
+- ✅ Rattachement aux sources thermiques connues : classe la détection sans
+  jamais la supprimer (FR-036)
+
 ### Reste ⬜
 
-- ⬜ Obtenir la clé FIRMS : <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
-- ⬜ Client HTTP avec gestion du quota (5 000 transactions / 10 min) et du 429
-- ⬜ Découpage spatial de l'emprise France avec tampon frontalier
-- ⬜ Archivage des fichiers bruts dans Storage avant tout parsing
 - ⬜ Planification toutes les dix minutes
+- ⬜ Déplacer les fichiers bruts vers Storage — ils sont aujourd'hui sur le
+  disque local, sans rétention
 - ⬜ Algorithme de rattachement déterministe, paramètres externalisés (§17.2)
 - ⬜ Calibration sur au moins trois saisons historiques du 06 et du 83
 - ⬜ Score de fiabilité interne et seuils publics versionnés
@@ -306,6 +324,7 @@ site reste consultable et dit exactement ce qui manque et depuis quand.
 | ADR-001 à 013 non rédigés | Décisions actées, non documentées | Au fil des jalons |
 | Schémas `meteo`, `air`, `radar` vides | Tables reportées en v2 avec le panache | v2 |
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
+| Fichiers bruts FIRMS sur disque local | Ni Storage, ni rétention : ils s'accumulent | J2 |
 | Coût d'un pic non chiffré | Conditionne un point d'arrêt | Phase 0 |
 | Réponse à la première erreur publique | Runbook éditorial absent | Avant J6 |
 

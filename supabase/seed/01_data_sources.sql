@@ -1,7 +1,13 @@
 -- =============================================================================
 -- Registre des sources — données de référence
 --
--- Cahier §9.7 et §16.8. Les intervalles reprennent le calendrier d'orchestration.
+-- Cahier §9.7 et §16.8.
+--
+-- `expected_interval` et `stale_after` portent sur l'âge de la **donnée**, pas
+-- sur la cadence d'interrogation, qui vit dans `settings`. Pour FIRMS, les deux
+-- diffèrent d'un ordre de grandeur : on interroge toutes les dix minutes, mais
+-- les satellites polaires ne repassent que toutes les quelques heures.
+--
 -- Aucune clé API ici : elles vivent dans l'environnement du worker (§14.3).
 -- =============================================================================
 
@@ -13,8 +19,8 @@ values
     'firms',
     'NASA FIRMS — détections de feux actifs',
     'NASA / MODAPS',
-    interval '10 minutes',
     interval '6 hours',
+    interval '24 hours',
     'https://firms.modaps.eosdis.nasa.gov/api/area/',
     'NASA Open Data',
     'Données de feux actifs fournies par NASA FIRMS',

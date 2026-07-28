@@ -16,12 +16,28 @@ from __future__ import annotations
 import csv
 import hashlib
 from collections.abc import Iterable, Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from geo_worker.providers.models import ThermalDetection
+import httpx
+
+from geo_worker.providers.models import BoundingBox, ThermalDetection
 
 PROVIDER = "nasa_firms"
+
+BASE_URL = "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
+
+# Jeux NRT disponibles. L'ordre est celui de l'import : les VIIRS d'abord, dont
+# la résolution de 375 m est meilleure que le kilomètre de MODIS (§9.1).
+DEFAULT_PRODUCTS: tuple[str, ...] = (
+    "VIIRS_NOAA20_NRT",
+    "VIIRS_NOAA21_NRT",
+    "VIIRS_SNPP_NRT",
+    "MODIS_NRT",
+)
+
+# L'API Area accepte au plus dix jours par requête.
+MAX_DAY_RANGE = 10
 
 # Précision retenue pour la clé d'idempotence. FIRMS publie 5 décimales ; figer
 # l'arrondi évite qu'une variation de formatage côté fournisseur ne produise une
@@ -221,6 +237,162 @@ def parse_csv(content: str, *, product: str) -> tuple[list[ThermalDetection], li
             rejections.append(f"ligne {index} : {exc}")
 
     return detections, rejections
+
+
+class FirmsQuotaError(RuntimeError):
+    """Quota atteint. L'appelant doit patienter, pas réessayer immédiatement."""
+
+    def __init__(self, retry_after_seconds: int | None) -> None:
+        super().__init__("Quota FIRMS atteint.")
+        self.retry_after_seconds = retry_after_seconds
+
+
+class FirmsUnavailableError(RuntimeError):
+    """FIRMS injoignable ou en erreur. L'import échoue sans corrompre la base."""
+
+
+def looks_like_csv(body: str) -> bool:
+    """FIRMS répond parfois 200 avec un message d'erreur en texte brut.
+
+    Une clé invalide ou un quota dépassé peut arriver ainsi. Sans ce contrôle,
+    le message serait analysé comme un CSV, produirait zéro détection, et
+    l'import serait déclaré réussi alors qu'il n'a rien importé — le pire des
+    résultats, puisqu'il est silencieux.
+    """
+    first_line = body.lstrip().split("\n", 1)[0].lower()
+    return "latitude" in first_line and "longitude" in first_line
+
+
+class FirmsClient:
+    """Client de l'API Area de NASA FIRMS.
+
+    Référence : cahier §9.1 et §16.3.
+
+    Le quota annoncé par FIRMS est de 5 000 transactions par tranche de dix
+    minutes. Une requête par produit et par emprise, toutes les dix minutes,
+    reste très en deçà : le garde-fou ici porte sur le comportement en cas de
+    dépassement, pas sur un décompte que nous ne pouvons pas connaître avec
+    certitude.
+    """
+
+    key = "firms"
+
+    def __init__(self, client: httpx.Client, map_key: str, base_url: str = BASE_URL) -> None:
+        if map_key.strip() == "":
+            raise ValueError("Clé FIRMS absente : le connecteur ne peut pas être construit.")
+        self._client = client
+        self._map_key = map_key
+        self._base_url = base_url.rstrip("/")
+
+    def fetch_area(
+        self,
+        *,
+        product: str,
+        bbox: BoundingBox,
+        day_range: int = 1,
+        start_date: datetime | None = None,
+    ) -> str:
+        """Récupère le CSV brut d'un produit sur une emprise.
+
+        Le corps est retourné tel quel : l'archivage du fichier brut précède
+        toute analyse (§16.1, étape 6). Ce qui n'a pas été conservé ne peut pas
+        être rejoué.
+        """
+        if not 1 <= day_range <= MAX_DAY_RANGE:
+            raise ValueError(f"day_range doit être compris entre 1 et {MAX_DAY_RANGE}.")
+
+        path = f"{self._base_url}/{self._map_key}/{product}/{bbox.as_firms_area()}/{day_range}"
+        if start_date is not None:
+            path = f"{path}/{start_date.astimezone(UTC).date().isoformat()}"
+
+        try:
+            response = self._client.get(path, timeout=120.0)
+        except httpx.HTTPError as exc:
+            raise FirmsUnavailableError(f"Appel FIRMS impossible : {exc}") from exc
+
+        if response.status_code == 429:
+            retry_after = response.headers.get("Retry-After")
+            raise FirmsQuotaError(
+                int(retry_after) if retry_after is not None and retry_after.isdigit() else None
+            )
+
+        if response.status_code >= 400:
+            raise FirmsUnavailableError(f"FIRMS a répondu {response.status_code}.")
+
+        body = response.text
+        if not looks_like_csv(body):
+            # Le message d'erreur est tronqué : il peut contenir la clé.
+            raise FirmsUnavailableError(
+                f"Réponse FIRMS inattendue, non CSV : {body.strip()[:120]!r}"
+            )
+
+        return body
+
+    def fetch_detections(
+        self,
+        *,
+        bbox: BoundingBox,
+        products: Iterable[str] = DEFAULT_PRODUCTS,
+        day_range: int = 1,
+    ) -> Iterator[tuple[str, str]]:
+        """Itère sur (produit, CSV brut) pour chaque jeu configuré.
+
+        Un produit indisponible n'interrompt pas les autres : les capteurs sont
+        indépendants, et perdre MODIS ne doit pas faire perdre VIIRS (§2.4,
+        dégradation maîtrisée).
+        """
+        for product in products:
+            yield product, self.fetch_area(product=product, bbox=bbox, day_range=day_range)
+
+
+def split_bbox(bbox: BoundingBox, max_span_deg: float = 10.0) -> list[BoundingBox]:
+    """Découpe une emprise trop large en sous-emprises.
+
+    L'API Area limite la taille de la zone demandée. Le découpage permet aussi
+    de reprendre un import partiel sans tout rejouer (§16.3).
+    """
+    if max_span_deg <= 0:
+        raise ValueError("max_span_deg doit être strictement positif.")
+
+    lon_steps = max(1, int(-(-(bbox.max_lon - bbox.min_lon) // max_span_deg)))
+    lat_steps = max(1, int(-(-(bbox.max_lat - bbox.min_lat) // max_span_deg)))
+
+    lon_size = (bbox.max_lon - bbox.min_lon) / lon_steps
+    lat_size = (bbox.max_lat - bbox.min_lat) / lat_steps
+
+    tiles: list[BoundingBox] = []
+    for i in range(lon_steps):
+        for j in range(lat_steps):
+            tiles.append(
+                BoundingBox(
+                    min_lon=bbox.min_lon + i * lon_size,
+                    min_lat=bbox.min_lat + j * lat_size,
+                    max_lon=bbox.min_lon + (i + 1) * lon_size,
+                    max_lat=bbox.min_lat + (j + 1) * lat_size,
+                )
+            )
+    return tiles
+
+
+def most_recent_acquisition(detections: Iterable[ThermalDetection]) -> datetime | None:
+    """Heure d'acquisition la plus récente du lot.
+
+    C'est cette valeur, et non l'heure d'import, qui alimente `source_data_at`
+    et donc la fraîcheur affichée sur /statut. Les confondre présenterait un
+    import réussi sur des données vieilles de six heures comme une donnée
+    fraîche (§5.13).
+    """
+    times = [detection.acquired_at for detection in detections]
+    return max(times) if times else None
+
+
+def is_stale(acquired_at: datetime, now: datetime, max_age: timedelta = timedelta(hours=6)) -> bool:
+    """Une acquisition dépasse-t-elle la latence attendue de FIRMS ?
+
+    FIRMS annonce une disponibilité en général sous trois heures. Au-delà de
+    six, il ne s'agit plus du délai normal mais d'un retard à signaler.
+    """
+    return now - acquired_at > max_age
 
 
 def deduplicate(detections: Iterable[ThermalDetection]) -> Iterator[ThermalDetection]:
