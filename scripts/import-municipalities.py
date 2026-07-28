@@ -22,9 +22,9 @@ import psycopg
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
-from geo_worker.pipelines.import_run import ImportRunError, import_run  # noqa: E402
-from geo_worker.pipelines.municipalities import import_department  # noqa: E402
-from geo_worker.providers.admin_boundaries import (  # noqa: E402
+from geo_worker.pipelines.import_run import ImportRunError, import_run
+from geo_worker.pipelines.municipalities import import_department
+from geo_worker.providers.admin_boundaries import (
     PROVIDER_KEY,
     AdminBoundariesProvider,
     source_version,
@@ -63,14 +63,19 @@ def main(departments: list[str]) -> int:
     version = source_version()
     print(f"version enregistrée : {version}\n")
 
-    with psycopg.connect(read_dsn(), connect_timeout=30) as conn, httpx.Client() as client:
+    with (
+        psycopg.connect(read_dsn(), connect_timeout=30) as conn,
+        httpx.Client() as client,
+    ):
         provider = AdminBoundariesProvider(client)
 
         for department in departments:
             with import_run(
                 conn, source_key=PROVIDER_KEY, job_name=f"municipalities:{department}"
             ) as counters:
-                boundaries, rejections = provider.fetch_municipalities(department, version)
+                boundaries, rejections = provider.fetch_municipalities(
+                    department, version
+                )
                 counters.records_read = len(boundaries) + len(rejections)
                 counters.records_rejected = len(rejections)
 
@@ -83,7 +88,9 @@ def main(departments: list[str]) -> int:
                         f"Aucune commune retournée pour le département {department}",
                     )
 
-                result = import_department(conn, department_code=department, boundaries=boundaries)
+                result = import_department(
+                    conn, department_code=department, boundaries=boundaries
+                )
                 conn.commit()
 
                 counters.records_inserted = result.inserted

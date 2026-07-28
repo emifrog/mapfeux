@@ -6,6 +6,7 @@ import {
   dataAgeMs,
   formatDataAge,
   HOUR_MS,
+  isSnapshotStale,
   MINUTE_MS,
 } from './freshness';
 
@@ -106,6 +107,55 @@ describe('computeSourceFreshness', () => {
     expect(
       computeSourceFreshness({ lastDataAt: null, now, staleAfterMs, expectedIntervalMs }),
     ).toBe('unavailable');
+  });
+});
+
+describe('isSnapshotStale', () => {
+  it('signale un snapshot ancien sur un événement en cours d’observation', () => {
+    expect(
+      isSnapshotStale({
+        generatedAt: hoursAgo(3),
+        now,
+        eventFreshness: 'recent',
+      }),
+    ).toBe(true);
+  });
+
+  it('ne signale rien sur un snapshot fraîchement reconstruit', () => {
+    expect(
+      isSnapshotStale({
+        generatedAt: new Date(now.getTime() - 10 * MINUTE_MS),
+        now,
+        eventFreshness: 'recent',
+      }),
+    ).toBe(false);
+  });
+
+  it('ne signale rien sur un événement sans observation récente', () => {
+    // Rien à recalculer : un snapshot ancien y est normal, et le signaler
+    // apprendrait à ignorer la bannière.
+    expect(
+      isSnapshotStale({
+        generatedAt: hoursAgo(72),
+        now,
+        eventFreshness: 'not_recent',
+      }),
+    ).toBe(false);
+    expect(
+      isSnapshotStale({
+        generatedAt: hoursAgo(72),
+        now,
+        eventFreshness: 'archived',
+      }),
+    ).toBe(false);
+  });
+
+  it('respecte un seuil personnalisé', () => {
+    const generatedAt = new Date(now.getTime() - 20 * MINUTE_MS);
+    expect(isSnapshotStale({ generatedAt, now, eventFreshness: 'new' })).toBe(false);
+    expect(isSnapshotStale({ generatedAt, now, eventFreshness: 'new', maxAgeMinutes: 15 })).toBe(
+      true,
+    );
   });
 });
 

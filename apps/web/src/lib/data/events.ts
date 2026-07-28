@@ -231,6 +231,130 @@ export async function fetchEventTimeline(publicId: string): Promise<TimelineEntr
   }));
 }
 
+/**
+ * Vue de la fiche, snapshot d'abord.
+ *
+ * Référence : cahier §21.5 et FR-052.
+ *
+ * L'origine est retournée au lieu d'être masquée : la page doit pouvoir dire
+ * qu'elle affiche un état figé, et depuis quand. Un repli silencieux sur le
+ * cache présenté comme actuel est exactement ce que le §21.5 interdit.
+ */
+export interface EventView {
+  readonly origin: 'snapshot' | 'live';
+  /** Heure de construction du snapshot. Nulle en lecture directe. */
+  readonly generatedAt: Date | null;
+  readonly event: FireEvent;
+  readonly timeline: TimelineEntry[];
+}
+
+interface SnapshotPayload {
+  id: string;
+  freshnessStatus: EventFreshness;
+  verificationStatus: VerificationStatus;
+  officialControlStatus: OfficialControlStatus | null;
+  officialStatusSource: { organisation: string; url: string | null; publishedAt: string } | null;
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+  location: { longitude: number; latitude: number };
+  detectionCount: number;
+  sensorCount: number;
+  sensors: string[];
+  satellites: string[];
+  confidence: ConfidenceLevel;
+  frpMw: { min: number | null; median: number | null; max: number | null };
+  nearestMunicipality: { insee: string; name: string } | null;
+  territory: { slug: string; name: string } | null;
+  timeZone: string;
+  timeline: {
+    id: string;
+    entryType: TimelineEntryType;
+    provenance: Provenance;
+    occurredAt: string;
+    recordedAt: string;
+    title: string;
+    summary: string | null;
+    source: { organisation: string; url: string } | null;
+  }[];
+  updatedAt: string;
+}
+
+export async function fetchEventView(publicId: string): Promise<EventView | null> {
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase.rpc('fire_event_snapshot', {
+    event_public_id: publicId,
+  });
+
+  if (error === null) {
+    const rows = (data ?? []) as {
+      generated_at: string;
+      data_at: string;
+      payload: SnapshotPayload;
+    }[];
+    const snapshot = rows[0];
+
+    if (snapshot !== undefined) {
+      const p = snapshot.payload;
+      return {
+        origin: 'snapshot',
+        generatedAt: new Date(snapshot.generated_at),
+        event: {
+          publicId: p.id,
+          freshnessStatus: p.freshnessStatus,
+          verificationStatus: p.verificationStatus,
+          officialControlStatus: p.officialControlStatus,
+          officialSource: p.officialStatusSource,
+          firstDetectedAt: new Date(p.firstDetectedAt),
+          lastDetectedAt: new Date(p.lastDetectedAt),
+          location: p.location,
+          detectionCount: p.detectionCount,
+          sensorCount: p.sensorCount,
+          sensors: p.sensors,
+          satellites: p.satellites,
+          confidenceLevel: p.confidence,
+          frp: p.frpMw,
+          nearestMunicipality: p.nearestMunicipality,
+          territory: p.territory,
+          timeZone: p.timeZone,
+          lastSnapshotAt: new Date(snapshot.generated_at),
+          updatedAt: new Date(p.updatedAt),
+          timelineEntryCount: p.timeline.length,
+          timelineLatestAt: p.timeline[0] === undefined ? null : new Date(p.timeline[0].occurredAt),
+        },
+        timeline: p.timeline.map((entry) => ({
+          id: entry.id,
+          entryType: entry.entryType,
+          provenance: entry.provenance,
+          occurredAt: new Date(entry.occurredAt),
+          recordedAt: new Date(entry.recordedAt),
+          title: entry.title,
+          summary: entry.summary,
+          source: entry.source,
+        })),
+      };
+    }
+  } else {
+    console.error('[events] snapshot illisible, repli sur la lecture directe', {
+      publicId,
+      code: error.code,
+      message: error.message,
+    });
+  }
+
+  // Aucun snapshot : événement trop récent pour en avoir un, ou tâche de
+  // rafraîchissement en retard. La lecture directe reste correcte, elle est
+  // seulement plus coûteuse.
+  const event = await fetchEvent(publicId);
+  if (event === null) return null;
+
+  return {
+    origin: 'live',
+    generatedAt: null,
+    event,
+    timeline: await fetchEventTimeline(event.publicId),
+  };
+}
+
 export async function fetchEventDetections(
   publicId: string,
   limit = 500,

@@ -1,4 +1,10 @@
-import { dataAgeMs, EVENT_DISCLAIMER, formatDataAge, MAP_DISCLAIMER } from '@mapfeux/domain';
+import {
+  dataAgeMs,
+  EVENT_DISCLAIMER,
+  formatDataAge,
+  isSnapshotStale,
+  MAP_DISCLAIMER,
+} from '@mapfeux/domain';
 import {
   CONFIDENCE_LEVEL_LABELS,
   CONFIDENCE_LEVEL_NOTICE,
@@ -18,7 +24,7 @@ import { ShareLink } from '@/components/share-link';
 import {
   fetchEvent,
   fetchEventDetections,
-  fetchEventTimeline,
+  fetchEventView,
   resolveEventAlias,
   type FireEvent,
 } from '@/lib/data/events';
@@ -157,9 +163,9 @@ function StatusPanel({ event }: { event: FireEvent }) {
 export default async function EventPage({ params }: PageParams) {
   const { publicId } = await params;
 
-  const event = await fetchEvent(publicId);
+  const view = await fetchEventView(publicId);
 
-  if (event === null) {
+  if (view === null) {
     // Identifiant fusionné : redirection permanente vers l'événement canonique
     // plutôt qu'un 404. Une URL partagée ne doit jamais se périmer (§13.10).
     const canonical = await resolveEventAlias(publicId);
@@ -169,13 +175,21 @@ export default async function EventPage({ params }: PageParams) {
     notFound();
   }
 
-  const [timeline, detections, officialLinks] = await Promise.all([
-    fetchEventTimeline(event.publicId),
+  const { event, timeline } = view;
+
+  const [detections, officialLinks] = await Promise.all([
     fetchEventDetections(event.publicId),
     event.territory === null ? Promise.resolve([]) : fetchOfficialLinks(event.territory.slug),
   ]);
 
   const now = new Date();
+  const snapshotIsStale =
+    view.generatedAt !== null &&
+    isSnapshotStale({
+      generatedAt: view.generatedAt,
+      now,
+      eventFreshness: event.freshnessStatus,
+    });
   const canonicalUrl = `${getServerEnv().PUBLIC_APP_URL}/evenements/${event.publicId}`;
   const isFixture = event.publicId.startsWith('DEMO-');
 
@@ -185,6 +199,15 @@ export default async function EventPage({ params }: PageParams) {
         <p className="mb-6 rounded border-2 border-amber-500 bg-amber-50 p-4 text-sm font-medium text-amber-900">
           Jeu de démonstration. Les détections de cette page sont inventées et ne correspondent à
           aucune observation satellitaire réelle.
+        </p>
+      )}
+
+      {snapshotIsStale && (
+        <p className="mb-6 rounded border-2 border-orange-500 bg-orange-50 p-4 text-sm text-orange-900">
+          Cette fiche affiche un état figé qui n’a pas été reconstruit depuis{' '}
+          {formatDataAge(dataAgeMs(view.generatedAt as Date, now))}, alors que cet événement reçoit
+          habituellement des observations plus fréquentes. Les informations ci-dessous peuvent être
+          en retard sur la situation.
         </p>
       )}
 
@@ -465,12 +488,28 @@ export default async function EventPage({ params }: PageParams) {
 
       <footer className="mt-10 border-t border-stone-200 pt-4 text-xs text-stone-600">
         <p>{EVENT_DISCLAIMER}</p>
+        {/* Les trois horodatages sont distincts et tous affichés : l'heure de
+            consultation, celle de la construction de l'état, et celle de la
+            donnée elle-même. Les confondre laisserait croire qu'une page
+            fraîchement servie porte une observation fraîche (§21.5). */}
         <p className="mt-2">
-          Page générée le{' '}
-          <time dateTime={now.toISOString()}>{formatInstant(now, event.timeZone)}</time>. Dernière
-          mise à jour de l’événement :{' '}
-          <time dateTime={event.updatedAt.toISOString()}>
-            {formatInstant(event.updatedAt, event.timeZone)}
+          Page servie le{' '}
+          <time dateTime={now.toISOString()}>{formatInstant(now, event.timeZone)}</time>.
+          {view.generatedAt === null ? (
+            <> État lu directement en base, sans état figé disponible.</>
+          ) : (
+            <>
+              {' '}
+              État figé construit le{' '}
+              <time dateTime={view.generatedAt.toISOString()}>
+                {formatInstant(view.generatedAt, event.timeZone)}
+              </time>
+              .
+            </>
+          )}{' '}
+          Donnée la plus récente :{' '}
+          <time dateTime={event.lastDetectedAt.toISOString()}>
+            {formatInstant(event.lastDetectedAt, event.timeZone)}
           </time>
           .
         </p>

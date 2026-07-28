@@ -52,7 +52,7 @@ du moment : il manque l'import FIRMS qui remplacera la fixture.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 40 tests |
+| Web | `pnpm test` | ✅ 44 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 17 fichiers |
 | Worker | `mypy src` | ✅ strict, 12 fichiers |
@@ -139,12 +139,21 @@ historiques importé à la main.
 - ✅ Jeu de démonstration, cantonné à `supabase/seed/dev/` et signalé par un
   bandeau sur la fiche
 
+- ✅ Snapshot public par événement (§21.5). La fiche lit le snapshot en
+  priorité et se replie sur les tables vivantes en l'annonçant. Trois
+  horodatages distincts et tous affichés : heure de service de la page, heure
+  de construction de l'état figé, heure de la donnée elle-même.
+- ✅ Bannière d'état figé ancien, conditionnée à la fraîcheur de l'événement :
+  un snapshot vieux de trois jours est normal sur un événement sans nouvelle
+  observation, et le signaler apprendrait à ignorer la bannière
+
 ### Reste ⬜
 
-- ⬜ Snapshot public par événement (§21.5) — la fiche lit encore les tables
-  vivantes ; le snapshot est ce qui la rendra affichable pendant une panne
 - ⬜ Authentification administrateur
 - ⬜ Jeu historique réel en remplacement de la fixture
+- ⬜ Déclencher le rafraîchissement du snapshot depuis les pipelines. Aujourd'hui
+  `scripts/refresh-snapshots.py` le fait à la main ; le branchement viendra avec
+  l'ingestion FIRMS.
 - ⚠️ Aucune politique RLS de lecture pour les administrateurs : l'administration
   passera par des appels serveur privilégiés (§14.2). À confirmer en J5.
 

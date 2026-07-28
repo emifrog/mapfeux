@@ -75,6 +75,31 @@ export function computeSourceFreshness(params: {
   return 'fresh';
 }
 
+/**
+ * Un snapshot doit-il être signalé comme ancien ? Cahier §21.5.
+ *
+ * La règle dépend de l'événement, pas seulement de l'horloge. Un snapshot
+ * vieux de six heures est anormal sur un événement qui reçoit des observations
+ * toutes les heures, et parfaitement normal sur un événement sans nouvelle
+ * observation depuis trois jours. Signaler le second alarmerait sans motif et
+ * apprendrait à l'utilisateur à ignorer la bannière.
+ */
+export function isSnapshotStale(params: {
+  readonly generatedAt: Date;
+  readonly now: Date;
+  readonly eventFreshness: EventFreshness;
+  readonly maxAgeMinutes?: number;
+}): boolean {
+  // Un événement sans observation récente n'a rien à recalculer : son snapshot
+  // reste valide indéfiniment.
+  if (params.eventFreshness !== 'new' && params.eventFreshness !== 'recent') {
+    return false;
+  }
+
+  const maxAge = (params.maxAgeMinutes ?? 60) * MINUTE_MS;
+  return params.now.getTime() - params.generatedAt.getTime() >= maxAge;
+}
+
 /** Âge d'une donnée en millisecondes, jamais négatif. */
 export function dataAgeMs(dataAt: Date, now: Date): number {
   return Math.max(0, now.getTime() - dataAt.getTime());
