@@ -355,6 +355,88 @@ export async function fetchEventView(publicId: string): Promise<EventView | null
   };
 }
 
+/** Résumé d'événement pour la carte et la liste textuelle. */
+export interface FireSummary {
+  publicId: string;
+  freshnessStatus: EventFreshness;
+  verificationStatus: VerificationStatus;
+  officialControlStatus: OfficialControlStatus | null;
+  firstDetectedAt: Date;
+  lastDetectedAt: Date;
+  location: { longitude: number; latitude: number };
+  detectionCount: number;
+  confidenceLevel: ConfidenceLevel;
+  nearestMunicipality: { insee: string; name: string } | null;
+}
+
+export interface BoundingBox {
+  minLon: number;
+  minLat: number;
+  maxLon: number;
+  maxLat: number;
+}
+
+/**
+ * Événements d'une emprise. Cahier FR-007 et §15.4.
+ *
+ * L'emprise est obligatoire : servir la France entière en un appel irait contre
+ * la règle « ne charger que les données nécessaires à l'emprise visible », et
+ * deviendrait intenable dès qu'une saison chargée aura rempli la base.
+ */
+export async function fetchFiresInBbox(
+  bbox: BoundingBox,
+  options: { since?: Date; limit?: number } = {},
+): Promise<FireSummary[]> {
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase.rpc('fires_in_bbox', {
+    min_lon: bbox.minLon,
+    min_lat: bbox.minLat,
+    max_lon: bbox.maxLon,
+    max_lat: bbox.maxLat,
+    since: options.since?.toISOString() ?? null,
+    max_results: options.limit ?? 200,
+  });
+
+  if (error !== null) {
+    console.error('[events] lecture par emprise impossible', {
+      code: error.code,
+      message: error.message,
+    });
+    return [];
+  }
+
+  type Row = {
+    public_id: string;
+    freshness_status: EventFreshness;
+    verification_status: VerificationStatus;
+    official_control_status: OfficialControlStatus | null;
+    first_detected_at: string;
+    last_detected_at: string;
+    longitude: number;
+    latitude: number;
+    detection_count: number;
+    confidence_level: ConfidenceLevel;
+    nearest_municipality_code: string | null;
+    nearest_municipality_name: string | null;
+  };
+
+  return ((data ?? []) as Row[]).map((row) => ({
+    publicId: row.public_id,
+    freshnessStatus: row.freshness_status,
+    verificationStatus: row.verification_status,
+    officialControlStatus: row.official_control_status,
+    firstDetectedAt: new Date(row.first_detected_at),
+    lastDetectedAt: new Date(row.last_detected_at),
+    location: { longitude: row.longitude, latitude: row.latitude },
+    detectionCount: row.detection_count,
+    confidenceLevel: row.confidence_level,
+    nearestMunicipality:
+      row.nearest_municipality_code === null || row.nearest_municipality_name === null
+        ? null
+        : { insee: row.nearest_municipality_code, name: row.nearest_municipality_name },
+  }));
+}
+
 export async function fetchEventDetections(
   publicId: string,
   limit = 500,

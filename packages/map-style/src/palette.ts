@@ -59,3 +59,46 @@ export const SYMBOLS = {
 /** Motif de remplissage du panache : contour pointillé, jamais plein opaque. */
 export const SMOKE_FILL_OPACITY = 0.18;
 export const SMOKE_OUTLINE_DASH: readonly [number, number] = [2, 2];
+
+/**
+ * Expression MapLibre coloriant un événement selon sa fraîcheur technique.
+ *
+ * Écrite ici plutôt que dans le composant : la correspondance entre un statut
+ * et une couleur est une règle du système visuel (§8.2), pas un détail de
+ * rendu. Elle doit rester identique entre la carte, la légende et tout futur
+ * export.
+ */
+export const FRESHNESS_COLOR_EXPRESSION = [
+  'match',
+  ['get', 'freshness'],
+  'new',
+  PALETTE.thermal.new,
+  'recent',
+  PALETTE.thermal.recent,
+  'not_recent',
+  PALETTE.thermal.notRecent,
+  'archived',
+  PALETTE.thermal.archived,
+  PALETTE.neutral.muted,
+] as const;
+
+/**
+ * Rayon d'un marqueur selon le nombre de détections.
+ *
+ * La taille suit le nombre d'observations, **pas** la surface ni la gravité du
+ * phénomène, que nous ne connaissons pas. La légende doit le dire, faute de
+ * quoi un gros cercle se lira comme un gros feu (FR-049).
+ */
+export const DETECTION_COUNT_RADIUS_EXPRESSION = [
+  'interpolate',
+  ['linear'],
+  ['get', 'detectionCount'],
+  1,
+  5,
+  10,
+  9,
+  50,
+  14,
+  500,
+  20,
+] as const;
