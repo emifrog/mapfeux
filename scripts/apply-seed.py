@@ -80,7 +80,8 @@ def main(argv: list[str]) -> None:
                 ("détections", "select count(*) from fire.detections"),
             ):
                 cur.execute(query)
-                print(f"  {label:<14} {cur.fetchone()[0]}")
+                row = cur.fetchone()
+                print(f"  {label:<14} {'?' if row is None else row[0]}")
 
 
 if __name__ == "__main__":

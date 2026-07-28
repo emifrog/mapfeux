@@ -27,7 +27,7 @@ Supabase doit être consignée ici et validée **avant** implémentation.
 | [ADR-015](015-partitionnement-des-detections.md) | Partitionnement de `fire.detections` dès l'origine | accepté |
 | [ADR-016](016-file-de-taches-postgresql.md) | File de tâches PostgreSQL au lieu de Celery et Redis | accepté, réversible |
 | [ADR-017](017-source-des-limites-communales.md) | Source des limites communales pour le pilote | accepté, à réexaminer avant l'ouverture nationale |
-| ADR-018 | Ordonnancement des tâches — réexamen d'ADR-016 | réservé, [décision ouverte](../strategie.md#81-ordonnancement--revenir-à-celery-et-redis) |
+| ADR-018 | Ordonnancement des tâches — réexamen d'ADR-016 | sans objet : ADR-016 confirmé, [décision tranchée](../strategie.md#81-ordonnancement--tranché-le-28-juillet-2026) |
 | ADR-019 | Tuiles vectorielles PMTiles, sans GeoJSON national en direct | réservé, à rédiger en J3 |
 | ADR-020 | Hébergement en région UE, front et base, sous-traitants documentés | réservé |
 | ADR-021 | Préfixe d'identifiant public, figé avant la première URL | réservé, [décision ouverte](../strategie.md#84-préfixe-didentifiant-public) |

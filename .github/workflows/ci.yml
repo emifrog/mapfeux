@@ -76,6 +76,19 @@ jobs:
       - name: Tests
         run: pytest
 
+      # `scripts/` échappait entièrement à la CI : ruff y appliquait ses règles
+      # par défaut faute de configuration à la racine, et mypy ne le voyait pas.
+      # C'est pourtant le code qui manipule la chaîne de connexion et compose du
+      # SQL. `ruff.toml` à la racine lui donne les mêmes règles que le worker.
+      - name: Lint et types des scripts
+        working-directory: .
+        env:
+          MYPYPATH: services/geo-worker/src
+        run: |
+          ruff check scripts
+          ruff format --check scripts
+          mypy --config-file services/geo-worker/pyproject.toml scripts
+
   migrations:
     name: Migrations Supabase
     runs-on: ubuntu-latest

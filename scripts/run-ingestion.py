@@ -29,6 +29,7 @@ from __future__ import annotations
 import pathlib
 import sys
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 import psycopg
@@ -36,7 +37,7 @@ import psycopg
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
-from geo_worker.db import dsn_from_env_file, exclusive_run, read_env_file
+from geo_worker.db import dsn_from_env_file, exclusive_run, load_env
 from geo_worker.pipelines.clustering import (
     cluster_detections,
 )
@@ -72,13 +73,11 @@ def parse_bbox(argv: list[str]) -> BoundingBox:
     parts = [float(p) for p in argv[index + 1].split(",")]
     if len(parts) != 4:
         sys.exit("--bbox attend quatre valeurs séparées par des virgules.")
-    return BoundingBox(
-        min_lon=parts[0], min_lat=parts[1], max_lon=parts[2], max_lat=parts[3]
-    )
+    return BoundingBox(min_lon=parts[0], min_lat=parts[1], max_lon=parts[2], max_lat=parts[3])
 
 
 def step_import(
-    conn: psycopg.Connection[object],
+    conn: psycopg.Connection[Any],
     client: httpx.Client,
     map_key: str,
     bbox: BoundingBox,
@@ -90,9 +89,7 @@ def step_import(
 
     for product in DEFAULT_PRODUCTS:
         try:
-            with import_run(
-                conn, source_key="firms", job_name=f"detections:{product}"
-            ) as counters:
+            with import_run(conn, source_key="firms", job_name=f"detections:{product}") as counters:
                 body = firms.fetch_area(product=product, bbox=bbox, day_range=1)
                 detections, rejections = parse_csv(body, product=product)
                 unique = list(deduplicate(detections))
@@ -116,10 +113,7 @@ def step_import(
         except FirmsQuotaError as exc:
             failures += 1
             delay = exc.retry_after_seconds
-            print(
-                f"  {product} : quota atteint"
-                + (f", réessayer dans {delay} s" if delay else "")
-            )
+            print(f"  {product} : quota atteint" + (f", réessayer dans {delay} s" if delay else ""))
         except (FirmsUnavailableError, ImportRunError) as exc:
             failures += 1
             print(f"  {product} : {exc}")
@@ -129,12 +123,12 @@ def step_import(
 
 def main(argv: list[str]) -> int:
     bbox = parse_bbox(argv)
-    env = read_env_file(ENV_FILE)
+    env = load_env(ENV_FILE)
 
     map_key = env.get("FIRMS_MAP_KEY", "")
     if map_key == "":
         sys.exit(
-            "FIRMS_MAP_KEY absente de services/geo-worker/.env.\n"
+            "FIRMS_MAP_KEY absente du fichier et de l'environnement.\n"
             "Clé gratuite : https://firms.modaps.eosdis.nasa.gov/api/map_key/"
         )
 

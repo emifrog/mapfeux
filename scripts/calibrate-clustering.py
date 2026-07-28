@@ -16,7 +16,7 @@ symétriques :
   décrit un phénomène qui n'a jamais existé — la faute la plus grave, puisqu'elle
   est invisible sans vérification terrain.
 
-Par défaut le balayage est **croisé** : rayon × fenêtre × seuil. Une première
+Par défaut le balayage est **croisé** : rayon, fenêtre et seuil combinés. Une première
 version ne faisait varier qu'un paramètre à la fois, parce qu'un jeu coûtait
 deux minutes. Elle avait montré des résultats non monotones, que des variations
 isolées ne permettaient pas d'expliquer : on ne voit pas une interaction en
@@ -38,6 +38,7 @@ import csv
 import pathlib
 import sys
 import time
+from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
@@ -142,7 +143,7 @@ from e
 """
 
 
-def clear(conn: psycopg.Connection[object]) -> None:
+def clear(conn: psycopg.Connection[Any]) -> None:
     """Supprime les événements algorithmiques, jamais les décisions humaines."""
     with conn.cursor() as cur:
         cur.execute(
@@ -158,14 +159,14 @@ def clear(conn: psycopg.Connection[object]) -> None:
     conn.commit()
 
 
-def measure(conn: psycopg.Connection[object], version: str) -> dict[str, object]:
+def measure(conn: psycopg.Connection[Any], version: str) -> dict[str, Any]:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(METRICS_SQL, {"version": version})
         row = cur.fetchone()
     return dict(row or {})
 
 
-def percent(part: object, whole: object) -> int:
+def percent(part: Any, whole: Any) -> int:
     total = int(whole or 0)
     return 0 if total == 0 else round(100 * int(part or 0) / total)
 
@@ -184,7 +185,7 @@ def main(argv: list[str]) -> int:
     print(header, flush=True)
     print("-" * len(header), flush=True)
 
-    rows: list[dict[str, object]] = []
+    rows: list[dict[str, Any]] = []
 
     with psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn:
         try:
@@ -210,19 +211,17 @@ def main(argv: list[str]) -> int:
     return 0
 
 
-def restore(conn: psycopg.Connection[object]) -> None:
+def restore(conn: psycopg.Connection[Any]) -> None:
     clear(conn)
     cluster_detections(conn, params=ClusteringParams())
     conn.commit()
-    print(
-        "\nBase restaurée avec les paramètres de référence (grouping-v1).", flush=True
-    )
+    print("\nBase restaurée avec les paramètres de référence (grouping-v1).", flush=True)
 
 
 def sweep(
-    conn: psycopg.Connection[object],
+    conn: psycopg.Connection[Any],
     grid: list[ClusteringParams],
-    rows: list[dict[str, object]],
+    rows: list[dict[str, Any]],
 ) -> None:
     for params in grid:
         clear(conn)

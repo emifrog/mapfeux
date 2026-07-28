@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+from typing import Any
 
 import psycopg
 
@@ -38,7 +39,7 @@ def read_dsn() -> str:
     return dsn_from_env_file(ENV_FILE)
 
 
-def reset(conn: psycopg.Connection[object], version: str) -> int:
+def reset(conn: psycopg.Connection[Any], version: str) -> int:
     """Supprime les événements issus de l'algorithme, et eux seuls."""
     with conn.cursor() as cur:
         cur.execute(

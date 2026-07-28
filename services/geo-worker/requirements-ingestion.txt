@@ -1,0 +1,21 @@
+# Dépendances de la seule chaîne d'ingestion — cahier §16.1, ADR-014.
+#
+# `environment.yml` reste la référence pour le développement et la CI : il
+# décrit l'environnement complet, ecCodes et GDAL compris, qui n'existent en
+# binaires fiables que sur conda-forge.
+#
+# L'ingestion n'a besoin d'aucun de ces deux-là. Elle lit du CSV, écrit en base
+# et calcule des distances. Restaurer un environnement conda d'un gigaoctet
+# toutes les dix minutes — cent quarante-quatre fois par jour — userait le cache
+# du dépôt pour rien ; six roues PyPI s'installent en une trentaine de secondes.
+#
+# Les versions sont bornées par majeure : une tâche planifiée qui se met à
+# échouer parce qu'une dépendance a changé de comportement pendant la nuit est
+# le contraire de ce qu'on attend d'une chaîne de fraîcheur.
+
+httpx>=0.28,<1.0
+psycopg[binary]>=3.2,<4.0
+numpy>=2.1,<3.0
+scipy>=1.14,<2.0
+pyproj>=3.7,<4.0
+structlog>=25.1,<26.0

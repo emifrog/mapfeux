@@ -232,16 +232,50 @@ Le projet s'arrête ou change de forme si :
 À trancher explicitement. Tant qu'elles ne le sont pas, le plan d'exécution les
 signale comme bloquantes pour le jalon concerné.
 
-### 8.1 Ordonnancement : revenir à Celery et Redis ?
+### 8.1 Ordonnancement — tranché le 28 juillet 2026
 
-[ADR-016](adr/016-file-de-taches-postgresql.md) a retiré Celery et Redis du MVP,
-conséquence de [ADR-014](adr/014-environnement-sans-docker.md) : Redis n'a pas
-de build natif Windows. Réintroduire Celery suppose donc de réintroduire Docker,
-ou de déporter le développement du worker sur une machine Linux.
+**La question était mal posée.** Elle demandait « faut-il revenir à Celery et
+Redis ? », alors que le besoin réel est un **déclencheur**, pas un ordonnanceur
+de tâches. Les trois services que Celery et Redis rendent sont déjà rendus, et
+mieux :
 
-Les deux options se défendent. L'ambiguïté, non : le plan ne peut pas décrire un
-« service Python conteneurisé, FastAPI, Celery, Redis » pendant que le dépôt
-tourne sans aucun des trois.
+| besoin | réponse retenue |
+|---|---|
+| exclusion mutuelle | `pg_advisory_lock` de session, plus l'index partiel `import_runs_single_running` |
+| file de tâches | table PostgreSQL, `for update skip locked` ([ADR-016](adr/016-file-de-taches-postgresql.md)) |
+| débit | sans objet : la chaîne complète met six secondes, FIRMS publie toutes les six heures |
+
+L'argument décisif est transactionnel et il ne joue pas en faveur de Redis :
+l'insertion d'une tâche et l'écriture des données qui la motivent partagent la
+même transaction. Avec Redis, un `commit` réussi suivi d'un `enqueue` échoué
+perd la tâche en silence. Sur un service qui promet une fraîcheur, une tâche
+perdue sans trace est le pire mode de panne possible.
+
+Les seuils de réexamen d'ADR-016 — plus d'une instance de worker, une minute
+d'attente en file, cent panaches recalculés simultanément — ne sont approchés
+par aucune mesure.
+
+**Décision** : le déclenchement passe par un workflow GitHub Actions planifié
+(`.github/workflows/ingestion.yml`), toutes les dix minutes, appelant
+`scripts/run-ingestion.py`. Rien à installer, rien à redémarrer, et la tâche
+survit à l'extinction du poste de développement.
+
+Deux contraintes ont dicté la forme :
+
+- la connexion directe Supabase ne résout **qu'en IPv6**, dont les runners
+  GitHub ne disposent pas. Le workflow passe donc par le pooler **en mode
+  session**, port 5432 — le mode transaction, port 6543, casserait le verrou,
+  qui est un verrou de session ;
+- la chaîne de connexion vit chez un tiers, donc elle ne porte pas `postgres`.
+  Un rôle `mapfeux_ingest` la restreint à ce que fait l'ingestion : il ne peut
+  lire ni l'administration, ni l'audit, ni les messages officiels, et n'a aucun
+  droit d'effacement. `scripts/verify-ingestion-role.py` rend ce périmètre
+  vérifiable à tout moment.
+
+Le déclencheur est **remplaçable en une ligne**, puisque la file, le
+verrouillage et l'idempotence vivent en base : cron, tâche planifiée Windows,
+minuterie systemd ou APScheduler appellent le même point d'entrée. C'est ce qui
+rend la décision peu coûteuse à défaire.
 
 ### 8.2 Calendrier et saison
 

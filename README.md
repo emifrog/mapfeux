@@ -114,6 +114,62 @@ depuis l'éditeur SQL du tableau de bord.
 > Encoder le mot de passe en pourcent : `@` devient `%40`. Le script
 > `apply-seed.py` le fait automatiquement.
 
+### Ingestion planifiée — à faire une fois
+
+La chaîne d'ingestion tourne toutes les dix minutes via GitHub Actions
+(`.github/workflows/ingestion.yml`). Tant que ces trois étapes ne sont pas
+faites, elle échoue à chaque déclenchement et la fraîcheur affichée sur le site
+reste celle du dernier lancement manuel.
+
+**1. Créer le rôle d'ingestion et lui poser un mot de passe.**
+
+La migration `20260728160000_ingestion_role.sql` crée `mapfeux_ingest` avec les
+seuls droits de la chaîne. Elle ne contient **aucun** mot de passe : une
+migration est versionnée, donc publiée. Sans mot de passe, le rôle ne peut pas
+s'authentifier — l'état par défaut est le plus sûr.
+
+Après `pnpm db:push`, dans l'éditeur SQL du tableau de bord, avec une valeur
+longue engendrée aléatoirement et jamais réutilisée :
+
+```sql
+alter role mapfeux_ingest password 'valeur-longue-et-aleatoire';
+```
+
+Le périmètre du rôle se contrôle à tout moment, sans rien modifier :
+
+```bash
+micromamba run -n mapfeux-geo python scripts/verify-ingestion-role.py
+```
+
+**2. Construire la chaîne de connexion du pooler.**
+
+Tableau de bord → Connect → **Session pooler**. Prendre cette forme, et non la
+connexion directe : celle-ci ne résout qu'en IPv6, dont les runners GitHub ne
+disposent pas. Et le pooler en mode *transaction* (port 6543) casserait le
+verrou d'exécution, qui est un verrou de session.
+
+Dans la chaîne obtenue, remplacer `postgres.<ref>` par `mapfeux_ingest.<ref>` et
+le mot de passe par celui posé à l'étape 1 :
+
+```
+postgresql://mapfeux_ingest.<ref>:<mot-de-passe>@aws-0-<région>.pooler.supabase.com:5432/postgres
+```
+
+**3. Déclarer les secrets du dépôt.**
+
+Settings → Secrets and variables → Actions :
+
+| Secret | Contenu |
+|---|---|
+| `INGESTION_DATABASE_URL` | la chaîne de l'étape 2 |
+| `FIRMS_MAP_KEY` | la clé NASA FIRMS |
+
+Puis déclencher une fois à la main — onglet Actions, workflow « Ingestion »,
+*Run workflow* — pour vérifier avant d'attendre le créneau suivant.
+
+> GitHub désactive les workflows planifiés après soixante jours sans activité
+> sur le dépôt, et ne les déclenche que depuis la branche par défaut.
+
 ## Commandes
 
 | Commande | Effet |

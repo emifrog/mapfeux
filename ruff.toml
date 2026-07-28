@@ -1,0 +1,34 @@
+# Configuration Ruff pour le Python hors du worker — essentiellement `scripts/`.
+#
+# Sans ce fichier, ruff appliquait à `scripts/` ses règles par défaut, bien plus
+# permissives que celles du worker : ni bandit, ni interdiction des dates
+# naïves, ni bugbear. Or ces scripts manipulent la chaîne de connexion,
+# composent du SQL et écrivent en base — c'est le code qui mérite le moins d'être
+# relâché.
+#
+# `services/geo-worker/pyproject.toml` garde sa propre configuration : ruff
+# retient toujours le fichier le plus proche.
+
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = [
+  "E",    # pycodestyle
+  "F",    # pyflakes
+  "I",    # isort
+  "N",    # pep8-naming
+  "UP",   # pyupgrade
+  "B",    # bugbear
+  "ASYNC",
+  "S",    # bandit
+  "DTZ",  # dates naïves interdites — toutes les heures sont en UTC (FR-032)
+  "RUF",
+]
+
+[lint.per-file-ignores]
+# E402 : chaque script insère `services/geo-worker/src` dans le chemin de
+# recherche avant d'importer `geo_worker`. L'import ne *peut pas* précéder cet
+# amorçage. L'alternative serait d'installer le paquet en mode éditable, ce que
+# la CI et les recréations d'environnement rendraient fragile.
+"scripts/*.py" = ["E402"]

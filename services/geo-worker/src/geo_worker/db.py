@@ -12,6 +12,7 @@ cause. Une seule implémentation, testée, ferme le sujet.
 from __future__ import annotations
 
 import hashlib
+import os
 import pathlib
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -114,12 +115,34 @@ def read_env_file(path: pathlib.Path) -> dict[str, str]:
     return values
 
 
+def load_env(path: pathlib.Path) -> dict[str, str]:
+    """Configuration effective : le fichier, surclassé par l'environnement.
+
+    Sur un poste de développement la configuration vit dans un fichier ; chez un
+    ordonnanceur elle vient de variables, et aucun fichier n'existe. Exiger l'un
+    ou l'autre obligerait à écrire un `.env` à la volée en CI, c'est-à-dire à
+    poser un secret sur le disque d'un runner partagé pour le relire aussitôt.
+
+    L'environnement l'emporte, ce qui est l'ordre habituel : on surcharge une
+    valeur le temps d'une commande sans éditer le fichier, et l'absence de
+    fichier n'est pas une erreur.
+    """
+    values: dict[str, str] = {}
+    if path.exists():
+        values.update(read_env_file(path))
+    values.update(os.environ)
+    return values
+
+
 def dsn_from_env_file(path: pathlib.Path) -> str:
-    """Chaîne de connexion prête à l'emploi, lue depuis un fichier .env."""
-    values = read_env_file(path)
-    raw = values.get("DATABASE_URL", "")
+    """Chaîne de connexion prête à l'emploi."""
+    raw = load_env(path).get("DATABASE_URL", "")
     if raw == "":
-        raise DsnError(f"DATABASE_URL absente de {path}")
+        raise DsnError(
+            f"DATABASE_URL absente de {path} et de l'environnement.\n"
+            "Sur un poste de développement, la renseigner dans le fichier ; "
+            "chez un ordonnanceur, la passer en variable."
+        )
     return normalise_dsn(raw)
 
 
@@ -128,6 +151,7 @@ __all__ = [
     "advisory_key",
     "dsn_from_env_file",
     "exclusive_run",
+    "load_env",
     "normalise_dsn",
     "read_env_file",
 ]

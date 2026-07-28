@@ -54,9 +54,7 @@ def main(departments: list[str]) -> int:
             with import_run(
                 conn, source_key=PROVIDER_KEY, job_name=f"municipalities:{department}"
             ) as counters:
-                boundaries, rejections = provider.fetch_municipalities(
-                    department, version
-                )
+                boundaries, rejections = provider.fetch_municipalities(department, version)
                 counters.records_read = len(boundaries) + len(rejections)
                 counters.records_rejected = len(rejections)
 
@@ -69,9 +67,7 @@ def main(departments: list[str]) -> int:
                         f"Aucune commune retournée pour le département {department}",
                     )
 
-                result = import_department(
-                    conn, department_code=department, boundaries=boundaries
-                )
+                result = import_department(conn, department_code=department, boundaries=boundaries)
                 conn.commit()
 
                 counters.records_inserted = result.inserted

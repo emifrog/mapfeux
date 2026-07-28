@@ -2,7 +2,8 @@
 
 Usage :
     micromamba run -n mapfeux-geo python scripts/inspect-clustering.py
-    micromamba run -n mapfeux-geo python scripts/inspect-clustering.py --radius 1000 --window 48 --score 0.50
+    micromamba run -n mapfeux-geo python scripts/inspect-clustering.py \
+        --radius 1000 --window 48 --score 0.50
 
 Référence : cahier §17.2.
 
@@ -25,6 +26,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
@@ -87,7 +89,7 @@ def option(argv: list[str], name: str, fallback: float) -> float:
     return float(argv[index + 1])
 
 
-def clear(conn: psycopg.Connection[object], version: str) -> None:
+def clear(conn: psycopg.Connection[Any], version: str) -> None:
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -103,7 +105,7 @@ def clear(conn: psycopg.Connection[object], version: str) -> None:
     conn.commit()
 
 
-def restore(conn: psycopg.Connection[object]) -> None:
+def restore(conn: psycopg.Connection[Any]) -> None:
     reference = ClusteringParams()
     clear(conn, INSPECTION_VERSION)
     clear(conn, reference.version)
@@ -111,9 +113,7 @@ def restore(conn: psycopg.Connection[object]) -> None:
     conn.commit()
 
 
-def inspect(
-    conn: psycopg.Connection[object], params: ClusteringParams, top: int
-) -> None:
+def inspect(conn: psycopg.Connection[Any], params: ClusteringParams, top: int) -> None:
     clear(conn, INSPECTION_VERSION)
     clear(conn, ClusteringParams().version)
     cluster_detections(conn, params=params)

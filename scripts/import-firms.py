@@ -98,9 +98,7 @@ def parse_args(argv: list[str]) -> tuple[int, int, BoundingBox]:
         parts = [float(p) for p in raw_bbox.split(",")]
         if len(parts) != 4:
             sys.exit("--bbox attend quatre valeurs séparées par des virgules.")
-        bbox = BoundingBox(
-            min_lon=parts[0], min_lat=parts[1], max_lon=parts[2], max_lat=parts[3]
-        )
+        bbox = BoundingBox(min_lon=parts[0], min_lat=parts[1], max_lon=parts[2], max_lat=parts[3])
 
     if history > 0:
         days = MAX_DAY_RANGE
@@ -178,16 +176,12 @@ def main(argv: list[str]) -> int:
                             # Une tranche hors de la fenêtre disponible ou en
                             # erreur ne doit pas faire perdre les autres : le
                             # rejet est isolé et compté (§16.2).
-                            print(
-                                f"  tranche {start.date() if start else 'courante'} : {exc}"
-                            )
+                            print(f"  tranche {start.date() if start else 'courante'} : {exc}")
                             counters.records_rejected += 1
                             continue
 
                         # Archivage avant analyse. §16.1, étape 6.
-                        label = (
-                            product if start is None else f"{product}_{start.date()}"
-                        )
+                        label = product if start is None else f"{product}_{start.date()}"
                         path, checksum = archive(label, body, stamp)
                         counters.artifact_path = str(path.relative_to(ROOT))
                         counters.checksum = checksum
@@ -212,9 +206,7 @@ def main(argv: list[str]) -> int:
                         product_known += inserted.already_known
 
                         chunk_latest = most_recent_acquisition(unique)
-                        if chunk_latest is not None and (
-                            latest is None or chunk_latest > latest
-                        ):
+                        if chunk_latest is not None and (latest is None or chunk_latest > latest):
                             latest = chunk_latest
 
                     counters.records_inserted = product_inserted
@@ -232,8 +224,7 @@ def main(argv: list[str]) -> int:
 
                     total_inserted += product_inserted
                     print(
-                        f"{product:<20} {product_inserted} nouvelles, "
-                        f"{product_known} déjà connues"
+                        f"{product:<20} {product_inserted} nouvelles, {product_known} déjà connues"
                     )
 
             except FirmsQuotaError as exc:
@@ -251,13 +242,9 @@ def main(argv: list[str]) -> int:
             classified = mark_known_thermal_sources(conn)
             conn.commit()
             if classified > 0:
-                print(
-                    f"\n{classified} détection(s) rattachée(s) à une source thermique connue."
-                )
+                print(f"\n{classified} détection(s) rattachée(s) à une source thermique connue.")
 
-    print(
-        f"\n{total_inserted} détection(s) insérée(s), {failures} produit(s) en échec."
-    )
+    print(f"\n{total_inserted} détection(s) insérée(s), {failures} produit(s) en échec.")
     # Un échec partiel n'est pas un succès : le code de sortie doit le dire à
     # l'ordonnanceur.
     return 1 if failures == len(DEFAULT_PRODUCTS) else 0

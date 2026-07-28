@@ -1,0 +1,93 @@
+# =============================================================================
+# Ingestion planifiée — cahier §16.1 et §16.8, ADR-016.
+#
+# La fraîcheur est ce que ce service promet. Tant que la chaîne se lance à la
+# main, le site affiche un âge de donnée exact et mauvais.
+#
+# GitHub Actions plutôt qu'un serveur : il n'y a rien à tenir, rien à
+# redémarrer, et la tâche survit à l'extinction du poste de développement. Le
+# décalage de déclenchement — GitHub annonce cinq à quinze minutes sous charge —
+# est sans portée face à une donnée dont la latence propre est de trois heures.
+#
+# ## Ce que ce workflow n'est pas
+#
+# Ce n'est pas un ordonnanceur de tâches. C'est un déclencheur. La file, le
+# verrouillage et l'idempotence vivent en base (ADR-016), ce qui rend le
+# déclencheur remplaçable en une ligne : cron, tâche planifiée Windows, minuterie
+# systemd ou APScheduler appellent le même point d'entrée.
+#
+# ## Coût
+#
+# Nul : les minutes Actions sont illimitées sur un dépôt public, et celui-ci
+# l'est. La cadence suit donc le cahier §16.8, dix minutes.
+#
+# Si le dépôt passait en privé, le calcul changerait du tout au tout : une
+# exécution occupe environ une minute, facturée à la minute entière, soit ~144
+# par jour et ~4 300 par mois contre 2 000 offertes. Il faudrait alors espacer à
+# `0 * * * *` (~720 min/mois), ce qui resterait suffisant — FIRMS publie toutes
+# les six heures environ, et sa latence propre est de trois heures.
+#
+# ## Prérequis
+#
+# Deux secrets de dépôt, et une migration appliquée :
+#
+# - `INGESTION_DATABASE_URL` — chaîne du **pooler en mode session**, port 5432,
+#   avec le rôle `mapfeux_ingest`. Deux raisons de ne pas prendre la connexion
+#   directe : elle ne résout qu'en IPv6, dont les runners GitHub ne disposent
+#   pas, et le pooler en mode *transaction* (port 6543) casserait le verrou
+#   d'exécution, qui est un verrou de session.
+# - `FIRMS_MAP_KEY` — clé NASA FIRMS.
+# - `supabase/migrations/20260728160000_ingestion_role.sql` appliquée, et le mot
+#   de passe du rôle posé à la main. Voir l'en-tête de ce fichier.
+#
+# ⚠️ GitHub désactive les workflows planifiés après soixante jours sans activité
+# sur le dépôt, et ne les déclenche que depuis la branche par défaut.
+# =============================================================================
+
+name: Ingestion
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+# Le verrou en base empêche déjà deux passes de se marcher dessus ; ceci évite
+# d'en payer une pour rien. `cancel-in-progress: false` parce qu'une ingestion
+# à moitié faite vaut mieux qu'une ingestion interrompue : les étapes valident
+# au fur et à mesure.
+concurrency:
+  group: ingestion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    name: Import, regroupement, instantanés
+    runs-on: ubuntu-latest
+    # Une passe normale tient en une minute. Au-delà de dix, quelque chose ne
+    # répond pas, et il vaut mieux échouer que retenir le créneau suivant.
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/geo-worker/requirements-ingestion.txt
+
+      # `environment.yml` n'est pas utilisé ici : voir requirements-ingestion.txt.
+      - name: Dépendances
+        run: pip install -r services/geo-worker/requirements-ingestion.txt
+
+      # Le code de sortie ne vaut 1 que si *tous* les produits ont échoué. Un
+      # capteur indisponible ne doit pas faire rougir la tâche toutes les nuits,
+      # sans quoi l'alerte devient un bruit qu'on cesse de lire.
+      - name: Ingestion
+        env:
+          DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+        run: python scripts/run-ingestion.py

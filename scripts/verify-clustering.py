@@ -27,6 +27,7 @@ import hashlib
 import pathlib
 import sys
 import time
+from typing import Any
 
 import psycopg
 
@@ -39,7 +40,7 @@ from geo_worker.pipelines.clustering import ClusteringParams, cluster_detections
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
 
 
-def signature(conn: psycopg.Connection[object]) -> tuple[str, int, int]:
+def signature(conn: psycopg.Connection[Any]) -> tuple[str, int, int]:
     """Empreinte du partitionnement, nombre d'événements, nombre de membres."""
     with conn.cursor() as cur:
         cur.execute(
@@ -55,9 +56,7 @@ def signature(conn: psycopg.Connection[object]) -> tuple[str, int, int]:
 
     groups: dict[object, list[str]] = {}
     for event_id, provider_key, acquired_at in rows:
-        groups.setdefault(event_id, []).append(
-            f"{provider_key}@{acquired_at.isoformat()}"
-        )
+        groups.setdefault(event_id, []).append(f"{provider_key}@{acquired_at.isoformat()}")
 
     # Chaque groupe est trié en interne, puis les groupes sont triés entre eux
     # par leur contenu : l'empreinte ne dépend ni de l'ordre de lecture, ni des
@@ -67,7 +66,7 @@ def signature(conn: psycopg.Connection[object]) -> tuple[str, int, int]:
     return digest, len(groups), len(rows)
 
 
-def reset(conn: psycopg.Connection[object], version: str) -> int:
+def reset(conn: psycopg.Connection[Any], version: str) -> int:
     """Supprime les seuls événements produits par l'algorithme (§17.7)."""
     with conn.cursor() as cur:
         cur.execute(
@@ -87,7 +86,7 @@ def reset(conn: psycopg.Connection[object], version: str) -> int:
 
 
 def replay(
-    conn: psycopg.Connection[object], params: ClusteringParams, chunk: int | None
+    conn: psycopg.Connection[Any], params: ClusteringParams, chunk: int | None
 ) -> tuple[int, int, float]:
     """Rejoue le regroupement, en une passe ou par tranches.
 
@@ -127,9 +126,7 @@ def main(argv: list[str]) -> int:
 
     with psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn:
         before, events_before, members_before = signature(conn)
-        print(
-            f"avant   : {before}  {events_before} événement(s), {members_before} membre(s)"
-        )
+        print(f"avant   : {before}  {events_before} événement(s), {members_before} membre(s)")
 
         if "--recompute" not in argv and chunk is None:
             print("\n--recompute pour rejouer le regroupement et comparer.")
@@ -145,9 +142,7 @@ def main(argv: list[str]) -> int:
         created, attached, elapsed = replay(conn, params, chunk)
 
         after, events_after, members_after = signature(conn)
-        print(
-            f"\naprès   : {after}  {events_after} événement(s), {members_after} membre(s)"
-        )
+        print(f"\naprès   : {after}  {events_after} événement(s), {members_after} membre(s)")
         print(f"recalcul: {created} créé(s), {attached} rattaché(s), {elapsed:.1f} s")
 
         if before != after:

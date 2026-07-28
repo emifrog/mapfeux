@@ -76,15 +76,12 @@ chaînage de l'algorithme.
 
 ## 2. Prochaine action
 
-**Déclencher l'ingestion automatiquement.** La chaîne complète tourne en une
-commande et le regroupement par tranches donne le même résultat qu'un recalcul
-en bloc — la propriété qui autorisait à planifier. Il n'y a plus d'obstacle
-technique, seulement une décision : où tourne l'ordonnanceur. Tant qu'elle
-n'est pas prise, le site affiche une fraîcheur exacte et mauvaise, puisque la
-donnée n'est rafraîchie que quand quelqu'un lance le script à la main.
-
-C'est la [décision ouverte §8.1](strategie.md#8-décisions-ouvertes), et elle
-n'est plus reportable : la fraîcheur est ce que le produit promet.
+**Mettre l'ingestion planifiée en service** — trois étapes de votre côté,
+détaillées au [README](../README.md#ingestion-planifiée--à-faire-une-fois) :
+appliquer les migrations, poser le mot de passe du rôle `mapfeux_ingest`,
+déclarer les deux secrets du dépôt. Le workflow est écrit et le périmètre du
+rôle vérifié ; tant que ces étapes manquent, le site affiche une fraîcheur
+exacte et mauvaise.
 
 Le chantier suivant est **la couverture nationale** : géométries des
 départements, agrégation à petite échelle, tuiles PMTiles. Aujourd'hui seuls le
@@ -227,9 +224,10 @@ sans provenance ni horodatage.
 
 ### Reste ⬜
 
-- ⬜ Planification toutes les dix minutes — le point d'entrée existe et se
-  protège du recouvrement ; il reste à le déclencher, ce qui suppose de trancher
-  [§8.1](strategie.md#8-décisions-ouvertes)
+- 🟢 Planification toutes les dix minutes — workflow GitHub Actions, rôle
+  `mapfeux_ingest` restreint, périmètre vérifié par 23 sondes. En attente des
+  trois étapes de mise en service décrites au README : appliquer la migration,
+  poser le mot de passe du rôle, déclarer les deux secrets
 - ⬜ Déplacer les fichiers bruts vers Storage — ils sont aujourd'hui sur le
   disque local, sans rétention
 - ✅ Algorithme de rattachement déterministe, paramètres versionnés (§17.2) —
