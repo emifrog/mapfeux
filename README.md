@@ -164,6 +164,24 @@ Settings → Secrets and variables → Actions :
 | `INGESTION_DATABASE_URL` | la chaîne de l'étape 2 |
 | `FIRMS_MAP_KEY` | la clé NASA FIRMS |
 
+**4. Éprouver les identifiants avant de brancher l'ordonnanceur.**
+
+Une tâche planifiée qui échoue sur un identifiant invalide échoue en silence
+toutes les dix minutes : personne ne regarde un onglet Actions, et le site
+continue d'afficher un âge de donnée qui grandit sans que rien ne le signale.
+
+En ajoutant `INGESTION_DATABASE_URL` à `services/geo-worker/.env` — jamais
+versionné — le contrôle porte sur exactement ce que la tâche utilisera :
+
+```bash
+micromamba run -n mapfeux-geo python scripts/check-credentials.py
+```
+
+Il vérifie la clé FIRMS auprès de la NASA, la connexion, le rôle obtenu, le
+contournement RLS et surtout que **le verrou de session survit à une
+validation** — le symptôme d'un pooler en mode transaction, qui laisserait deux
+ingestions se superposer. Aucune valeur n'est affichée.
+
 Puis déclencher une fois à la main — onglet Actions, workflow « Ingestion »,
 *Run workflow* — pour vérifier avant d'attendre le créneau suivant.
 
