@@ -1,0 +1,244 @@
+"""Analyse du format Vigilance V6.
+
+Les correspondances de codes viennent du descriptif technique Météo-France. Une
+erreur ici publierait « orange » pour le mauvais phénomène ou le mauvais
+département — exactement la désinformation que le cahier §2.4 interdit.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+
+import pytest
+
+from geo_worker.providers.vigilance import (
+    BulletinRef,
+    Level,
+    VigilanceError,
+    VigilanceUnavailableError,
+    department_of,
+    highest_colour,
+    latest_reference,
+    parse_carte,
+    parse_timestamp,
+)
+
+
+def carte(**overrides: object) -> dict[str, object]:
+    """Bulletin minimal conforme, calqué sur une diffusion réelle."""
+    product: dict[str, object] = {
+        "warning_type": "vigilance",
+        "type_cdp": "cdp_carte_externe",
+        "version_vigilance": "V6",
+        "version_cdp": "1.0.0",
+        "update_time": "2026-07-29T14:01:05Z",
+        "domain_id": "FRA",
+        "global_max_color_id": "3",
+        "periods": [
+            {
+                "echeance": "J",
+                "begin_validity_time": "2026-07-29T14:00:00Z",
+                "end_validity_time": "2026-07-29T22:00:00Z",
+                "timelaps": {
+                    "domain_ids": [
+                        {
+                            "domain_id": "83",
+                            "max_color_id": 3,
+                            "phenomenon_items": [
+                                {
+                                    "phenomenon_id": "1",
+                                    "phenomenon_max_color_id": 3,
+                                    "timelaps_items": [
+                                        {
+                                            "begin_time": "2026-07-29T14:00:00Z",
+                                            "end_time": "2026-07-29T22:00:00Z",
+                                            "color_id": 3,
+                                        }
+                                    ],
+                                },
+                                # Les crues n'ont jamais de chronologie : le
+                                # descriptif l'énonce. Le niveau doit malgré
+                                # tout être retenu.
+                                {
+                                    "phenomenon_id": "4",
+                                    "phenomenon_max_color_id": 2,
+                                    "timelaps_items": [],
+                                },
+                            ],
+                        },
+                        {
+                            "domain_id": "8310",
+                            "max_color_id": 1,
+                            "phenomenon_items": [
+                                {"phenomenon_id": "9", "phenomenon_max_color_id": 1}
+                            ],
+                        },
+                    ]
+                },
+            }
+        ],
+    }
+    product.update(overrides)
+    return {"product": product, "meta": {"snapshot_id": "abc123"}}
+
+
+class TestParseTimestamp:
+    def test_accepte_le_suffixe_z(self) -> None:
+        assert parse_timestamp("2026-07-29T14:01:05Z") == datetime(
+            2026, 7, 29, 14, 1, 5, tzinfo=UTC
+        )
+
+    def test_accepte_le_decalage_explicite(self) -> None:
+        assert parse_timestamp("2026-07-29T14:01:05+00:00") == datetime(
+            2026, 7, 29, 14, 1, 5, tzinfo=UTC
+        )
+
+
+class TestDepartmentOf:
+    def test_reconnait_un_departement(self) -> None:
+        assert department_of("06") == ("06", False)
+
+    def test_reconnait_la_corse(self) -> None:
+        assert department_of("2A") == ("2A", False)
+        assert department_of("2B") == ("2B", False)
+
+    def test_reconnait_un_littoral(self) -> None:
+        assert department_of("8310") == ("83", True)
+        assert department_of("2A10") == ("2A", True)
+
+    def test_le_national_ne_designe_aucun_departement(self) -> None:
+        # Forcer une valeur y inventerait un rattachement.
+        assert department_of("FRA") == (None, False)
+
+    def test_une_zone_de_defense_non_plus(self) -> None:
+        assert department_of("ZDF_PARIS") == (None, False)
+
+
+class TestLatestReference:
+    def test_retient_le_bulletin_le_plus_recent(self) -> None:
+        tree = {
+            "2026": {
+                "07": {
+                    "28": {"140100": ["CDP_CARTE_EXTERNE.json"]},
+                    "29": {
+                        "060100": ["CDP_CARTE_EXTERNE.json"],
+                        "140100": ["CDP_CARTE_EXTERNE.json"],
+                    },
+                }
+            }
+        }
+        assert latest_reference(tree) == BulletinRef("2026", "07", "29", "140100")
+
+    def test_refuse_une_arborescence_vide(self) -> None:
+        with pytest.raises(VigilanceUnavailableError, match="vide"):
+            latest_reference({})
+
+    def test_refuse_un_bulletin_sans_carte(self) -> None:
+        tree = {"2026": {"07": {"29": {"140100": ["VIGNETTE_NATIONAL_J_500X500.png"]}}}}
+        with pytest.raises(VigilanceUnavailableError, match="absent"):
+            latest_reference(tree)
+
+
+class TestParseCarte:
+    def test_lit_les_metadonnees(self) -> None:
+        bulletin, _, _ = parse_carte(carte())
+        assert bulletin.domain_id == "FRA"
+        assert bulletin.vigilance_version == "V6"
+        assert bulletin.published_at == datetime(2026, 7, 29, 14, 1, 5, tzinfo=UTC)
+        assert bulletin.snapshot_id == "abc123"
+
+    def test_retient_les_crues_malgre_une_chronologie_vide(self) -> None:
+        """Le piège du format : sans cela, toute vigilance crue disparaîtrait."""
+        _, levels, _ = parse_carte(carte())
+        crues = [level for level in levels if level.phenomenon_id == 4]
+        assert len(crues) == 1
+        assert crues[0].colour == "jaune"
+
+    def test_traduit_les_couleurs(self) -> None:
+        _, levels, _ = parse_carte(carte())
+        vent = next(level for level in levels if level.phenomenon_id == 1)
+        assert vent.colour == "orange"
+        assert vent.department_code == "83"
+        assert vent.is_coastal is False
+
+    def test_distingue_le_littoral(self) -> None:
+        _, levels, _ = parse_carte(carte())
+        littoral = next(level for level in levels if level.domain_id == "8310")
+        assert littoral.department_code == "83"
+        assert littoral.is_coastal is True
+
+    def test_reporte_la_fenetre_de_validite(self) -> None:
+        _, levels, _ = parse_carte(carte())
+        assert levels[0].begin_at == datetime(2026, 7, 29, 14, 0, tzinfo=UTC)
+        assert levels[0].end_at == datetime(2026, 7, 29, 22, 0, tzinfo=UTC)
+
+    def test_rejette_une_couleur_inconnue_sans_perdre_le_reste(self) -> None:
+        payload = carte()
+        domains = payload["product"]["periods"][0]["timelaps"]["domain_ids"]  # type: ignore[index]
+        domains[0]["phenomenon_items"][0]["phenomenon_max_color_id"] = 7
+
+        _, levels, rejections = parse_carte(payload)
+
+        assert any("couleur inconnue 7" in r for r in rejections)
+        # Les autres niveaux du même bulletin restent lus.
+        assert {level.phenomenon_id for level in levels} == {4, 9}
+
+    def test_rejette_une_echeance_inconnue(self) -> None:
+        payload = carte()
+        payload["product"]["periods"].append(  # type: ignore[index]
+            {
+                "echeance": "J2",
+                "begin_validity_time": "2026-07-30T14:00:00Z",
+                "end_validity_time": "2026-07-30T22:00:00Z",
+                "timelaps": {"domain_ids": []},
+            }
+        )
+        _, _, rejections = parse_carte(payload)
+        assert any("J2" in r for r in rejections)
+
+    def test_refuse_un_produit_qui_n_est_pas_une_vigilance(self) -> None:
+        payload = carte()
+        payload["product"]["warning_type"] = "autre"  # type: ignore[index]
+        with pytest.raises(VigilanceError, match="Produit inattendu"):
+            parse_carte(payload)
+
+    def test_refuse_un_bulletin_sans_niveau(self) -> None:
+        # Un bulletin vide n'est pas « tout vert » : c'est un import à
+        # diagnostiquer, pas une absence de danger à publier.
+        payload = carte(periods=[])
+        with pytest.raises(VigilanceError, match="sans aucun niveau"):
+            parse_carte(payload)
+
+    def test_refuse_un_champ_obligatoire_absent(self) -> None:
+        payload = carte()
+        del payload["product"]["update_time"]  # type: ignore[attr-defined]
+        with pytest.raises(VigilanceError, match="update_time"):
+            parse_carte(payload)
+
+    def test_avant_six_heures_seul_j_est_present(self) -> None:
+        """Le descriptif : pas de composante J+1 avant 06:00 locales."""
+        _, levels, rejections = parse_carte(carte())
+        assert {level.echeance for level in levels} == {"J"}
+        assert rejections == []
+
+
+class TestHighestColour:
+    def make(self, colour: str) -> Level:
+        moment = datetime(2026, 7, 29, 14, 0, tzinfo=UTC)
+        return Level(
+            domain_id="83",
+            department_code="83",
+            is_coastal=False,
+            echeance="J",
+            phenomenon_id=1,
+            colour=colour,
+            begin_at=moment,
+            end_at=moment,
+        )
+
+    def test_suit_l_ordre_officiel(self) -> None:
+        levels = [self.make("jaune"), self.make("rouge"), self.make("orange")]
+        assert highest_colour(levels) == "rouge"
+
+    def test_sans_niveau_reste_vert(self) -> None:
+        assert highest_colour([]) == "vert"

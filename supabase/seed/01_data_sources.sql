@@ -32,6 +32,26 @@ values
     )
   ),
   (
+    'vigilance',
+    'Météo-France — vigilance météorologique',
+    'Météo-France',
+    -- Diffusion nominale à 6 h et 16 h locales, et davantage si la situation
+    -- l'exige. Un bulletin vieux de plus de vingt heures signale une panne, pas
+    -- une accalmie.
+    interval '12 hours',
+    interval '20 hours',
+    'https://www.data.gouv.fr/datasets/vigilance-meteorologique-archivee/',
+    'Licence Ouverte Etalab v2',
+    'Source : Météo-France',
+    'Bulletins bruts conservés ; niveaux conservés',
+    jsonb_build_object(
+      'format', 'V6',
+      'domain', 'FRA',
+      'poll_interval_minutes', 30,
+      'phenomena_relevant_to_fire', jsonb_build_array(1, 3, 6)
+    )
+  ),
+  (
     'arome',
     'Météo-France — modèle AROME',
     'Météo-France',

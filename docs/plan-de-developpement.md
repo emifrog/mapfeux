@@ -394,8 +394,21 @@ sans jamais le réécrire.
 
 - ✅ Modèle `app.official_messages` : organisme, URL source, date de publication,
   période de validité, territoire, événement lié, validateur
-- ⬜ Connecteurs par type de source : flux RSS préfectoraux, pages de
-  communiqués, vigilance Météo-France, arrêtés d'accès aux massifs
+- 🟢 **Vigilance Météo-France** — format V6, 9 phénomènes, 96 départements et
+  25 pourtours littoraux. Adaptateur, 23 tests, migration et pipeline validés en
+  transaction annulée sur un bulletin réel : 1216 niveaux, zéro rejet, rejeu
+  idempotent. Reste à appliquer la migration
+  - Voie **sans clé** : l'API temps réel de Météo-France en exige une, le dépôt
+    objet de data.gouv.fr sert les mêmes produits sous Licence Ouverte
+    Etalab v2. L'adaptateur du cahier §9.2 rend le point d'accès remplaçable
+  - Les correspondances de codes viennent du descriptif technique officiel, pas
+    d'une supposition : publier « orange » pour le mauvais phénomène serait la
+    désinformation que §2.4 interdit
+  - ⚠️ Piège du format, explicité par le descriptif : **les crues n'ont jamais
+    de chronologie**. Un analyseur lisant `timelaps_items` perdrait toute
+    vigilance crue en silence — 194 niveaux sur le seul bulletin d'essai
+- ⬜ Connecteurs restants : flux RSS préfectoraux, pages de communiqués,
+  arrêtés d'accès aux massifs
 - ⬜ Rapprochement géographique entre une information officielle et un événement
 - ⬜ Affichage strictement distinct des estimations automatiques (FR-104)
 - ⬜ Gestion des contradictions entre observation satellitaire et statut officiel
@@ -460,7 +473,8 @@ site reste consultable et dit exactement ce qui manque et depuis quand.
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
 | ADR-001 à 013 non rédigés | Décisions actées, non documentées | Au fil des jalons |
-| Schémas `meteo`, `air`, `radar` vides | Tables reportées en v2 avec le panache | v2 |
+| Schémas `air` et `radar` vides | Tables reportées en v2 avec le panache. `meteo` porte désormais la vigilance | v2 |
+| `app.official_messages` inutilisable par une ingestion | La table exige un `created_by` humain et un `validated_by` : la vigilance a donc ses propres tables. La [décision §8.3](strategie.md#83-validation-humaine-des-informations-officielles) reste ouverte pour les sources en texte libre | J4 |
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Fichiers bruts FIRMS sur disque local | Ni Storage, ni rétention : ils s'accumulent | J2 |
 | Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
