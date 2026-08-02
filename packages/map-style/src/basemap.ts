@@ -89,8 +89,7 @@ export type BasemapStyle = ReturnType<typeof buildIgnBasemapStyle>;
  */
 export const IGN_VECTOR_STYLES = {
   gris: 'https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/gris.json',
-  standard:
-    'https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/standard.json',
+  standard: 'https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/standard.json',
 } as const;
 
 export type IgnVectorStyle = keyof typeof IGN_VECTOR_STYLES;

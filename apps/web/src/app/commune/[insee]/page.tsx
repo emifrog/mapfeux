@@ -46,7 +46,7 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <nav aria-label="Fil d’Ariane" className="text-sm text-stone-600">
+      <nav aria-label="Fil d’Ariane" className="text-sm text-[--text-2]">
         <Link href="/" className="underline underline-offset-4">
           Accueil
         </Link>
@@ -64,7 +64,7 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
       </nav>
 
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">{municipality.name}</h1>
-      <p className="mt-1 text-sm text-stone-600">
+      <p className="mt-1 text-sm text-[--text-2]">
         Code INSEE {municipality.insee}
         {municipality.postalCodes.length > 0 &&
           ` · code${municipality.postalCodes.length > 1 ? 's' : ''} postal${
@@ -74,24 +74,24 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
           ` · ${municipality.areaKm2.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km²`}
       </p>
 
-      <div className="mt-6 h-72 overflow-hidden rounded border border-stone-300">
+      <div className="mt-6 h-72 overflow-hidden rounded border border-[--border-strong]">
         <MapView
           center={[municipality.centroid.longitude, municipality.centroid.latitude]}
           zoom={11}
           className="h-full w-full"
         />
       </div>
-      <p className="mt-2 text-xs text-stone-700">{MAP_DISCLAIMER}</p>
+      <p className="mt-2 text-xs text-[--text-2]">{MAP_DISCLAIMER}</p>
 
       <section className="mt-8">
         <h2 className="text-xl font-semibold">Détections récentes</h2>
-        <p className="mt-2 text-stone-700">
+        <p className="mt-2 text-[--text-2]">
           Les détections thermiques satellitaires ne sont pas encore importées. Cette section
           restera vide jusqu’à la mise en service du flux NASA FIRMS.
         </p>
       </section>
 
-      <p className="mt-10 text-xs text-stone-500">
+      <p className="mt-10 text-xs text-[--text-3]">
         Limites communales issues d’ADMIN EXPRESS COG, version {municipality.sourceVersion}.
       </p>
     </div>

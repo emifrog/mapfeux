@@ -1,15 +1,26 @@
 @import 'tailwindcss';
 
 /*
- * Système visuel MapFeux — maquette v2.
+ * Système visuel MapFeux.
  *
  * Référence : cahier §8.2 et §6.5.
  *
- * Trois familles de couleur, trois significations, jamais mélangées :
+ * ## Le parti pris
  *
- *   age-1/2/3   âge de l'observation thermique. Réservé aux détections et aux
- *               événements. Aucun bouton, aucun lien, aucun état d'interface ne
- *               les emploie : la carte deviendrait ambiguë.
+ * L'orange appartient à l'observation thermique et à elle seule. Aucun bouton,
+ * aucun lien, aucun état d'interface ne l'emploie — sans quoi la carte devient
+ * ambiguë. Le site parle donc de feu sans avoir le droit d'être rouge, et
+ * emprunte le bleu d'autorité pour ses affordances, à dose faible.
+ *
+ * Second axe, porté par la typographie : **ce qui est mesuré est en chasse
+ * fixe, ce qui est affirmé est en linéale**. La distinction que le produit doit
+ * tenir en permanence — observation contre énoncé — se lit alors sans être
+ * expliquée.
+ *
+ * ## Trois familles de couleur, jamais mélangées
+ *
+ *   age-1/2/3   âge de l'observation thermique. Détections et événements
+ *               uniquement.
  *   authority   information publiée par une autorité. Bleu, jamais rouge, pour
  *               ne pas imiter une alerte.
  *   inference   produit d'un calcul. Violet, distinct de l'observé et de
@@ -46,6 +57,20 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
+
+  /*
+   * Échelle typographique. La version précédente tenait entre 9,5 et 19 px :
+   * tout y avait le même poids, donc rien ne s'imposait. Les paliers sont
+   * désormais assez écartés pour qu'une hiérarchie se lise d'un coup d'œil,
+   * sans avoir à comparer deux tailles voisines.
+   */
+  --text-micro: 10.5px;
+  --text-label: 11.5px;
+  --text-small: 13px;
+  --text-body: 15px;
+  --text-lead: 17px;
+  --text-title: 21px;
+  --text-display: clamp(30px, 5vw, 46px);
 }
 
 :root {
@@ -55,8 +80,11 @@
   --border: #d9e0e6;
   --border-strong: #c4cbd3;
   --text: #021526;
-  --text-2: #55606e;
+  --text-2: #4d5a6b;
   --text-3: #798591;
+
+  /* Largeur de coque, unique pour toutes les pages. */
+  --shell: 1240px;
 }
 
 /*
@@ -65,14 +93,14 @@
  */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0a1520;
-    --surface: #2a3646;
-    --surface-muted: #222d3b;
-    --border: #3a4757;
-    --border-strong: #4c5b6d;
-    --text: #edf1f5;
-    --text-2: #b3bdc8;
-    --text-3: #8b96a2;
+    --bg: #080d15;
+    --surface: #101826;
+    --surface-muted: #0c1420;
+    --border: #1e2836;
+    --border-strong: #31404f;
+    --text: #e9eef4;
+    --text-2: #a3b0be;
+    --text-3: #74818f;
   }
 
   /* Les teintes claires deviennent illisibles sur fond sombre : elles sont
@@ -81,14 +109,14 @@
     --color-age-1: #f2634f;
     --color-age-2: #ff8146;
     --color-age-3: #f5b96e;
-    --color-age-1-wash: #3a211e;
+    --color-age-1-wash: #2c1a17;
     --color-age-2-wash: #3a2519;
     --color-authority: #6fa8dc;
-    --color-authority-wash: #1b2a3a;
+    --color-authority-wash: #132435;
     --color-inference: #b49aeb;
-    --color-inference-wash: #292040;
+    --color-inference-wash: #21193a;
     --color-degraded: #d2a344;
-    --color-degraded-wash: #332a18;
+    --color-degraded-wash: #2a2214;
     --color-carto: #77828e;
   }
 }
@@ -97,7 +125,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--text-body);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -108,6 +136,48 @@ body {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.015em;
+}
+
+/* Coque commune. Une seule largeur, une seule gouttière : deux pages qui
+   diffèrent de quelques pixels se remarquent à la navigation. */
+.shell {
+  max-width: var(--shell);
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
+/*
+ * Surtitre : identifiant, lieu, nature. En chasse fixe parce qu'il porte des
+ * références, pas du discours.
+ */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/*
+ * Positionnement du service — présent sur *toutes* les pages, §1 et §22.5.
+ *
+ * Ce qui a changé n'est pas sa présence mais sa forme. Centré, gris sur gris et
+ * en petit corps, il portait tous les signes du bandeau de consentement : on
+ * apprend à ne plus les voir. Aligné à gauche dans la colonne de lecture, avec
+ * sa clause décisive en gras et un filet qui l'accroche au sujet, il se lit
+ * comme du contenu — donc il se lit.
+ */
+.stance {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.stance__rule {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--color-age-2);
+  flex: none;
 }
 
 /* Respect de prefers-reduced-motion — cahier §6.5. */

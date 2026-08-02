@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#f6f8fa' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a1520' },
+    { media: '(prefers-color-scheme: dark)', color: '#080d15' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -83,25 +83,28 @@ export default function RootLayout({
           className="sticky top-0 z-20 border-b"
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
-          <div className="mx-auto flex h-16 max-w-[1240px] items-center gap-6 px-6">
+          <div className="shell h-16.5 flex items-center gap-7">
             <Link href="/" className="text-navy flex items-center gap-2.5 dark:text-[--text]">
-              <Logo className="h-[34px] w-[30px]" />
+              <Logo className="w-8.75 h-10" />
               <span>
-                <span className="block text-[19px] font-bold tracking-tight">
+                <span className="block text-[length:--text-title] font-extrabold tracking-tight">
                   Map<span className="text-age-1">Feux</span>
                 </span>
-                <span className="mono block text-[9.5px] uppercase tracking-[0.13em] text-[--text-3]">
+                <span className="mono mt-0.5 block text-[length:--text-micro] uppercase tracking-[0.14em] text-[--text-3]">
                   La veille nationale des feux
                 </span>
               </span>
             </Link>
 
-            <nav aria-label="Navigation principale" className="ml-2 hidden gap-5 text-sm sm:flex">
+            <nav
+              aria-label="Navigation principale"
+              className="ml-2 hidden gap-6 text-[length:--text-body] sm:flex"
+            >
               {NAV.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="text-[--text-2] hover:text-[--text]"
+                  className="border-b-2 border-transparent py-1 text-[--text-2] hover:border-[--border-strong] hover:text-[--text]"
                 >
                   {item.label}
                 </Link>
@@ -114,38 +117,52 @@ export default function RootLayout({
           </div>
         </header>
 
-        {/* Positionnement du service, présent sur toutes les pages. §1 et §22.5 */}
-        <p
-          className="px-6 py-2 text-center text-xs"
-          style={{ background: 'var(--surface-muted)', color: 'var(--text-2)' }}
-        >
-          Service d’information cartographique indépendant. Ni système d’alerte, ni source de
-          confirmation. Les consignes des autorités restent prioritaires.
-        </p>
+        {/*
+          Positionnement du service, présent sur toutes les pages. §1 et §22.5
+          Aligné à gauche dans la colonne de lecture, clause décisive en gras :
+          ce qui ressemble à du contenu se lit, ce qui ressemble à un bandeau de
+          consentement se saute.
+        */}
+        <div className="stance">
+          <div className="shell flex items-baseline gap-3 py-3">
+            <span className="stance__rule" aria-hidden="true" />
+            <p className="max-w-[88ch] text-[length:--text-small] text-[--text-2]">
+              Service d’information cartographique indépendant.{' '}
+              <strong className="font-semibold text-[--text]">
+                Ni système d’alerte, ni source de confirmation.
+              </strong>{' '}
+              Les consignes des autorités restent prioritaires.
+            </p>
+          </div>
+        </div>
 
         <main id="contenu" className="flex-1">
           {children}
         </main>
 
         <footer
-          className="mt-12 border-t px-6 py-10 text-sm"
+          className="mt-16 border-t py-10 text-[length:--text-small]"
           style={{ borderColor: 'var(--border)', color: 'var(--text-2)' }}
         >
-          <div className="mx-auto max-w-[1240px]">
+          <div className="shell">
             <nav aria-label="Liens de bas de page">
               <ul className="flex flex-wrap gap-x-6 gap-y-2">
                 {FOOTER_LINKS.map((link) => (
                   <li key={link.href}>
-                    <Link href={link.href} className="underline underline-offset-4">
+                    <Link
+                      href={link.href}
+                      className="underline underline-offset-4 hover:text-[--text]"
+                    >
                       {link.label}
                     </Link>
                   </li>
                 ))}
               </ul>
             </nav>
-            <p className="mono mt-5 text-xs text-[--text-3]">
-              Données NASA FIRMS · Météo-France · Copernicus CAMS · IGN. Attributions détaillées sur
-              la page Sources.
+            {/* L'attribution IGN est obligatoire et permanente (§9.5). */}
+            <p className="mono mt-5 text-[length:--text-label] text-[--text-3]">
+              Données NASA FIRMS · Météo-France · Copernicus CAMS · IGN Géoplateforme. Attributions
+              détaillées sur la page Sources.
             </p>
           </div>
         </footer>
