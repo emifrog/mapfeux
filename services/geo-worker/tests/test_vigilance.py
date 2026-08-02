@@ -133,9 +133,44 @@ class TestLatestReference:
         with pytest.raises(VigilanceUnavailableError, match="vide"):
             latest_reference({})
 
-    def test_refuse_un_bulletin_sans_carte(self) -> None:
-        tree = {"2026": {"07": {"29": {"140100": ["VIGNETTE_NATIONAL_J_500X500.png"]}}}}
-        with pytest.raises(VigilanceUnavailableError, match="absent"):
+    def test_remonte_au_dernier_bulletin_portant_la_carte(self) -> None:
+        """Cas rencontré en production, que les fixtures n'avaient pas prévu.
+
+        Le produit « textes » est diffusé seul lorsque la situation l'exige, et
+        il apparaît dans l'arborescence comme n'importe quelle autre diffusion.
+        Exiger la carte dans la plus récente faisait échouer l'import à chaque
+        bulletin de suivi, alors que la carte précédente reste valide.
+        """
+        tree = {
+            "2026": {
+                "08": {
+                    "02": {
+                        "141318": ["CDP_TEXTES_VIGILANCE.json"],
+                        "140100": ["CDP_CARTE_EXTERNE.json"],
+                    }
+                }
+            }
+        }
+        assert latest_reference(tree) == BulletinRef("2026", "08", "02", "140100")
+
+    def test_traverse_les_jours_pour_trouver_une_carte(self) -> None:
+        tree = {
+            "2026": {
+                "08": {"02": {"060100": ["CDP_TEXTES_VIGILANCE.json"]}},
+                "07": {"31": {"140100": ["CDP_CARTE_EXTERNE.json"]}},
+            }
+        }
+        assert latest_reference(tree) == BulletinRef("2026", "07", "31", "140100")
+
+    def test_abandonne_apres_une_serie_sans_carte(self) -> None:
+        # La carte paraît au moins deux fois par jour : n'en trouver aucune sur
+        # une vingtaine de diffusions signale une panne de la source.
+        tree = {
+            "2026": {
+                "08": {"02": {f"{hour:06d}": ["CDP_TEXTES_VIGILANCE.json"] for hour in range(25)}}
+            }
+        }
+        with pytest.raises(VigilanceUnavailableError, match="Aucune carte"):
             latest_reference(tree)
 
 

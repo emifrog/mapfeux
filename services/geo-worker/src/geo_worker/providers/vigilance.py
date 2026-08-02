@@ -47,6 +47,11 @@ BULLETIN_BASE = (
 )
 CARTE_FILE = "CDP_CARTE_EXTERNE.json"
 
+#: Diffusions inspectées avant d'abandonner. La carte paraît au moins deux fois
+#: par jour : n'en trouver aucune sur une vingtaine de diffusions signale une
+#: panne de la source, pas un bulletin de suivi isolé.
+MAX_LOOKBACK = 20
+
 COLOURS: dict[int, str] = {1: "vert", 2: "jaune", 3: "orange", 4: "rouge"}
 
 # « 06 » ou « 2A » ; « 0610 » désigne le pourtour littoral du même département.
@@ -116,19 +121,25 @@ def latest_reference(tree: dict[str, Any]) -> BulletinRef:
     if not tree:
         raise VigilanceUnavailableError("Arborescence vigilance vide.")
 
-    year = max(tree)
-    month = max(tree[year])
-    day = max(tree[year][month])
-    stamps = tree[year][month][day]
-    if not stamps:
-        raise VigilanceUnavailableError(f"Aucun bulletin pour {year}-{month}-{day}.")
+    # Toutes les diffusions ne portent pas la carte : le produit « textes » est
+    # émis seul lorsque la situation l'exige, et il apparaît alors dans
+    # l'arborescence comme n'importe quel autre bulletin. Exiger la carte dans
+    # la diffusion la plus récente ferait échouer l'import à chaque bulletin de
+    # suivi, alors que la carte précédente reste la dernière valide.
+    inspected = 0
+    for year in sorted(tree, reverse=True):
+        for month in sorted(tree[year], reverse=True):
+            for day in sorted(tree[year][month], reverse=True):
+                for stamp in sorted(tree[year][month][day], reverse=True):
+                    if CARTE_FILE in tree[year][month][day][stamp]:
+                        return BulletinRef(year=year, month=month, day=day, stamp=stamp)
+                    inspected += 1
+                    if inspected >= MAX_LOOKBACK:
+                        raise VigilanceUnavailableError(
+                            f"Aucune carte parmi les {inspected} dernières diffusions."
+                        )
 
-    stamp = max(stamps)
-    if CARTE_FILE not in stamps[stamp]:
-        raise VigilanceUnavailableError(
-            f"{CARTE_FILE} absent du bulletin {year}-{month}-{day} {stamp}."
-        )
-    return BulletinRef(year=year, month=month, day=day, stamp=stamp)
+    raise VigilanceUnavailableError("Aucune carte dans l'arborescence.")
 
 
 def department_of(domain_id: str) -> tuple[str | None, bool]:
