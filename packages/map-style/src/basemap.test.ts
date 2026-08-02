@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildIgnBasemapStyle, IGN_ATTRIBUTION, ignTileUrl } from './basemap';
+import {
+  buildIgnBasemapStyle,
+  IGN_ATTRIBUTION,
+  IGN_VECTOR_STYLES,
+  ignTileUrl,
+  ignVectorStyleUrl,
+} from './basemap';
 
 describe('ignTileUrl', () => {
   it('laisse les gabarits MapLibre non encodés', () => {
@@ -40,5 +46,23 @@ describe('buildIgnBasemapStyle', () => {
   it('demande du JPEG pour l’orthophotographie', () => {
     const style = buildIgnBasemapStyle('orthophoto');
     expect(style.sources['ign-basemap'].tiles[0]).toContain('FORMAT=image%2Fjpeg');
+  });
+});
+
+describe('ignVectorStyleUrl', () => {
+  it('sert le style gris par défaut', () => {
+    // Le fond doit se retirer devant la donnée : sur un fond en couleurs,
+    // l'orange des détections entre en concurrence avec le décor.
+    expect(ignVectorStyleUrl()).toBe(IGN_VECTOR_STYLES.gris);
+  });
+
+  it('expose le style standard pour se repérer', () => {
+    expect(ignVectorStyleUrl('standard')).toContain('standard.json');
+  });
+
+  it('ne sert que des URL Géoplateforme en HTTPS', () => {
+    for (const url of Object.values(IGN_VECTOR_STYLES)) {
+      expect(url).toMatch(/^https:\/\/data\.geopf\.fr\//);
+    }
   });
 });

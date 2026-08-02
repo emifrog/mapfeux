@@ -7,10 +7,18 @@
  * et doit rester visible en permanence (§9.5). Le style est construit ici, hors
  * de tout composant React, afin d'être vérifiable sans navigateur.
  *
- * Choix d'un fond raster plutôt que vectoriel : le raster IGN est disponible
- * sans clé et sans négociation de licence supplémentaire, ce qui convient au
- * pilote. Le passage au vectoriel — meilleure lisibilité au zoom, thème sombre
- * possible — relève de la phase 2.
+ * Le fond par défaut est **vectoriel**, style « gris » publié par l'IGN. Une
+ * première version retenait le raster au motif qu'il était seul disponible sans
+ * clé ; vérification faite, le vectoriel l'est aussi, styles compris. Le motif
+ * ne tenait donc plus.
+ *
+ * Le gris n'est pas une préférence esthétique. La carte doit se retirer devant
+ * la donnée : sur un fond en couleurs, l'orange des détections entre en
+ * concurrence avec les routes, les zones urbaines et les forêts, et le repérage
+ * se fait au prix d'un effort. §8.1
+ *
+ * Le raster reste exposé, comme repli si la Géoplateforme changeait son offre
+ * vectorielle, et pour l'orthophoto qui n'a pas d'équivalent vectoriel.
  */
 
 /** Couches Géoplateforme utilisables comme fond. */
@@ -71,3 +79,29 @@ export function buildIgnBasemapStyle(layer: IgnBasemapLayer = 'plan') {
 }
 
 export type BasemapStyle = ReturnType<typeof buildIgnBasemapStyle>;
+
+/**
+ * Styles vectoriels publiés par la Géoplateforme, utilisables sans clé.
+ *
+ * `gris` est le fond par défaut : il laisse la palette d'âge des détections
+ * seule porteuse de couleur. `standard` reste disponible pour qui cherche un
+ * repère — un nom de rue, une limite de commune — plutôt qu'un feu.
+ */
+export const IGN_VECTOR_STYLES = {
+  gris: 'https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/gris.json',
+  standard:
+    'https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/standard.json',
+} as const;
+
+export type IgnVectorStyle = keyof typeof IGN_VECTOR_STYLES;
+
+/**
+ * URL de style vectoriel, à passer telle quelle à MapLibre.
+ *
+ * MapLibre sait charger un style distant ; le construire à la main reviendrait
+ * à recopier plusieurs centaines de définitions de couches, qui évolueraient
+ * sans nous.
+ */
+export function ignVectorStyleUrl(style: IgnVectorStyle = 'gris'): string {
+  return IGN_VECTOR_STYLES[style];
+}

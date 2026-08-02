@@ -1,7 +1,7 @@
 'use client';
 
-import { buildIgnBasemapStyle, DEFAULT_VIEW } from '@mapfeux/map-style';
-import maplibregl, { type StyleSpecification } from 'maplibre-gl';
+import { DEFAULT_VIEW, ignVectorStyleUrl } from '@mapfeux/map-style';
+import maplibregl from 'maplibre-gl';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
@@ -127,7 +127,11 @@ export default function BaseMap({
 
     const map = new maplibregl.Map({
       container,
-      style: buildIgnBasemapStyle() as StyleSpecification,
+      // Style vectoriel « gris » de la Géoplateforme : le fond se retire pour
+      // que l'orange des détections soit la seule couleur qui compte (§8.1).
+      // MapLibre charge l'URL lui-même ; `buildIgnBasemapStyle` reste le repli
+      // raster, et sert l'orthophotographie.
+      style: ignVectorStyleUrl('gris'),
       center: [center[0], center[1]],
       zoom,
       ...boundsOption,
