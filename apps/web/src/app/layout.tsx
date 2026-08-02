@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { Logo } from '@/components/logo';
 import { SourceHealth } from '@/components/source-health';
+import { THEME_SCRIPT, ThemeToggle } from '@/components/theme-toggle';
 
 import './globals.css';
 
@@ -70,6 +71,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className={`${sans.variable} ${mono.variable} h-full antialiased`}>
+      <head>
+        {/*
+          Le thème choisi est posé sur la racine avant la première peinture. Le
+          faire dans un effet afficherait d'abord le mauvais thème, le temps que
+          React s'hydrate — un clignotement blanc en pleine nuit sur une carte de
+          feux.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         <a
           href="#contenu"
@@ -111,7 +121,10 @@ export default function RootLayout({
               ))}
             </nav>
 
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-3">
+              <div className="hidden sm:block">
+                <ThemeToggle />
+              </div>
               <SourceHealth />
             </div>
           </div>

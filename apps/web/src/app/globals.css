@@ -88,36 +88,82 @@
 }
 
 /*
- * Thème sombre. Suivi du réglage système : imposer un thème clair à quelqu'un
- * qui consulte une carte de feux la nuit est une faute d'usage.
+ * Thème sombre.
+ *
+ * Le réglage système reste la valeur par défaut : imposer un thème clair à
+ * quelqu'un qui consulte une carte de feux la nuit est une faute d'usage. Mais
+ * il ne décide plus seul — `data-theme` sur la racine l'emporte, dans les deux
+ * sens, et c'est ce que pose la bascule de l'en-tête.
+ *
+ * D'où la forme du sélecteur : sous requête média, le sombre s'applique **sauf**
+ * si un choix explicite dit le contraire. Une seule copie des valeurs suffit
+ * alors pour le côté clair.
  */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #080d15;
-    --surface: #101826;
-    --surface-muted: #0c1420;
-    --border: #1e2836;
-    --border-strong: #31404f;
+  :root:not([data-theme='light']) {
+    --bg: #101a26;
+    --surface: #1c2836;
+    --surface-muted: #16202c;
+    --border: #2b3746;
+    --border-strong: #3f4e60;
     --text: #e9eef4;
-    --text-2: #a3b0be;
-    --text-3: #74818f;
-  }
+    --text-2: #a8b4c1;
+    --text-3: #7b8794;
 
-  /* Les teintes claires deviennent illisibles sur fond sombre : elles sont
-     éclaircies, et les fonds lavés assombris, en conservant les écarts. */
-  @theme {
+    /* Les teintes claires deviennent illisibles sur fond sombre : elles sont
+       éclaircies, et les fonds lavés assombris, en conservant les écarts. */
     --color-age-1: #f2634f;
     --color-age-2: #ff8146;
     --color-age-3: #f5b96e;
-    --color-age-1-wash: #2c1a17;
+    --color-age-1-wash: #35211d;
     --color-age-2-wash: #3a2519;
     --color-authority: #6fa8dc;
-    --color-authority-wash: #132435;
+    --color-authority-wash: #1a2c3e;
     --color-inference: #b49aeb;
-    --color-inference-wash: #21193a;
+    --color-inference-wash: #262040;
     --color-degraded: #d2a344;
-    --color-degraded-wash: #2a2214;
+    --color-degraded-wash: #302716;
     --color-carto: #77828e;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #101a26;
+  --surface: #1c2836;
+  --surface-muted: #16202c;
+  --border: #2b3746;
+  --border-strong: #3f4e60;
+  --text: #e9eef4;
+  --text-2: #a8b4c1;
+  --text-3: #7b8794;
+
+  --color-age-1: #f2634f;
+  --color-age-2: #ff8146;
+  --color-age-3: #f5b96e;
+  --color-age-1-wash: #35211d;
+  --color-age-2-wash: #3a2519;
+  --color-authority: #6fa8dc;
+  --color-authority-wash: #1a2c3e;
+  --color-inference: #b49aeb;
+  --color-inference-wash: #262040;
+  --color-degraded: #d2a344;
+  --color-degraded-wash: #302716;
+  --color-carto: #77828e;
+}
+
+/*
+ * La variante `dark:` de Tailwind suit le réglage système par défaut. Elle doit
+ * suivre le même arbitrage que le reste, sinon un `dark:` isolé contredirait la
+ * bascule.
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme='light']) *, :root:not([data-theme='light'])) {
+      @slot;
+    }
+  }
+  &:where(:root[data-theme='dark'] *, :root[data-theme='dark']) {
+    @slot;
   }
 }
 
