@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 import pytest
 
 from geo_worker.providers.arome import (
+    ARCHIVE_EXTENT,
     RUN_HOURS,
     SPANS,
     AromeError,
@@ -121,3 +122,21 @@ class TestNextReachableNoon:
             lead = noon_lead_time(run, next_reachable_noon(run))
             assert 0 <= lead <= 48
             assert span_for_lead_time(lead) in SPANS
+
+
+class TestArchiveExtent:
+    def test_couvre_la_france_metropolitaine_et_la_corse(self) -> None:
+        """L'emprise nationale est un choix irréversible dans un sens.
+
+        La réduire plus tard reste possible ; l'élargir rétroactivement, non —
+        ce qui n'a pas été capté n'existera jamais.
+        """
+        assert ARCHIVE_EXTENT.min_lon <= -5.0
+        assert ARCHIVE_EXTENT.max_lon >= 9.6  # Corse orientale
+        assert ARCHIVE_EXTENT.min_lat <= 41.4  # pointe sud de la Corse
+        assert ARCHIVE_EXTENT.max_lat >= 51.1  # Dunkerque
+
+    def test_englobe_les_departements_du_pilote(self) -> None:
+        for lon, lat in ((6.08, 43.53), (7.26, 43.71)):  # Var, Alpes-Maritimes
+            assert ARCHIVE_EXTENT.min_lon <= lon <= ARCHIVE_EXTENT.max_lon
+            assert ARCHIVE_EXTENT.min_lat <= lat <= ARCHIVE_EXTENT.max_lat

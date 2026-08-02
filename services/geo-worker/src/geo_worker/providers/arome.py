@@ -39,6 +39,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from geo_worker.providers.models import BoundingBox
+
 BASE_URL = "https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt"
 
 #: Résolution retenue. 0,025° vaut environ 2,5 km, largement suffisant pour un
@@ -51,6 +53,17 @@ SURFACE_PACKAGE = "SP1"
 
 #: Champs conservés, nommés comme cfgrib les expose.
 FWI_FIELDS = ("t2m", "r2", "u10", "v10", "tp")
+
+#: Emprise de l'extrait conservé : France métropolitaine et Corse.
+#:
+#: Le pilote ne couvre que deux départements, et s'y limiter coûterait presque
+#: rien. Mais cette économie-là ne se rattrape pas : restreindre l'emprise
+#: aujourd'hui, c'est décider que les saisons à venir n'existeront pas pour le
+#: reste du pays. L'écart se compte en gigaoctets, donc en quelques euros par
+#: an, contre des années de corpus perdues — le calcul n'est pas serré.
+#:
+#: Réduire l'emprise plus tard reste possible ; l'élargir rétroactivement, non.
+ARCHIVE_EXTENT = BoundingBox(min_lon=-5.8, min_lat=41.0, max_lon=10.2, max_lat=51.5)
 
 #: Météo-France diffuse un run toutes les trois heures.
 RUN_HOURS = (0, 3, 6, 9, 12, 15, 18, 21)
@@ -148,6 +161,7 @@ def next_reachable_noon(run: datetime, noon_hour_utc: int = 11) -> datetime:
 
 
 __all__ = [
+    "ARCHIVE_EXTENT",
     "BASE_URL",
     "FWI_FIELDS",
     "RESOLUTION",
