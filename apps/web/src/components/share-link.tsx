@@ -31,11 +31,11 @@ export function ShareLink({ url }: { url: string }) {
       <button
         type="button"
         onClick={() => void copy()}
-        className="rounded border border-[--border-strong] px-3 py-1 text-sm"
+        className="border-(--border-strong) rounded border px-3 py-1 text-sm"
       >
         Copier le lien
       </button>
-      <span role="status" aria-live="polite" className="text-sm text-[--text-2]">
+      <span role="status" aria-live="polite" className="text-(--text-2) text-sm">
         {state === 'copied' && 'Lien copié'}
         {state === 'failed' && 'Copie impossible, sélectionnez le lien'}
       </span>

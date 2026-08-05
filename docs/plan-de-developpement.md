@@ -77,28 +77,35 @@ cette moitié sans le dire.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 44 tests |
+| Web | `pnpm test` | ✅ 50 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 47 fichiers |
-| Worker | `mypy src` | ✅ strict, 22 fichiers |
-| Worker | `pytest` | ✅ 196 tests |
+| Worker | `ruff check` / `ruff format --check` | ✅ 50 fichiers |
+| Worker | `mypy src` | ✅ strict, 23 fichiers |
+| Worker | `pytest` | ✅ 233 tests |
 
-⚠️ Les portes web n'ont pas tourné depuis la refonte visuelle et la bascule de
-thème ; la ligne ci-dessus reporte le passage du 2 août.
+⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
+élément. Les 86 classes CSS invalides du §9 bis les ont toutes passées.
 
 ---
 
 ## 2. Prochaine action
 
-**Charger le corpus de quatorze saisons dans une base de calibration séparée.**
-C'est le maillon manquant entre le corpus et le banc : `fusion_corpus_firms.py`
-produit un Parquet, `calibrate-clustering.py` lit `fire.detections`, et rien ne
-relie les deux. Il faut donc un importeur Parquet → `fire.detections`, et une
-base distincte de celle que le site public lit — un balayage de 112 jeux sur
-337 757 détections dure des heures, pendant lesquelles la table servirait des
-regroupements expérimentaux.
+**Monter la base de calibration**, puis y charger le corpus. C'est la seule
+étape qui reste avant la calibration quatorze saisons, et elle est de votre
+côté : un second projet Supabase ou un PostgreSQL local avec PostGIS, les
+migrations, le seed, et `CALIBRATION_DATABASE_URL` dans
+`services/geo-worker/.env`. La marche à suivre est au
+[README](../README.md#base-de-calibration--à-monter-une-fois).
 
-Le plafond de passe qui rendait ce chargement inexploitable est levé (§5).
+Tout le reste est en place : le plafond de passe est levé, l'importeur écrit,
+et les outils qui font tourner des paramètres expérimentaux refusent désormais
+de démarrer sur la base que le site public lit.
+
+```bash
+micromamba run -n mapfeux-geo python scripts/import-corpus.py --limite 5000
+micromamba run -n mapfeux-geo python scripts/import-corpus.py
+micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py
+```
 
 En parallèle, de votre côté :
 
@@ -267,9 +274,22 @@ sans provenance ni horodatage.
   sous le nom du corpus. `limit=None` lève la borne, `truncated` la signale, et
   `pending_detection_count` fait échouer banc et contrôle plutôt que d'écrire
   une mesure partielle
-- 🟡 Calibration fine sur plusieurs saisons — le corpus existe, le banc existe,
-  il manque l'importeur Parquet → `fire.detections` et la base de calibration
-  séparée
+- 🟢 **Importeur du corpus vers `fire.detections`.** Chaque ligne repasse par
+  `parse_row`, l'analyseur du flux temps réel : une observation du corpus et la
+  même reçue en direct portent la même clé d'idempotence, donc le corpus se
+  charge sur une base où l'ingestion a déjà tourné, et le script se rejoue sans
+  dédoubler. Vérifié sur le corpus entier hors base — 337 757 lignes, **zéro
+  rejet, zéro collision de clé**, et l'horodatage reconstruit par la règle R3
+  de la fusion coïncide avec celui de l'analyseur sur **les 337 757 lignes**,
+  par deux chemins indépendants. L'écriture elle-même n'a pas encore tourné :
+  aucune base de calibration n'existe
+- ✅ **Les outils expérimentaux ne peuvent plus viser la base publique.**
+  `calibrate-clustering.py` et `inspect-clustering.py` exigent
+  `CALIBRATION_DATABASE_URL` et refusent de démarrer si elle désigne la même
+  base que `DATABASE_URL` — comparaison sur hôte, port et nom de base, non sur
+  la chaîne : un rôle distinct sur la base de production est le cas le plus
+  facile à confondre. Les deux refus vérifiés sur la configuration réelle
+- 🟡 Calibration fine sur plusieurs saisons — il ne manque que la base
 
 #### Ce que le corpus dit avant même d'être calibré
 
@@ -523,9 +543,20 @@ en linéale.
 - ✅ Coque et fiche événement
 - ✅ Thème sombre éclairci, bascule à trois états — clair, auto, sombre — posée
   sur le document avant la première peinture
+- ✅ **Le système s'applique enfin.** 86 classes employaient la syntaxe de
+  variables de Tailwind v3, `text-[--text-2]`, que la v4 ne reconnaît plus comme
+  une référence : elle compilait en `color: --text-2`, du CSS invalide que le
+  navigateur écarte. Couleurs de texte, couleurs de bordure et **toute
+  l'échelle typographique** de la refonte tombaient ainsi en silence. Migrées
+  vers `text-(--text-2)` ; vérifié sur le CSS produit, zéro déclaration
+  invalide restante
+- ✅ Garde-fou : `apps/web/src/styles.test.ts` refuse l'ancienne syntaxe. Les
+  fichiers de test sortent du balayage Tailwind — sans quoi le test engendrait
+  lui-même les règles qu'il proscrit, ses exemples étant lus comme des classes
 - ⬜ **Carte, liste, et les huit pages restantes** gardent l'ancien traitement
-- ⚠️ Le rendu réel n'a pas été regardé : la vérification s'est arrêtée à la
-  construction des 17 pages
+- ⚠️ Le rendu réel n'a toujours pas été regardé dans un navigateur. Le défaut
+  ci-dessus est exactement ce que « vérifié par construction » ne voit pas :
+  lint, typage, tests et construction passaient tous
 
 ### Archivage AROME 🟡
 
@@ -539,10 +570,33 @@ capté est perdu définitivement ([ADR-025](adr/025-plateforme-a-deux-visages.md
   rétroactivement non
 - ✅ `next_reachable_noon` — à dix-huit heures UTC la mi-journée est hors de
   portée du run, et une exécution d'après-midi sur deux échouait
-- ⬜ **`archive-arome.py` échoue au dépôt** : le compartiment Storage visé
-  n'existe pas. La chaîne fonctionne jusque-là
+- ⬜ **`archive-arome.py` échoue au dépôt** : le compartiment `raw` n'existe pas
+  — « Bucket not found ». Tout le reste de la chaîne a tourné en conditions
+  réelles : paquet de 59,7 Mo téléchargé, cinq champs extraits, emprise
+  nationale découpée, extrait NetCDF prêt à déposer
 - ⚠️ ADR-025 chiffre l'archivage à un coût « quasi gratuit » que la mesure
   dément : 56 Mo par tranche de six heures. D'où l'extrait, et non le paquet
+
+### Journalisation ✅
+
+Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
+
+- ✅ **Les traces ne rendent plus les variables locales.** Aucun script
+  n'appelait `configure_logging` : structlog appliquait sa configuration par
+  défaut, dont le formateur d'exceptions de `rich`, qui déroule la pile *avec
+  le contenu des variables*. Un dépôt Storage refusé a ainsi imprimé la clé
+  secrète Supabase en clair. Le paquet se configure désormais à l'import — la
+  classe de défaut disparaît au lieu d'une occurrence
+- ✅ **`httpx` ne journalise plus les URL.** Il écrivait « HTTP Request: GET
+  <url> » à chaque appel, en INFO. Anodin ailleurs, grave pour FIRMS : l'API
+  Area porte la clé **dans le chemin**. Le connecteur prenait soin de ne jamais
+  l'écrire ; la bibliothèque le faisait à sa place, à chaque requête et non
+  seulement en cas d'erreur — donc dans les journaux d'un dépôt public, toutes
+  les dix minutes, dès que l'ingestion planifiée démarrera
+- ✅ Non-régression : 12 tests, dont un qui journalise une exception portant un
+  faux secret en variable locale et vérifie qu'il n'apparaît pas, la trace
+  restant exploitable
+- ⚠️ La clé exposée reste à régénérer — voir §10
 
 ---
 
@@ -553,8 +607,9 @@ capté est perdu définitivement ([ADR-025](adr/025-plateforme-a-deux-visages.md
 | Préalables de phase 0 non engagés | Autorisation de cumul, cadre juridique — point d'arrêt | Immédiat |
 | Décisions ouvertes non tranchées | Ordonnancement, calendrier, validation, préfixe | Avant J2 |
 | CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
+| **`SUPABASE_SECRET_KEY` à régénérer** | Imprimée en clair dans une trace du 5 août. La cause est corrigée, la clé reste compromise | Immédiat |
 | Ingestion planifiée en échec à chaque déclenchement | Le secret `FIRMS_MAP_KEY` n'est pas posé côté GitHub | Immédiat |
-| `archive-arome.py` échoue au dépôt | Le compartiment Storage visé n'existe pas ; la chaîne fonctionne jusque-là | J2 |
+| Compartiments Storage à créer | `raw` et `derived`, privés. `archive-arome.py` échoue sur « Bucket not found » ; la chaîne fonctionne jusque-là | Immédiat |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
@@ -564,8 +619,8 @@ capté est perdu définitivement ([ADR-025](adr/025-plateforme-a-deux-visages.md
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Fichiers bruts FIRMS sur disque local | Ni Storage, ni rétention : ils s'accumulent | J2 |
 | Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
-| Pas d'importeur Parquet → `fire.detections` | Le corpus et le banc existent, rien ne les relie. Bloque la calibration multi-saisons | Immédiat |
-| Base de calibration séparée à monter | Le banc efface et réécrit `fire.events`, la table que le site public lit. À 939 détections c'était l'affaire de minutes ; sur 337 757 le balayage dure des heures | Immédiat |
+| Base de calibration à monter | Dernier point bloquant la calibration multi-saisons. Le banc efface et réécrit `fire.events` pendant des heures ; les outils refusent désormais la base publique, donc rien ne tourne tant qu'elle n'existe pas | Immédiat |
+| Écriture du corpus jamais exercée | L'importeur est couvert sur la normalisation, y compris sur le corpus réel, mais son chemin SQL — `COPY`, table de transit, 176 partitions — n'a jamais atteint une base. Le premier chargement est un essai autant qu'un import | Avec la base de calibration |
 | N21 sans corpus retraité | 30 180 lignes — 8,9 % du corpus — de janvier 2024 à août 2026, servies en NRT faute d'archive publiée par FIRMS. Ni retraitement scientifique, ni `type` : les deux saisons les plus récentes sont partiellement non étiquetées | J2 |
 | La borne de R4 suppose le corpus standard dense | Un satellite indisponible en milieu de période retraitée verrait ses lignes NRT de la panne écartées à tort. FIRMS ne publie pas de calendrier de couverture. La borne employée est consignée dans le compte rendu du corpus | J2 |
 | Corpus dérivé versionné | Le Parquet pèse 6,8 Mo et se régénère depuis les zips. Chaque régénération dépose un nouveau blob dans l'historique. À arbitrer : le compte rendu JSON suffit à prouver la provenance | J6 |

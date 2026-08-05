@@ -3,6 +3,7 @@
 Usage :
     micromamba run -n mapfeux-geo python scripts/verify-clustering.py
     micromamba run -n mapfeux-geo python scripts/verify-clustering.py --recompute
+    micromamba run -n mapfeux-geo python scripts/verify-clustering.py --recompute --calibration
 
 Référence : cahier §17.2, critère de sortie du jalon J2.
 
@@ -34,7 +35,7 @@ import psycopg
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
-from geo_worker.db import dsn_from_env_file
+from geo_worker.db import calibration_dsn, dsn_from_env_file, dsn_target
 from geo_worker.pipelines.clustering import (
     ClusteringParams,
     cluster_detections,
@@ -141,7 +142,20 @@ def main(argv: list[str]) -> int:
     params = ClusteringParams()
     chunk = parse_chunk(argv)
 
-    with psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn:
+    # Par défaut la base de production : ce contrôle rejoue les **paramètres de
+    # référence** et restaure l'état qu'il a trouvé, contrairement au banc et à
+    # l'inspection qui font tourner des jeux qu'on ne publie pas. Le vérifier là
+    # où le site lit est précisément ce qui a du sens.
+    #
+    # `--calibration` le porte sur le corpus, où le rejeu est bien plus long et
+    # où l'égalité entre passe en bloc et passe par tranches se joue sur des
+    # volumes qui la mettent réellement à l'épreuve.
+    sur_calibration = "--calibration" in argv
+    dsn = calibration_dsn(ENV_FILE) if sur_calibration else dsn_from_env_file(ENV_FILE)
+    host, port, database = dsn_target(dsn)
+    print(f"base    : {host}:{port}/{database}" + ("  (calibration)" if sur_calibration else ""))
+
+    with psycopg.connect(dsn, connect_timeout=30) as conn:
         before, events_before, members_before = signature(conn)
         print(f"avant   : {before}  {events_before} événement(s), {members_before} membre(s)")
 

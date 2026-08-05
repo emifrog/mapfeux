@@ -20,6 +20,10 @@ distincts qui ne brûlaient pas en même temps.
 
 Le regroupement est rejoué sous une version dédiée puis effacé : la base
 retrouve ses paramètres de référence.
+
+Le script vise `CALIBRATION_DATABASE_URL`, jamais la base servie au public :
+l'inspection efface les événements de référence avant de les recréer, et une
+interruption la laisserait sur un jeu de paramètres qu'on ne publie pas.
 """
 
 from __future__ import annotations
@@ -34,7 +38,7 @@ from psycopg.rows import dict_row
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
-from geo_worker.db import dsn_from_env_file
+from geo_worker.db import calibration_dsn
 from geo_worker.pipelines.clustering import ClusteringParams, cluster_detections
 
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
@@ -164,7 +168,10 @@ def main(argv: list[str]) -> int:
         f"fenêtre {params.attach_window_hours:.0f} h, seuil {params.min_score:.2f}"
     )
 
-    with psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn:
+    # Base de calibration : l'inspection rejoue le regroupement sous une version
+    # dédiée, et efface au passage les événements de référence. Une interruption
+    # laisserait la base sur un jeu qu'on ne publie pas.
+    with psycopg.connect(calibration_dsn(ENV_FILE), connect_timeout=30) as conn:
         try:
             inspect(conn, params, top)
         finally:

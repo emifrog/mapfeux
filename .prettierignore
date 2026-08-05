@@ -9,3 +9,9 @@ supabase/migrations
 packages/domain/src/generated
 *.md
 next-env.d.ts
+
+# Comptes rendus engendrés à côté des corpus dérivés : leur forme est décidée
+# par le script qui les écrit. Les reformater ferait diverger le fichier de sa
+# sortie à chaque régénération, et le contrôle de format échouerait sur une
+# différence que personne n'a introduite.
+data/**/*.json

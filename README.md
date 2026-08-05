@@ -188,6 +188,69 @@ Puis déclencher une fois à la main — onglet Actions, workflow « Ingestion �
 > GitHub désactive les workflows planifiés après soixante jours sans activité
 > sur le dépôt, et ne les déclenche que depuis la branche par défaut.
 
+### Stockage objet — à créer une fois
+
+Deux compartiments **privés**, nommés d'après les *valeurs* de
+`SUPABASE_STORAGE_BUCKET_RAW` et `SUPABASE_STORAGE_BUCKET_DERIVED`, non d'après
+les noms de variables :
+
+| Compartiment | Contenu |
+|---|---|
+| `raw` | extraits AROME, puis les CSV FIRMS bruts |
+| `derived` | produits dérivés |
+
+Privés : `raw` porte de la donnée brute que [ADR-004](docs/adr/README.md) déclare
+immuable et que §14.2 n'expose pas publiquement. Le dépôt se fait avec la clé
+secrète côté serveur, qui traverse RLS — aucune politique d'accès n'est
+nécessaire.
+
+```bash
+micromamba run -n mapfeux-geo python scripts/archive-arome.py
+```
+
+### Base de calibration — à monter une fois
+
+Le banc de calibration efface et réécrit `fire.events` à chaque jeu de
+paramètres. Sur le corpus de quatorze saisons — 337 757 détections — un balayage
+complet dure des heures. Le faire sur la base que le site public lit reviendrait
+à servir des regroupements expérimentaux pendant tout ce temps, sous les mêmes
+URL, sans que la page puisse le dire.
+
+D'où une base **distincte**, désignée par sa propre variable. Les scripts de
+calibration refusent de démarrer si `CALIBRATION_DATABASE_URL` désigne la même
+base que `DATABASE_URL` — la comparaison porte sur l'hôte, le port et le nom de
+la base, pas sur la chaîne entière : un rôle différent sur la base de production
+serait le cas le plus facile à confondre.
+
+**1. Monter la base.** Un second projet Supabase, ou un PostgreSQL local avec
+PostGIS. Elle n'a besoin d'aucune donnée, seulement du schéma :
+
+```bash
+pnpm db:push                                   # ou psql -f sur chaque migration
+micromamba run -n mapfeux-geo python scripts/apply-seed.py
+```
+
+Le seed est nécessaire : il crée la ligne `ingest.data_sources` de clé `firms`,
+sans laquelle l'import n'a aucune source à référencer.
+
+**2. Déclarer la variable** dans `services/geo-worker/.env`, jamais versionné :
+
+```
+CALIBRATION_DATABASE_URL=postgresql://postgres:<mot-de-passe>@<hôte>:5432/<base>
+```
+
+**3. Charger le corpus.** D'abord un échantillon, pour éprouver la chaîne en une
+minute plutôt qu'en une heure :
+
+```bash
+micromamba run -n mapfeux-geo python scripts/import-corpus.py --limite 5000
+micromamba run -n mapfeux-geo python scripts/import-corpus.py
+```
+
+Le chargement est idempotent : les lignes portent la même clé que celles du flux
+temps réel, donc rejouer le script n'insère rien deux fois, et le corpus peut
+être chargé sur une base où l'ingestion a déjà tourné.
+
 ## Commandes
 
 | Commande | Effet |

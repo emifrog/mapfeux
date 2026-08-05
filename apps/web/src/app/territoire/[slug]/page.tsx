@@ -63,7 +63,7 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <nav aria-label="Fil d’Ariane" className="text-sm text-[--text-2]">
+      <nav aria-label="Fil d’Ariane" className="text-(--text-2) text-sm">
         <Link href="/" className="underline underline-offset-4">
           Accueil
         </Link>
@@ -78,19 +78,19 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
       </nav>
 
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">{territory.name}</h1>
-      <p className="mt-1 text-sm text-[--text-2]">
+      <p className="text-(--text-2) mt-1 text-sm">
         Code {territory.code} · fuseau {territory.timezone}
         {territory.status === 'pilot' && ' · territoire pilote'}
       </p>
 
-      <div className="mt-6 h-80 overflow-hidden rounded border border-[--border-strong]">
+      <div className="border-(--border-strong) mt-6 h-80 overflow-hidden rounded border">
         <MapView
           center={[territory.center.longitude, territory.center.latitude]}
           zoom={territory.defaultZoom}
           className="h-full w-full"
         />
       </div>
-      <p className="mt-2 text-xs text-[--text-2]">{MAP_DISCLAIMER}</p>
+      <p className="text-(--text-2) mt-2 text-xs">{MAP_DISCLAIMER}</p>
 
       <div className="mt-8 grid gap-8 md:grid-cols-2">
         <section>
@@ -103,7 +103,7 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
         <section>
           <h2 className="text-xl font-semibold">Informations officielles</h2>
           {officialLinks.length === 0 ? (
-            <p className="mt-3 text-sm text-[--text-2]">
+            <p className="text-(--text-2) mt-3 text-sm">
               Aucun lien officiel n’est encore renseigné pour ce territoire.
             </p>
           ) : (
@@ -117,7 +117,7 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
                   >
                     {link.title}
                   </a>
-                  <span className="block text-xs text-[--text-2]">
+                  <span className="text-(--text-2) block text-xs">
                     {LINK_CATEGORY_LABELS[link.category] ?? link.category} · {link.organisation}
                   </span>
                 </li>

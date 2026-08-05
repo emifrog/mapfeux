@@ -141,7 +141,7 @@ export function MunicipalitySearch({ autoFocus = false }: { autoFocus?: boolean 
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={onKeyDown}
         onFocus={() => isQueryLongEnough && results.length > 0 && setIsOpen(true)}
-        className="mt-1 w-full rounded border border-[--border-strong] px-3 py-2 text-base"
+        className="border-(--border-strong) mt-1 w-full rounded border px-3 py-2 text-base"
       />
 
       {/* Les changements d'état sont annoncés sans voler le focus. */}
@@ -154,7 +154,7 @@ export function MunicipalitySearch({ autoFocus = false }: { autoFocus?: boolean 
       </p>
 
       {showError && (
-        <p className="mt-2 text-sm text-[--text-2]">
+        <p className="text-(--text-2) mt-2 text-sm">
           La recherche est momentanément indisponible. Vous pouvez consulter un département depuis
           la page d’accueil.
         </p>
@@ -165,7 +165,7 @@ export function MunicipalitySearch({ autoFocus = false }: { autoFocus?: boolean 
           id={listboxId}
           role="listbox"
           aria-label="Communes correspondantes"
-          className="absolute z-10 mt-1 w-full overflow-hidden rounded border border-[--border-strong] bg-white shadow-lg"
+          className="border-(--border-strong) absolute z-10 mt-1 w-full overflow-hidden rounded border bg-white shadow-lg"
         >
           {results.map((result, index) => (
             <li
@@ -180,12 +180,12 @@ export function MunicipalitySearch({ autoFocus = false }: { autoFocus?: boolean 
               }}
               onMouseEnter={() => setActiveIndex(index)}
               className={`cursor-pointer px-3 py-2 text-sm ${
-                index === activeIndex ? 'bg-[--surface-muted]' : ''
+                index === activeIndex ? 'bg-(--surface-muted)' : ''
               }`}
             >
               <span className="font-medium">{result.name}</span>{' '}
               {/* Le département lève les homonymes. FR-021 */}
-              <span className="text-[--text-2]">({result.departmentCode})</span>
+              <span className="text-(--text-2)">({result.departmentCode})</span>
             </li>
           ))}
         </ul>

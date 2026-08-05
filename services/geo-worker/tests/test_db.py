@@ -9,7 +9,9 @@ import pytest
 from geo_worker.db import (
     DsnError,
     advisory_key,
+    calibration_dsn,
     dsn_from_env_file,
+    dsn_target,
     load_env,
     normalise_dsn,
     read_env_file,
@@ -135,3 +137,108 @@ class TestLoadEnv:
         monkeypatch.delenv("DATABASE_URL", raising=False)
         with pytest.raises(DsnError, match="environnement"):
             dsn_from_env_file(tmp_path / "absent.env")
+
+
+class TestDsnTarget:
+    def test_ignore_les_identifiants(self) -> None:
+        # Le point de la fonction : deux comptes différents sur la même base
+        # doivent se reconnaître comme une seule cible.
+        assert dsn_target(f"postgresql://alice:x@{HOST}") == dsn_target(
+            f"postgresql://bob:y@{HOST}"
+        )
+
+    def test_extrait_hote_port_et_base(self) -> None:
+        assert dsn_target("postgresql://u:p@db.exemple.co:6543/mapfeux") == (
+            "db.exemple.co",
+            "6543",
+            "mapfeux",
+        )
+
+    def test_port_implicite(self) -> None:
+        assert dsn_target("postgresql://u:p@db.exemple.co/postgres")[1] == "5432"
+
+    def test_ignore_les_parametres_de_requete(self) -> None:
+        assert dsn_target("postgresql://u:p@h/db?sslmode=require") == dsn_target(
+            "postgresql://u:p@h/db"
+        )
+
+    def test_distingue_deux_bases_du_meme_hote(self) -> None:
+        assert dsn_target("postgresql://u:p@h/public") != dsn_target(
+            "postgresql://u:p@h/calibration"
+        )
+
+
+class TestCalibrationDsn:
+    """Le banc efface et réécrit les événements pendant des heures.
+
+    Viser la base de production ne produit aucune erreur visible : le
+    chargement réussit, la calibration tourne, et le site sert des
+    regroupements expérimentaux sous ses URL habituelles. C'est ce silence qui
+    rend le contrôle nécessaire.
+    """
+
+    def test_refuse_la_meme_base_que_la_production(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.delenv("CALIBRATION_DATABASE_URL", raising=False)
+        path = tmp_path / ".env"
+        path.write_text(
+            f"DATABASE_URL=postgresql://postgres:p@{HOST}\n"
+            f"CALIBRATION_DATABASE_URL=postgresql://postgres:p@{HOST}\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(DsnError, match="même base"):
+            calibration_dsn(path)
+
+    def test_refuse_la_meme_base_sous_un_autre_compte(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Le cas réaliste : un rôle de calibration créé sur la base de
+        # production. Comparer les chaînes entières ne l'aurait pas vu.
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.delenv("CALIBRATION_DATABASE_URL", raising=False)
+        path = tmp_path / ".env"
+        path.write_text(
+            f"DATABASE_URL=postgresql://postgres:secret@{HOST}\n"
+            f"CALIBRATION_DATABASE_URL=postgresql://calib:autre@{HOST}\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(DsnError, match="même base"):
+            calibration_dsn(path)
+
+    def test_accepte_une_base_distincte(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.delenv("CALIBRATION_DATABASE_URL", raising=False)
+        path = tmp_path / ".env"
+        path.write_text(
+            f"DATABASE_URL=postgresql://postgres:p@{HOST}\n"
+            "CALIBRATION_DATABASE_URL=postgresql://postgres:p@localhost:5432/calibration\n",
+            encoding="utf-8",
+        )
+        assert calibration_dsn(path).endswith("/calibration")
+
+    def test_signale_l_absence_de_la_variable(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("CALIBRATION_DATABASE_URL", raising=False)
+        path = tmp_path / ".env"
+        path.write_text(f"DATABASE_URL=postgresql://postgres:p@{HOST}\n", encoding="utf-8")
+        with pytest.raises(DsnError, match="CALIBRATION_DATABASE_URL"):
+            calibration_dsn(path)
+
+    def test_corrige_l_arobase_du_mot_de_passe(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Même correction que pour la production : les mots de passe Supabase
+        # contiennent fréquemment une arobase.
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.delenv("CALIBRATION_DATABASE_URL", raising=False)
+        path = tmp_path / ".env"
+        path.write_text(
+            "CALIBRATION_DATABASE_URL=postgresql://postgres:debut@suite@h/calib\n",
+            encoding="utf-8",
+        )
+        assert calibration_dsn(path) == "postgresql://postgres:debut%40suite@h/calib"

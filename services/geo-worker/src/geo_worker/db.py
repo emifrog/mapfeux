@@ -146,10 +146,69 @@ def dsn_from_env_file(path: pathlib.Path) -> str:
     return normalise_dsn(raw)
 
 
+def dsn_target(dsn: str) -> tuple[str, str, str]:
+    """Cible d'une chaîne de connexion : (hôte, port, base), sans identifiants.
+
+    Sert à comparer deux chaînes qui désignent la même base sous des comptes
+    différents — le cas exact qu'il faut détecter, un rôle de calibration
+    pointant par mégarde sur la base de production.
+    """
+    _, separator, rest = dsn.partition("://")
+    if separator == "":
+        return ("", "", dsn)
+
+    authority, _, path = rest.partition("/")
+    _, _, hostpart = authority.rpartition("@")
+    host, _, port = hostpart.partition(":")
+    database = path.partition("?")[0]
+    return (host.lower(), port or "5432", database)
+
+
+def calibration_dsn(path: pathlib.Path) -> str:
+    """Chaîne de connexion de la base de calibration.
+
+    Le banc efface et réécrit `fire.events` à chaque jeu de paramètres. Sur le
+    corpus de quatorze saisons, un balayage complet dure des heures : le faire
+    sur la base que le site public lit reviendrait à servir des regroupements
+    expérimentaux pendant tout ce temps, sous les mêmes URL et sans que la page
+    puisse le dire.
+
+    D'où une variable distincte, et le refus explicite de désigner la même base
+    que `DATABASE_URL`. Se tromper de cible ici ne produit pas d'erreur visible
+    — le chargement réussit, la calibration tourne — et c'est ce qui rend le
+    contrôle nécessaire plutôt que superflu.
+    """
+    values = load_env(path)
+
+    raw = values.get("CALIBRATION_DATABASE_URL", "")
+    if raw == "":
+        raise DsnError(
+            f"CALIBRATION_DATABASE_URL absente de {path} et de l'environnement.\n"
+            "La calibration exige une base distincte de celle que le site lit : "
+            "le banc y efface et réécrit les événements pendant des heures."
+        )
+
+    dsn = normalise_dsn(raw)
+
+    public = values.get("DATABASE_URL", "")
+    if public != "" and dsn_target(dsn) == dsn_target(normalise_dsn(public)):
+        host, port, database = dsn_target(dsn)
+        raise DsnError(
+            f"CALIBRATION_DATABASE_URL désigne la même base que DATABASE_URL "
+            f"({host}:{port}/{database}).\n"
+            "Le banc effacerait les événements servis au public. "
+            "Monter une base distincte, ou corriger la variable."
+        )
+
+    return dsn
+
+
 __all__ = [
     "DsnError",
     "advisory_key",
+    "calibration_dsn",
     "dsn_from_env_file",
+    "dsn_target",
     "exclusive_run",
     "load_env",
     "normalise_dsn",

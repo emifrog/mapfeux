@@ -16,7 +16,7 @@ const BaseMap = dynamic(() => import('./base-map'), {
   ssr: false,
   loading: () => (
     <div
-      className="flex h-full w-full items-center justify-center bg-[--surface-muted] text-sm text-[--text-2]"
+      className="bg-(--surface-muted) text-(--text-2) flex h-full w-full items-center justify-center text-sm"
       role="status"
     >
       Chargement de la carte…

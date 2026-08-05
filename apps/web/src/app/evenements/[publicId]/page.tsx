@@ -247,7 +247,7 @@ export default async function EventPage({ params }: PageParams) {
     <article className="shell max-w-[840px] py-10">
       {isFixture && (
         <p
-          className="mb-6 rounded-[--radius-md] border-l-[3px] px-4 py-3 text-[length:--text-small] font-medium"
+          className="rounded-(--radius-md) text-(length:--text-small) mb-6 border-l-[3px] px-4 py-3 font-medium"
           style={{
             borderColor: 'var(--color-degraded)',
             background: 'var(--color-degraded-wash)',
@@ -261,7 +261,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {snapshotIsStale && (
         <p
-          className="mb-6 rounded-[--radius-md] border-l-[3px] px-4 py-3 text-[length:--text-small]"
+          className="rounded-(--radius-md) text-(length:--text-small) mb-6 border-l-[3px] px-4 py-3"
           style={{
             borderColor: 'var(--color-degraded)',
             background: 'var(--color-degraded-wash)',
@@ -284,21 +284,21 @@ export default async function EventPage({ params }: PageParams) {
         <span>{event.publicId}</span>
         {event.territory !== null && (
           <>
-            <span aria-hidden="true" className="text-[--border-strong]">
+            <span aria-hidden="true" className="text-(--border-strong)">
               /
             </span>
-            <Link href={`/territoire/${event.territory.slug}`} className="hover:text-[--text-2]">
+            <Link href={`/territoire/${event.territory.slug}`} className="hover:text-(--text-2)">
               {event.territory.name}
             </Link>
           </>
         )}
-        <span aria-hidden="true" className="text-[--border-strong]">
+        <span aria-hidden="true" className="text-(--border-strong)">
           /
         </span>
         <span>observation satellitaire</span>
       </nav>
 
-      <h1 className="mt-3 max-w-[19ch] text-balance text-[length:--text-display] font-extrabold leading-[1.06] tracking-[-0.033em]">
+      <h1 className="text-(length:--text-display) mt-3 max-w-[19ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
         {event.nearestMunicipality === null
           ? 'Anomalies thermiques observées'
           : `Anomalies thermiques près de ${event.nearestMunicipality.name}`}
@@ -310,7 +310,7 @@ export default async function EventPage({ params }: PageParams) {
       <section aria-labelledby="derniere-observation" className="mt-8">
         <h2
           id="derniere-observation"
-          className="text-[length:--text-title] font-bold tracking-tight"
+          className="text-(length:--text-title) font-bold tracking-tight"
         >
           Dernière observation
         </h2>
@@ -318,7 +318,7 @@ export default async function EventPage({ params }: PageParams) {
           <time dateTime={event.lastDetectedAt.toISOString()} className="text-lg">
             {formatInstant(event.lastDetectedAt, event.timeZone)}
           </time>
-          <span className="ml-2 text-[--text-2]">
+          <span className="text-(--text-2) ml-2">
             (il y a {formatDataAge(dataAgeMs(event.lastDetectedAt, now))})
           </span>
         </p>
@@ -327,7 +327,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {/* Synthèse. Chaque chiffre est une agrégation, donc un calcul. */}
       <section aria-labelledby="synthese" className="mt-10">
-        <h2 id="synthese" className="text-[length:--text-title] font-bold tracking-tight">
+        <h2 id="synthese" className="text-(length:--text-title) font-bold tracking-tight">
           Ce qui a été mesuré
         </h2>
         <ProvenanceBadge provenance="algorithmic_inference" className="mt-2" />
@@ -359,19 +359,19 @@ export default async function EventPage({ params }: PageParams) {
               <p className="mono text-[27px] font-semibold leading-tight tracking-[-0.03em]">
                 {figure.n}
                 {figure.unit !== '' && (
-                  <span className="ml-1 text-[length:--text-small] font-medium text-[--text-3]">
+                  <span className="text-(length:--text-small) text-(--text-3) ml-1 font-medium">
                     {figure.unit}
                   </span>
                 )}
               </p>
-              <p className="mt-1 text-[length:--text-small] text-[--text-2]">{figure.k}</p>
+              <p className="text-(length:--text-small) text-(--text-2) mt-1">{figure.k}</p>
             </div>
           ))}
         </div>
 
         <dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
           <div>
-            <dt className="text-[length:--text-small] text-[--text-2]">Première observation</dt>
+            <dt className="text-(length:--text-small) text-(--text-2)">Première observation</dt>
             <dd>
               <time dateTime={event.firstDetectedAt.toISOString()}>
                 {formatInstant(event.firstDetectedAt, event.timeZone)}
@@ -379,22 +379,22 @@ export default async function EventPage({ params }: PageParams) {
             </dd>
           </div>
           <div>
-            <dt className="text-[length:--text-small] text-[--text-2]">Détections</dt>
+            <dt className="text-(length:--text-small) text-(--text-2)">Détections</dt>
             <dd>
               {event.detectionCount} sur {event.sensorCount} capteur
               {event.sensorCount > 1 ? 's' : ''}
             </dd>
           </div>
           <div>
-            <dt className="text-[length:--text-small] text-[--text-2]">Capteurs</dt>
+            <dt className="text-(length:--text-small) text-(--text-2)">Capteurs</dt>
             <dd>{event.sensors.length === 0 ? '—' : event.sensors.join(', ')}</dd>
           </div>
           <div>
-            <dt className="text-[length:--text-small] text-[--text-2]">Satellites</dt>
+            <dt className="text-(length:--text-small) text-(--text-2)">Satellites</dt>
             <dd>{event.satellites.length === 0 ? '—' : event.satellites.join(', ')}</dd>
           </div>
           <div>
-            <dt className="text-[length:--text-small] text-[--text-2]">
+            <dt className="text-(length:--text-small) text-(--text-2)">
               Puissance radiative (FRP)
             </dt>
             <dd>
@@ -404,21 +404,21 @@ export default async function EventPage({ params }: PageParams) {
             </dd>
           </div>
           <div>
-            <dt className="text-[length:--text-small] text-[--text-2]">Fiabilité</dt>
+            <dt className="text-(length:--text-small) text-(--text-2)">Fiabilité</dt>
             <dd>{CONFIDENCE_LEVEL_LABELS[event.confidenceLevel]}</dd>
           </div>
         </dl>
 
-        <p className="mt-3 text-xs text-[--text-2]">{CONFIDENCE_LEVEL_NOTICE}</p>
+        <p className="text-(--text-2) mt-3 text-xs">{CONFIDENCE_LEVEL_NOTICE}</p>
       </section>
 
       {/* Chronologie triée par heure de survenue, pas d'import. FR-055 */}
       <section aria-labelledby="chronologie" className="mt-10">
-        <h2 id="chronologie" className="text-[length:--text-title] font-bold tracking-tight">
+        <h2 id="chronologie" className="text-(length:--text-title) font-bold tracking-tight">
           Chronologie
         </h2>
         {timeline.length === 0 ? (
-          <p className="mt-2 text-[--text-2]">Aucune entrée de chronologie pour cet événement.</p>
+          <p className="text-(--text-2) mt-2">Aucune entrée de chronologie pour cet événement.</p>
         ) : (
           <ol className="relative mt-4 pl-6">
             {/* Filet vertical : la chronologie se lit comme une ligne de temps,
@@ -469,13 +469,13 @@ export default async function EventPage({ params }: PageParams) {
 
       {/* Alternative textuelle à la carte. §8.6 */}
       <section aria-labelledby="detections" className="mt-10">
-        <h2 id="detections" className="text-[length:--text-title] font-bold tracking-tight">
+        <h2 id="detections" className="text-(length:--text-title) font-bold tracking-tight">
           Détections membres
         </h2>
-        <p className="mt-2 text-sm text-[--text-2]">{MAP_DISCLAIMER}</p>
+        <p className="text-(--text-2) mt-2 text-sm">{MAP_DISCLAIMER}</p>
 
         {detections.length === 0 ? (
-          <p className="mt-3 text-[--text-2]">Aucune détection publiable.</p>
+          <p className="text-(--text-2) mt-3">Aucune détection publiable.</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-xl w-full border-collapse text-left text-sm">
@@ -484,7 +484,7 @@ export default async function EventPage({ params }: PageParams) {
                 ancienne
               </caption>
               <thead>
-                <tr className="border-b-2 border-[--border-strong]">
+                <tr className="border-(--border-strong) border-b-2">
                   <th scope="col" className="py-2 pr-4">
                     Heure d’acquisition
                   </th>
@@ -503,7 +503,7 @@ export default async function EventPage({ params }: PageParams) {
                 {detections.map((detection) => (
                   <tr
                     key={`${detection.acquiredAt.toISOString()}-${detection.location.longitude}`}
-                    className="border-b border-[--border]"
+                    className="border-(--border) border-b"
                   >
                     <td className="py-2 pr-4">
                       <time dateTime={detection.acquiredAt.toISOString()}>
@@ -513,7 +513,7 @@ export default async function EventPage({ params }: PageParams) {
                     <td className="py-2 pr-4">
                       {detection.sensor} · {detection.satellite}
                       {detection.dayNight !== null && (
-                        <span className="text-[--text-2]">
+                        <span className="text-(--text-2)">
                           {detection.dayNight === 'D' ? ' · jour' : ' · nuit'}
                         </span>
                       )}
@@ -536,10 +536,10 @@ export default async function EventPage({ params }: PageParams) {
 
       {/* La carte vient après le contenu : elle l'illustre, ne le porte pas. */}
       <section aria-labelledby="localisation" className="mt-10">
-        <h2 id="localisation" className="text-[length:--text-title] font-bold tracking-tight">
+        <h2 id="localisation" className="text-(length:--text-title) font-bold tracking-tight">
           Localisation
         </h2>
-        <p className="mt-2 text-sm text-[--text-2]">
+        <p className="text-(--text-2) mt-2 text-sm">
           Position représentative : {event.location.latitude.toFixed(4)} N,{' '}
           {event.location.longitude.toFixed(4)} E
           {event.nearestMunicipality !== null && (
@@ -554,7 +554,7 @@ export default async function EventPage({ params }: PageParams) {
             </>
           )}
         </p>
-        <div className="mt-3 h-72 overflow-hidden rounded border border-[--border-strong]">
+        <div className="border-(--border-strong) mt-3 h-72 overflow-hidden rounded border">
           <MapView
             center={[event.location.longitude, event.location.latitude]}
             zoom={11}
@@ -565,11 +565,11 @@ export default async function EventPage({ params }: PageParams) {
 
       {/* Ce qui n'est pas affiché, et pourquoi. Une absence non expliquée se lit
           comme une absence de phénomène. */}
-      <section aria-labelledby="non-disponible" className="mt-10 rounded bg-[--surface-muted] p-4">
+      <section aria-labelledby="non-disponible" className="bg-(--surface-muted) mt-10 rounded p-4">
         <h2 id="non-disponible" className="text-lg font-semibold">
           Ce que cette fiche ne montre pas
         </h2>
-        <p className="mt-2 text-sm text-[--text]">
+        <p className="text-(--text) mt-2 text-sm">
           Le panache de fumée indicatif, les communes potentiellement concernées et la qualité de
           l’air ne sont pas publiés. Un panache estimé à partir du vent au sol est trop incertain en
           relief pour être affiché sans induire en erreur. Ces fonctions reviendront lorsqu’un vent
@@ -579,7 +579,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {officialLinks.length > 0 && (
         <section aria-labelledby="officiel" className="mt-10">
-          <h2 id="officiel" className="text-[length:--text-title] font-bold tracking-tight">
+          <h2 id="officiel" className="text-(length:--text-title) font-bold tracking-tight">
             Informations officielles du territoire
           </h2>
           <ul className="mt-3 space-y-2">
@@ -592,7 +592,7 @@ export default async function EventPage({ params }: PageParams) {
                 >
                   {link.title}
                 </a>
-                <span className="block text-xs text-[--text-2]">{link.organisation}</span>
+                <span className="text-(--text-2) block text-xs">{link.organisation}</span>
               </li>
             ))}
           </ul>
@@ -600,7 +600,7 @@ export default async function EventPage({ params }: PageParams) {
       )}
 
       <section aria-labelledby="partage" className="mt-10">
-        <h2 id="partage" className="text-[length:--text-title] font-bold tracking-tight">
+        <h2 id="partage" className="text-(length:--text-title) font-bold tracking-tight">
           Partager
         </h2>
         <p className="mt-2 text-sm">
@@ -614,7 +614,7 @@ export default async function EventPage({ params }: PageParams) {
         </p>
       </section>
 
-      <footer className="mt-10 border-t border-[--border] pt-4 text-xs text-[--text-2]">
+      <footer className="border-(--border) text-(--text-2) mt-10 border-t pt-4 text-xs">
         <p>{EVENT_DISCLAIMER}</p>
         {/* Les trois horodatages sont distincts et tous affichés : l'heure de
             consultation, celle de la construction de l'état, et celle de la

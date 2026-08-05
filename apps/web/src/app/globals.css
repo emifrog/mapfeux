@@ -1,6 +1,21 @@
 @import 'tailwindcss';
 
 /*
+ * Les fichiers de test sortent du balayage.
+ *
+ * Tailwind parcourt les sources en texte brut : il ne distingue pas une classe
+ * employée par l'interface d'une classe citée dans un commentaire ou dans un
+ * message d'erreur. Le test qui interdit la syntaxe de variables de la v3 doit
+ * bien la nommer quelque part pour l'expliquer — et Tailwind engendrait alors
+ * les règles invalides que ce test existe pour proscrire.
+ *
+ * Aucune perte : un fichier de test ne fournit jamais de classe à l'interface
+ * servie, donc le balayer ne peut qu'ajouter du CSS mort.
+ */
+@source not "../**/*.test.ts";
+@source not "../**/*.test.tsx";
+
+/*
  * Système visuel MapFeux.
  *
  * Référence : cahier §8.2 et §6.5.

@@ -46,7 +46,7 @@ from psycopg.rows import dict_row
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
-from geo_worker.db import dsn_from_env_file
+from geo_worker.db import calibration_dsn, dsn_target
 from geo_worker.pipelines.clustering import (
     ClusteringParams,
     cluster_detections,
@@ -175,8 +175,16 @@ def percent(part: Any, whole: Any) -> int:
 def main(argv: list[str]) -> int:
     grid = axis_grid() if "--axes" in argv else crossed_grid()
 
+    # Base de calibration obligatoire : chaque jeu efface et réécrit les
+    # événements, et sur le corpus complet le balayage dure des heures. Sur la
+    # base de production, le site servirait pendant tout ce temps des
+    # regroupements qu'on ne publie pas.
+    dsn = calibration_dsn(ENV_FILE)
+    host, port, database = dsn_target(dsn)
+
     # `flush` systématique : hors terminal, Python met la sortie en tampon par
     # blocs, et un balayage de plusieurs minutes ne montrerait rien avant la fin.
+    print(f"base : {host}:{port}/{database}", flush=True)
     print(f"{len(grid)} jeux de paramètres à comparer.\n", flush=True)
 
     header = (
@@ -188,7 +196,7 @@ def main(argv: list[str]) -> int:
 
     rows: list[dict[str, Any]] = []
 
-    with psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn:
+    with psycopg.connect(dsn, connect_timeout=30) as conn:
         try:
             sweep(conn, grid, rows)
         finally:

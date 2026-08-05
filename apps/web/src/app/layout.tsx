@@ -94,13 +94,13 @@ export default function RootLayout({
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
           <div className="shell h-16.5 flex items-center gap-7">
-            <Link href="/" className="text-navy flex items-center gap-2.5 dark:text-[--text]">
+            <Link href="/" className="text-navy dark:text-(--text) flex items-center gap-2.5">
               <Logo className="w-8.75 h-10" />
               <span>
-                <span className="block text-[length:--text-title] font-extrabold tracking-tight">
+                <span className="text-(length:--text-title) block font-extrabold tracking-tight">
                   Map<span className="text-age-1">Feux</span>
                 </span>
-                <span className="mono mt-0.5 block text-[length:--text-micro] uppercase tracking-[0.14em] text-[--text-3]">
+                <span className="mono text-(length:--text-micro) text-(--text-3) mt-0.5 block uppercase tracking-[0.14em]">
                   La veille nationale des feux
                 </span>
               </span>
@@ -108,13 +108,13 @@ export default function RootLayout({
 
             <nav
               aria-label="Navigation principale"
-              className="ml-2 hidden gap-6 text-[length:--text-body] sm:flex"
+              className="text-(length:--text-body) ml-2 hidden gap-6 sm:flex"
             >
               {NAV.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="border-b-2 border-transparent py-1 text-[--text-2] hover:border-[--border-strong] hover:text-[--text]"
+                  className="text-(--text-2) hover:border-(--border-strong) hover:text-(--text) border-b-2 border-transparent py-1"
                 >
                   {item.label}
                 </Link>
@@ -139,9 +139,9 @@ export default function RootLayout({
         <div className="stance">
           <div className="shell flex items-baseline gap-3 py-3">
             <span className="stance__rule" aria-hidden="true" />
-            <p className="max-w-[88ch] text-[length:--text-small] text-[--text-2]">
+            <p className="text-(length:--text-small) text-(--text-2) max-w-[88ch]">
               Service d’information cartographique indépendant.{' '}
-              <strong className="font-semibold text-[--text]">
+              <strong className="text-(--text) font-semibold">
                 Ni système d’alerte, ni source de confirmation.
               </strong>{' '}
               Les consignes des autorités restent prioritaires.
@@ -154,7 +154,7 @@ export default function RootLayout({
         </main>
 
         <footer
-          className="mt-16 border-t py-10 text-[length:--text-small]"
+          className="text-(length:--text-small) mt-16 border-t py-10"
           style={{ borderColor: 'var(--border)', color: 'var(--text-2)' }}
         >
           <div className="shell">
@@ -164,7 +164,7 @@ export default function RootLayout({
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="underline underline-offset-4 hover:text-[--text]"
+                      className="hover:text-(--text) underline underline-offset-4"
                     >
                       {link.label}
                     </Link>
@@ -173,7 +173,7 @@ export default function RootLayout({
               </ul>
             </nav>
             {/* L'attribution IGN est obligatoire et permanente (§9.5). */}
-            <p className="mono mt-5 text-[length:--text-label] text-[--text-3]">
+            <p className="mono text-(length:--text-label) text-(--text-3) mt-5">
               Données NASA FIRMS · Météo-France · Copernicus CAMS · IGN Géoplateforme. Attributions
               détaillées sur la page Sources.
             </p>

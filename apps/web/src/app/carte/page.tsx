@@ -34,9 +34,9 @@ export default async function MapPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <h1 className="text-2xl font-semibold tracking-tight">Carte des événements</h1>
-      <p className="mt-2 max-w-3xl text-sm text-[--text]">{MAP_DISCLAIMER}</p>
+      <p className="text-(--text) mt-2 max-w-3xl text-sm">{MAP_DISCLAIMER}</p>
 
-      <div className="h-104 mt-5 overflow-hidden rounded border border-[--border-strong]">
+      <div className="h-104 border-(--border-strong) mt-5 overflow-hidden rounded border">
         <MapView
           center={[
             (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
@@ -76,7 +76,7 @@ export default async function MapPage() {
         </div>
       </section>
 
-      <p className="mt-8 text-xs text-[--text-3]">
+      <p className="text-(--text-3) mt-8 text-xs">
         Page générée le{' '}
         <time dateTime={now.toISOString()}>
           {new Intl.DateTimeFormat('fr-FR', {
