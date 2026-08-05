@@ -42,6 +42,24 @@ const FRESHNESS_STYLES: Record<string, { background: string; color: string }> = 
   upcoming: { background: 'var(--surface-muted)', color: 'var(--text-3)' },
 };
 
+/**
+ * Libellé d'un état, y compris d'un état que ce front ne connaît pas encore.
+ *
+ * La valeur vient de la vue `api.source_status`, donc de la base — laquelle
+ * peut devancer le front d'un déploiement. C'est arrivé le 5 août : la
+ * migration introduisant `upcoming` a été appliquée avant la mise en ligne du
+ * libellé, et CAMS comme le radar ont affiché une **pastille vide**, sans un
+ * mot. Un état muet est pire qu'un état approximatif : le lecteur ne sait même
+ * pas qu'il manque quelque chose.
+ *
+ * Le repli n'invente rien. Traduire l'inconnu en « Indisponible » affirmerait
+ * une panne que la page n'a pas constatée, ce que §2.4 proscrit.
+ */
+function freshnessLabel(freshness: string): string {
+  const labels: Record<string, string | undefined> = SOURCE_FRESHNESS_LABELS;
+  return labels[freshness] ?? 'État inconnu';
+}
+
 function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
   const dataAt = source.last_data_at === null ? null : new Date(source.last_data_at);
 
@@ -58,7 +76,7 @@ function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
           className="inline-block rounded-full px-3 py-1 text-xs font-medium"
           style={FRESHNESS_STYLES[source.freshness] ?? FRESHNESS_STYLES['unavailable']}
         >
-          {SOURCE_FRESHNESS_LABELS[source.freshness]}
+          {freshnessLabel(source.freshness)}
         </span>
       </td>
       <td className="py-3 pr-4 text-sm">
