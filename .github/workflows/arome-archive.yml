@@ -1,0 +1,65 @@
+# =============================================================================
+# Archivage froid AROME — cahier v2.1 §16.4 et §30.3, ADR-025 (PR-1).
+#
+# La donnée est périssable : Météo-France ne republie pas indéfiniment ses
+# paquets, et un jour non capté est perdu définitivement. Ce workflow est donc
+# le déclencheur quotidien de scripts/archive-arome.py, sur le même principe
+# qu'ingestion.yml : GitHub Actions déclenche, la base verrouille et journalise.
+#
+# Différence avec ingestion.yml : l'extraction lit du GRIB2 via xarray/cfgrib,
+# dont les binaires (ecCodes) n'existent de façon fiable que sur conda-forge
+# (ADR-014). On restaure donc l'environnement micromamba au lieu de pip ; le
+# cache ramène la restauration à ~1-2 minutes, acceptable pour une tâche
+# quotidienne.
+#
+# Horaire : le script vise la mi-journée atteignable depuis le dernier run
+# publié (next_reachable_noon). Un déclenchement à 10:00 UTC laisse le run du
+# matin se publier ; workflow_dispatch sert de relance manuelle si un jour
+# échoue.
+#
+# Secrets requis (dépôt) :
+#   INGESTION_DATABASE_URL  — déjà posé pour ingestion.yml (pooler session, 5432)
+#   SUPABASE_URL            — URL du projet
+#   SUPABASE_SECRET_KEY     — clé service, jamais côté client
+# =============================================================================
+
+name: Archivage AROME
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: arome-archive
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    name: Extraction FWI et dépôt en stockage froid
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # `setup-micromamba` crée l'environnement décrit par le fichier et
+      # l'active pour les étapes en `bash -el {0}` : le nom `mapfeux-geo` est
+      # repris du fichier, sans qu'il faille passer par `micromamba run -n`.
+      - name: Environnement micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: services/geo-worker/environment.yml
+          cache-environment: true
+
+      - name: Archivage
+        shell: bash -el {0}
+        env:
+          DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_STORAGE_BUCKET_COLD: cold
+        run: python scripts/archive-arome.py

@@ -10,6 +10,15 @@ définitivement, et attendre un jalon reporté en v2 reviendrait à ne jamais
 commencer.
 
 Ce script ne calcule aucun indice et n'affiche rien. Il capte, et c'est tout.
+
+Dépôt dans le compartiment **froid**, désigné par `SUPABASE_STORAGE_BUCKET_COLD`
+— jamais purgé (§12.4). `raw` ne conviendrait pas : le registre l'annonce en
+rétention trente jours, et ce qui est archivé ici ne se retrouve nulle part
+passé ce délai.
+
+Variables attendues, du fichier `.env` ou de l'environnement, ce dernier
+l'emportant : `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`,
+`SUPABASE_STORAGE_BUCKET_COLD`.
 """
 
 from __future__ import annotations
@@ -45,14 +54,19 @@ def main() -> int:
     env = load_env(ENV_FILE)
     supabase_url = env.get("SUPABASE_URL", "")
     secret_key = env.get("SUPABASE_SECRET_KEY", "")
-    bucket = env.get("SUPABASE_STORAGE_BUCKET_RAW", "")
+    # Stockage **froid**, et non `raw`. Le registre des sources déclare `raw` en
+    # « GRIB2 bruts 30 jours » : y déposer l'archive pérenne l'exposerait à la
+    # purge de rétention, c'est-à-dire au risque « purge accidentelle du
+    # stockage froid PR-1 » du §29. Or l'argument même de cet archivage est que
+    # la donnée ne se rattrape pas — un jour purgé est un jour perdu.
+    bucket = env.get("SUPABASE_STORAGE_BUCKET_COLD", "")
 
     missing = [
         name
         for name, value in (
             ("SUPABASE_URL", supabase_url),
             ("SUPABASE_SECRET_KEY", secret_key),
-            ("SUPABASE_STORAGE_BUCKET_RAW", bucket),
+            ("SUPABASE_STORAGE_BUCKET_COLD", bucket),
         )
         if value == ""
     ]
