@@ -30,7 +30,7 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'MapFeux — la veille nationale des feux',
+    default: 'MapFeux',
     template: '%s — MapFeux',
   },
   description:
@@ -93,20 +93,37 @@ export default function RootLayout({
           className="sticky top-0 z-20 border-b"
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
-          <div className="shell h-16.5 flex items-center gap-7">
+          {/*
+            En-tête sur deux rangées au besoin.
+
+            Une version antérieure masquait la navigation et la bascule de thème
+            sous 640 px — `hidden sm:flex`. Le site n'avait alors, sur un
+            téléphone, aucun moyen d'atteindre la carte, le statut ou la
+            méthode : seul le pied de page en offrait, tout en bas. Or la
+            consultation d'une carte de feux se fait d'abord sur téléphone.
+
+            La rangée de navigation passe donc sous la marque quand la place
+            manque, et remonte à côté d'elle dès qu'elle tient. Aucun menu à
+            déplier : un tel menu demanderait du JavaScript pour une page qui
+            doit rester utilisable sans lui (§8.6).
+          */}
+          <div className="shell flex flex-wrap items-center gap-x-7 gap-y-2 py-3">
             <Link href="/" className="text-navy dark:text-(--text) flex items-center gap-2.5">
               <Logo className="w-8.75 h-10" />
-              <span>
-                <span className="text-title block font-extrabold tracking-tight">
-                  Map<span className="text-age-1">Feux</span>
-                </span>
-                <span className="mono text-micro text-(--text-3) mt-0.5 block uppercase tracking-[0.14em]">
-                  La veille nationale des feux
-                </span>
+              <span className="text-title font-extrabold tracking-tight">
+                Map<span className="text-age-1">Feux</span>
               </span>
             </Link>
 
-            <nav aria-label="Navigation principale" className="text-body ml-2 hidden gap-6 sm:flex">
+            {/*
+              La navigation précède la bascule dans le DOM — donc dans l'ordre
+              de lecture et de tabulation. `order-last` ne la déplace qu'en
+              rendu, et seulement tant que la place manque.
+            */}
+            <nav
+              aria-label="Navigation principale"
+              className="text-body sm:order-0 order-last flex gap-6 sm:ml-2"
+            >
               {NAV.map((item) => (
                 <Link
                   key={item.href}
@@ -119,9 +136,7 @@ export default function RootLayout({
             </nav>
 
             <div className="ml-auto flex items-center gap-3">
-              <div className="hidden sm:block">
-                <ThemeToggle />
-              </div>
+              <ThemeToggle />
               <SourceHealth />
             </div>
           </div>

@@ -70,7 +70,7 @@ export default async function MapPage() {
 
       <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
         <div
-          className="h-104 overflow-hidden rounded-lg border"
+          className="sm:h-104 lg:h-136 h-96 overflow-hidden rounded-lg border"
           style={{ borderColor: 'var(--border-strong)' }}
         >
           <MapView
