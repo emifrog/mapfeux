@@ -1,0 +1,27 @@
+-- =============================================================================
+-- 20260805220000 — Le rôle d'ingestion a besoin du schéma `app`
+--
+-- Correctif de 20260728160000.
+--
+-- Le regroupement convertit vers deux types énumérés du schéma `app` :
+-- `app.confidence_level` à l'écriture de la fiabilité, et `app.provenance` à la
+-- publication des entrées de chronologie — `pipelines/clustering.py`, fonction
+-- `_finalize`. La migration du rôle accordait `usage` sur `fire`, `ingest`,
+-- `geo` et `extensions`, mais pas sur `app` : la conversion échouait donc au
+-- dernier temps de la passe, après l'insertion des rattachements.
+--
+-- `usage` sur le schéma suffit, et c'est tout ce qui est accordé. Un type
+-- énuméré est utilisable par `public` en PostgreSQL ; c'est l'accès au schéma
+-- qui manquait, pas un droit sur le type. **Aucun droit sur les tables de
+-- `app`** — le rôle d'ingestion n'a rien à y lire ni à y écrire, et §14.2 veut
+-- que son périmètre reste le plus étroit possible.
+--
+-- Vérification du reste du chemin, pour que la question ne se repose pas : les
+-- trois autres fonctions appelées par la chaîne — `ensure_detection_partition`,
+-- `recompute_event_aggregates`, `refresh_event_snapshot` — sont toutes
+-- `security definer` et s'exécutent donc sous les droits de leur propriétaire.
+-- `generate_public_id` n'accède à aucun schéma. Ces deux conversions étaient la
+-- seule dépendance non couverte.
+-- =============================================================================
+
+grant usage on schema app to mapfeux_ingest;
