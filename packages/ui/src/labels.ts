@@ -87,4 +87,7 @@ export const SOURCE_FRESHNESS_LABELS: Record<SourceFreshness, string> = {
   stale: 'Trop ancienne',
   unavailable: 'Indisponible',
   maintenance: 'Maintenance',
+  // Déclarée au registre, connecteur pas encore écrit. « Indisponible »
+  // annonçait une panne pour ce qui n'est qu'un chantier à venir.
+  upcoming: 'À venir',
 };

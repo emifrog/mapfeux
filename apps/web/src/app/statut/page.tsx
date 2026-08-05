@@ -36,6 +36,10 @@ const FRESHNESS_STYLES: Record<string, { background: string; color: string }> = 
   stale: { background: 'var(--color-degraded-wash)', color: 'var(--color-degraded)' },
   unavailable: { background: 'var(--surface-muted)', color: 'var(--text-3)' },
   maintenance: { background: 'var(--color-authority-wash)', color: 'var(--color-authority)' },
+  // « À venir » se lit en retrait, comme une note et non comme un état : une
+  // source qui n'existe pas encore n'a pas à occuper l'œil autant qu'une
+  // source tombée.
+  upcoming: { background: 'var(--surface-muted)', color: 'var(--text-3)' },
 };
 
 function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
