@@ -73,8 +73,12 @@ def load_corpus(path: pathlib.Path, limit: int | None) -> list[dict[str, Any]]:
     # `acq_date` et `acq_time` restent la source de l'horodatage, comme dans le
     # flux temps réel : `detected_at` est une colonne dérivée du corpus, et la
     # reprendre ici ferait diverger les deux chemins.
+    #
+    # `to_dict` est typé avec des clés `Hashable` — un index pandas peut être
+    # numéroté ou composite. Ici les clés sont les noms de colonnes, donc des
+    # chaînes ; la conversion est explicite plutôt que supposée.
     return [
-        {key: (None if pd.isna(value) else value) for key, value in record.items()}
+        {str(key): (None if pd.isna(value) else value) for key, value in record.items()}
         for record in frame.to_dict(orient="records")
     ]
 
