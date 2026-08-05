@@ -97,19 +97,16 @@ export default function RootLayout({
             <Link href="/" className="text-navy dark:text-(--text) flex items-center gap-2.5">
               <Logo className="w-8.75 h-10" />
               <span>
-                <span className="text-(length:--text-title) block font-extrabold tracking-tight">
+                <span className="text-title block font-extrabold tracking-tight">
                   Map<span className="text-age-1">Feux</span>
                 </span>
-                <span className="mono text-(length:--text-micro) text-(--text-3) mt-0.5 block uppercase tracking-[0.14em]">
+                <span className="mono text-micro text-(--text-3) mt-0.5 block uppercase tracking-[0.14em]">
                   La veille nationale des feux
                 </span>
               </span>
             </Link>
 
-            <nav
-              aria-label="Navigation principale"
-              className="text-(length:--text-body) ml-2 hidden gap-6 sm:flex"
-            >
+            <nav aria-label="Navigation principale" className="text-body ml-2 hidden gap-6 sm:flex">
               {NAV.map((item) => (
                 <Link
                   key={item.href}
@@ -139,7 +136,7 @@ export default function RootLayout({
         <div className="stance">
           <div className="shell flex items-baseline gap-3 py-3">
             <span className="stance__rule" aria-hidden="true" />
-            <p className="text-(length:--text-small) text-(--text-2) max-w-[88ch]">
+            <p className="text-small text-(--text-2) max-w-[88ch]">
               Service d’information cartographique indépendant.{' '}
               <strong className="text-(--text) font-semibold">
                 Ni système d’alerte, ni source de confirmation.
@@ -154,7 +151,7 @@ export default function RootLayout({
         </main>
 
         <footer
-          className="text-(length:--text-small) mt-16 border-t py-10"
+          className="text-small mt-16 border-t py-10"
           style={{ borderColor: 'var(--border)', color: 'var(--text-2)' }}
         >
           <div className="shell">
@@ -173,7 +170,7 @@ export default function RootLayout({
               </ul>
             </nav>
             {/* L'attribution IGN est obligatoire et permanente (§9.5). */}
-            <p className="mono text-(length:--text-label) text-(--text-3) mt-5">
+            <p className="mono text-label text-(--text-3) mt-5">
               Données NASA FIRMS · Météo-France · Copernicus CAMS · IGN Géoplateforme. Attributions
               détaillées sur la page Sources.
             </p>

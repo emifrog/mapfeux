@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function LegalPage() {
   return (
-    <Prose title="Mentions légales">
+    <Prose eyebrow="légal" title="Mentions légales">
       <Section title="Éditeur">
         <ToComplete>
           <strong>À compléter avant toute publication.</strong> Raison sociale, forme juridique,

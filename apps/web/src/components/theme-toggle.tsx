@@ -90,7 +90,7 @@ export function ThemeToggle() {
     <div
       role="radiogroup"
       aria-label="Thème d’affichage"
-      className="mono text-(length:--text-micro) flex items-center gap-0.5 rounded-full border p-0.5"
+      className="mono text-micro flex items-center gap-0.5 rounded-full border p-0.5"
       style={{ borderColor: 'var(--border)' }}
     >
       {OPTIONS.map((option) => {

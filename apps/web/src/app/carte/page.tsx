@@ -12,6 +12,17 @@ import { fetchFiresInBbox } from '@/lib/data/events';
  * Le premier lot d'événements est chargé par le serveur : la liste textuelle
  * fonctionne sans JavaScript, et la carte affiche quelque chose sans attendre
  * un aller-retour. Les lots suivants suivent l'emprise (FR-007).
+ *
+ * ## Mise en page
+ *
+ * La carte occupe toute la largeur de la coque ; la liste et les textes
+ * restent dans une colonne de lecture. Une carte étirée sur 1240 px se lit
+ * mieux qu'une carte contrainte, alors qu'une ligne de texte de 1240 px ne se
+ * lit pas du tout.
+ *
+ * La légende est posée **à côté** de la carte sur grand écran, en dessous
+ * sinon. Sous la carte à toutes les tailles, elle tombait hors de vue au
+ * moment précis où l'on regarde les points sans savoir ce qu'ils veulent dire.
  */
 
 export const metadata: Metadata = {
@@ -31,59 +42,80 @@ export default async function MapPage() {
   const events = await fetchFiresInBbox(INITIAL_BBOX, { limit: 500 });
   const now = new Date();
 
+  const generatedAt = new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'Europe/Paris',
+  }).format(now);
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Carte des événements</h1>
-      <p className="text-(--text) mt-2 max-w-3xl text-sm">{MAP_DISCLAIMER}</p>
+    <div className="shell py-10">
+      <nav aria-label="Fil d’Ariane" className="eyebrow flex flex-wrap items-center gap-2">
+        <span>carte</span>
+        <span aria-hidden="true" className="text-(--border-strong)">
+          /
+        </span>
+        <span>territoires pilotes 06 et 83</span>
+        <span aria-hidden="true" className="text-(--border-strong)">
+          /
+        </span>
+        <span>observation satellitaire</span>
+      </nav>
 
-      <div className="h-104 border-(--border-strong) mt-5 overflow-hidden rounded border">
-        <MapView
-          center={[
-            (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
-            (INITIAL_BBOX.minLat + INITIAL_BBOX.maxLat) / 2,
-          ]}
-          zoom={8}
-          className="h-full w-full"
-          events={events.map((event) => ({
-            publicId: event.publicId,
-            freshnessStatus: event.freshnessStatus,
-            lastDetectedAt: event.lastDetectedAt.toISOString(),
-            confidence: event.confidenceLevel,
-            detectionCount: event.detectionCount,
-            location: event.location,
-            nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
-          }))}
-          reloadOnMove
-        />
-      </div>
+      <h1 className="text-display mt-3 max-w-[16ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
+        Anomalies thermiques observées
+      </h1>
 
-      <div className="mt-4">
+      <p className="text-lead text-(--text-2) mt-4 max-w-[68ch]">{MAP_DISCLAIMER}</p>
+
+      <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
+        <div
+          className="h-104 overflow-hidden rounded-lg border"
+          style={{ borderColor: 'var(--border-strong)' }}
+        >
+          <MapView
+            center={[
+              (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
+              (INITIAL_BBOX.minLat + INITIAL_BBOX.maxLat) / 2,
+            ]}
+            zoom={8}
+            className="h-full w-full"
+            events={events.map((event) => ({
+              publicId: event.publicId,
+              freshnessStatus: event.freshnessStatus,
+              lastDetectedAt: event.lastDetectedAt.toISOString(),
+              confidence: event.confidenceLevel,
+              detectionCount: event.detectionCount,
+              location: event.location,
+              nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
+            }))}
+            reloadOnMove
+          />
+        </div>
+
         <MapLegend />
       </div>
 
-      <section aria-labelledby="liste" className="mt-8">
-        <h2 id="liste" className="text-xl font-semibold">
+      <section aria-labelledby="liste" className="mt-12 max-w-[840px]">
+        <h2 id="liste" className="text-title font-bold tracking-tight">
           Événements de la zone
         </h2>
-        <p className="mt-1 text-sm" style={{ color: 'var(--text-2)' }}>
-          {events.length} événement{events.length > 1 ? 's' : ''} au chargement de la page. Cette
-          liste ne suit pas les déplacements de la carte : elle décrit l’emprise initiale, et son
-          horodatage vaut pour elle seule.
+        <p className="text-small text-(--text-2) mt-2 max-w-[68ch]">
+          <span className="mono">{events.length}</span> événement
+          {events.length > 1 ? 's' : ''} au chargement de la page. Cette liste ne suit pas les
+          déplacements de la carte : elle décrit l’emprise initiale, et son horodatage vaut pour
+          elle seule.
         </p>
 
-        <div className="mt-4">
+        <div className="mt-6">
           <EventList events={events} now={now} />
         </div>
       </section>
 
-      <p className="text-(--text-3) mt-8 text-xs">
+      <p className="text-micro text-(--text-3) mt-12 max-w-[68ch]">
         Page générée le{' '}
-        <time dateTime={now.toISOString()}>
-          {new Intl.DateTimeFormat('fr-FR', {
-            dateStyle: 'long',
-            timeStyle: 'short',
-            timeZone: 'Europe/Paris',
-          }).format(now)}
+        <time dateTime={now.toISOString()} className="mono">
+          {generatedAt}
         </time>
         . Emprise initiale : territoires pilotes 06 et 83.
       </p>

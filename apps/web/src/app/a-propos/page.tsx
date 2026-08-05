@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <Prose
+      eyebrow="le service"
       title="À propos"
       lead="Une page de référence par événement : permanente, sourcée, horodatée, et lisible même quand le reste tombe."
     >

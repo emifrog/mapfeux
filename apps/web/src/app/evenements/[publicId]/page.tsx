@@ -247,7 +247,7 @@ export default async function EventPage({ params }: PageParams) {
     <article className="shell max-w-[840px] py-10">
       {isFixture && (
         <p
-          className="rounded-(--radius-md) text-(length:--text-small) mb-6 border-l-[3px] px-4 py-3 font-medium"
+          className="text-small mb-6 rounded-md border-l-[3px] px-4 py-3 font-medium"
           style={{
             borderColor: 'var(--color-degraded)',
             background: 'var(--color-degraded-wash)',
@@ -261,7 +261,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {snapshotIsStale && (
         <p
-          className="rounded-(--radius-md) text-(length:--text-small) mb-6 border-l-[3px] px-4 py-3"
+          className="text-small mb-6 rounded-md border-l-[3px] px-4 py-3"
           style={{
             borderColor: 'var(--color-degraded)',
             background: 'var(--color-degraded-wash)',
@@ -298,7 +298,7 @@ export default async function EventPage({ params }: PageParams) {
         <span>observation satellitaire</span>
       </nav>
 
-      <h1 className="text-(length:--text-display) mt-3 max-w-[19ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
+      <h1 className="text-display mt-3 max-w-[19ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
         {event.nearestMunicipality === null
           ? 'Anomalies thermiques observées'
           : `Anomalies thermiques près de ${event.nearestMunicipality.name}`}
@@ -308,10 +308,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {/* Dernière observation : l'horodatage exact accompagne toujours l'âge. */}
       <section aria-labelledby="derniere-observation" className="mt-8">
-        <h2
-          id="derniere-observation"
-          className="text-(length:--text-title) font-bold tracking-tight"
-        >
+        <h2 id="derniere-observation" className="text-title font-bold tracking-tight">
           Dernière observation
         </h2>
         <p className="mt-2">
@@ -327,7 +324,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {/* Synthèse. Chaque chiffre est une agrégation, donc un calcul. */}
       <section aria-labelledby="synthese" className="mt-10">
-        <h2 id="synthese" className="text-(length:--text-title) font-bold tracking-tight">
+        <h2 id="synthese" className="text-title font-bold tracking-tight">
           Ce qui a été mesuré
         </h2>
         <ProvenanceBadge provenance="algorithmic_inference" className="mt-2" />
@@ -359,19 +356,17 @@ export default async function EventPage({ params }: PageParams) {
               <p className="mono text-[27px] font-semibold leading-tight tracking-[-0.03em]">
                 {figure.n}
                 {figure.unit !== '' && (
-                  <span className="text-(length:--text-small) text-(--text-3) ml-1 font-medium">
-                    {figure.unit}
-                  </span>
+                  <span className="text-small text-(--text-3) ml-1 font-medium">{figure.unit}</span>
                 )}
               </p>
-              <p className="text-(length:--text-small) text-(--text-2) mt-1">{figure.k}</p>
+              <p className="text-small text-(--text-2) mt-1">{figure.k}</p>
             </div>
           ))}
         </div>
 
         <dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
           <div>
-            <dt className="text-(length:--text-small) text-(--text-2)">Première observation</dt>
+            <dt className="text-small text-(--text-2)">Première observation</dt>
             <dd>
               <time dateTime={event.firstDetectedAt.toISOString()}>
                 {formatInstant(event.firstDetectedAt, event.timeZone)}
@@ -379,24 +374,22 @@ export default async function EventPage({ params }: PageParams) {
             </dd>
           </div>
           <div>
-            <dt className="text-(length:--text-small) text-(--text-2)">Détections</dt>
+            <dt className="text-small text-(--text-2)">Détections</dt>
             <dd>
               {event.detectionCount} sur {event.sensorCount} capteur
               {event.sensorCount > 1 ? 's' : ''}
             </dd>
           </div>
           <div>
-            <dt className="text-(length:--text-small) text-(--text-2)">Capteurs</dt>
+            <dt className="text-small text-(--text-2)">Capteurs</dt>
             <dd>{event.sensors.length === 0 ? '—' : event.sensors.join(', ')}</dd>
           </div>
           <div>
-            <dt className="text-(length:--text-small) text-(--text-2)">Satellites</dt>
+            <dt className="text-small text-(--text-2)">Satellites</dt>
             <dd>{event.satellites.length === 0 ? '—' : event.satellites.join(', ')}</dd>
           </div>
           <div>
-            <dt className="text-(length:--text-small) text-(--text-2)">
-              Puissance radiative (FRP)
-            </dt>
+            <dt className="text-small text-(--text-2)">Puissance radiative (FRP)</dt>
             <dd>
               {event.frp.median === null
                 ? 'Non disponible'
@@ -404,7 +397,7 @@ export default async function EventPage({ params }: PageParams) {
             </dd>
           </div>
           <div>
-            <dt className="text-(length:--text-small) text-(--text-2)">Fiabilité</dt>
+            <dt className="text-small text-(--text-2)">Fiabilité</dt>
             <dd>{CONFIDENCE_LEVEL_LABELS[event.confidenceLevel]}</dd>
           </div>
         </dl>
@@ -414,7 +407,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {/* Chronologie triée par heure de survenue, pas d'import. FR-055 */}
       <section aria-labelledby="chronologie" className="mt-10">
-        <h2 id="chronologie" className="text-(length:--text-title) font-bold tracking-tight">
+        <h2 id="chronologie" className="text-title font-bold tracking-tight">
           Chronologie
         </h2>
         {timeline.length === 0 ? (
@@ -469,7 +462,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {/* Alternative textuelle à la carte. §8.6 */}
       <section aria-labelledby="detections" className="mt-10">
-        <h2 id="detections" className="text-(length:--text-title) font-bold tracking-tight">
+        <h2 id="detections" className="text-title font-bold tracking-tight">
           Détections membres
         </h2>
         <p className="text-(--text-2) mt-2 text-sm">{MAP_DISCLAIMER}</p>
@@ -536,7 +529,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {/* La carte vient après le contenu : elle l'illustre, ne le porte pas. */}
       <section aria-labelledby="localisation" className="mt-10">
-        <h2 id="localisation" className="text-(length:--text-title) font-bold tracking-tight">
+        <h2 id="localisation" className="text-title font-bold tracking-tight">
           Localisation
         </h2>
         <p className="text-(--text-2) mt-2 text-sm">
@@ -579,7 +572,7 @@ export default async function EventPage({ params }: PageParams) {
 
       {officialLinks.length > 0 && (
         <section aria-labelledby="officiel" className="mt-10">
-          <h2 id="officiel" className="text-(length:--text-title) font-bold tracking-tight">
+          <h2 id="officiel" className="text-title font-bold tracking-tight">
             Informations officielles du territoire
           </h2>
           <ul className="mt-3 space-y-2">
@@ -600,7 +593,7 @@ export default async function EventPage({ params }: PageParams) {
       )}
 
       <section aria-labelledby="partage" className="mt-10">
-        <h2 id="partage" className="text-(length:--text-title) font-bold tracking-tight">
+        <h2 id="partage" className="text-title font-bold tracking-tight">
           Partager
         </h2>
         <p className="mt-2 text-sm">

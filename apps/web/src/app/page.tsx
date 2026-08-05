@@ -11,6 +11,10 @@ import { fetchTerritories } from '@/lib/data/territories';
  * montre, sur quel territoire, et son caractère non officiel. La recherche est
  * placée avant tout le reste : c'est la seule action que quelqu'un vient
  * réellement faire ici.
+ *
+ * Cette passe ne touche que la forme. Le libellé du titre relève d'une
+ * formulation publique, qui passe par une validation métier avant d'être
+ * modifiée — voir les règles de contribution du dépôt.
  */
 
 export const revalidate = 3600;
@@ -20,11 +24,14 @@ export default async function HomePage() {
   const departments = territories.filter((territory) => territory.type === 'department');
 
   return (
-    <div className="mx-auto max-w-[68ch] px-6 py-14">
-      <h1 className="text-4xl font-bold tracking-tight">
+    <div className="shell max-w-[68ch] py-14">
+      <p className="eyebrow mb-3">observation satellitaire · France</p>
+
+      <h1 className="text-display max-w-[17ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
         Où sont les détections thermiques en France
       </h1>
-      <p className="mt-4 text-lg" style={{ color: 'var(--text-2)' }}>
+
+      <p className="text-lead text-(--text-2) mt-4">
         MapFeux regroupe les observations satellitaires en événements, les rattache à une commune,
         et indique pour chacun qui a observé quoi et quand.
       </p>
@@ -34,13 +41,18 @@ export default async function HomePage() {
       </div>
 
       <p className="mt-5">
-        <Link href="/carte" className="font-medium underline underline-offset-4">
+        <Link href="/carte" className="font-semibold underline underline-offset-4">
           Ouvrir la carte
         </Link>
       </p>
 
+      {/*
+        L'avertissement porte le filet orange du bandeau de positionnement : il
+        relève de l'observation thermique, seul domaine auquel l'orange
+        appartient. Même forme que les bandeaux d'état de la fiche événement.
+      */}
       <div
-        className="mt-10 rounded-2xl border-l-4 p-5 text-sm"
+        className="text-small mt-10 rounded-md border-l-[3px] px-5 py-4"
         style={{
           background: 'var(--color-age-2-wash)',
           borderColor: 'var(--color-age-2)',
@@ -51,30 +63,30 @@ export default async function HomePage() {
       </div>
 
       {departments.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold tracking-tight">Territoires ouverts</h2>
-          <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+        <section className="mt-14">
+          <h2 className="text-title font-bold tracking-tight">Territoires ouverts</h2>
+          <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
             {departments.map((department) => (
               <li key={department.slug}>
                 <Link
                   href={`/territoire/${department.slug}`}
                   className="underline underline-offset-4"
                 >
-                  {department.name} ({department.code})
+                  {department.name} <span className="mono text-(--text-3)">{department.code}</span>
                 </Link>
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-sm" style={{ color: 'var(--text-2)' }}>
+          <p className="text-small text-(--text-2) mt-4">
             Les détections ne sont importées que sur ces départements. Ailleurs, l’absence
             d’événement ne signifie rien.
           </p>
         </section>
       )}
 
-      <section className="mt-12">
-        <h2 className="text-xl font-semibold tracking-tight">Comprendre avant d’interpréter</h2>
-        <p className="mt-2" style={{ color: 'var(--text-2)' }}>
+      <section className="mt-14">
+        <h2 className="text-title font-bold tracking-tight">Comprendre avant d’interpréter</h2>
+        <p className="text-(--text-2) mt-3">
           Une détection thermique n’est pas un feu confirmé, et son absence ne signifie pas qu’il
           n’y en a pas. La{' '}
           <Link href="/methodologie" className="underline underline-offset-4">

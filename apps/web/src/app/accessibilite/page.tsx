@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 export default function AccessibilityPage() {
   return (
     <Prose
+      eyebrow="légal"
       title="Accessibilité"
       lead="Ce qui a été fait, ce qui n’a pas encore été audité, et où le service reste inaccessible."
     >

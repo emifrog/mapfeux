@@ -553,7 +553,22 @@ en linéale.
 - ✅ Garde-fou : `apps/web/src/styles.test.ts` refuse l'ancienne syntaxe. Les
   fichiers de test sortent du balayage Tailwind — sans quoi le test engendrait
   lui-même les règles qu'il proscrit, ses exemples étant lus comme des classes
-- ⬜ **Carte, liste, et les huit pages restantes** gardent l'ancien traitement
+- ✅ **Carte et liste.** La carte prend toute la largeur de la coque, la lecture
+  reste en colonne ; la légende passe à côté d'elle sur grand écran, au lieu de
+  tomber hors de vue sous la carte. La liste emprunte les symboles de la carte
+  — disque plein pour un événement étayé, anneau creux pour une observation
+  isolée — plutôt que d'inventer un second vocabulaire pour la même distinction
+- ✅ **Gabarit `Prose`**, qui porte six pages de contenu d'un coup. Surtitre
+  classant — « légal », « méthode », « provenance » — parce que six pages au
+  même gabarit ne se distinguaient qu'en lisant leur titre
+- ✅ **Accueil** : échelle typographique, avertissement au filet orange comme
+  les bandeaux d'état de la fiche
+- ✅ Utilitaires canonisés : les paliers déclarés dans `@theme` engendrent déjà
+  `text-small`, `text-title`, `rounded-md`. Trente classes passaient par la
+  valeur arbitraire pour produire exactement la même règle
+- ⬜ Restent `/statut`, `/commune/[insee]`, `/territoire/[slug]`
+- ⚠️ Le libellé du titre d'accueil n'a pas été touché : une formulation
+  publique passe par une validation métier, pas par une passe de style
 - ⚠️ Le rendu réel n'a toujours pas été regardé dans un navigateur. Le défaut
   ci-dessus est exactement ce que « vérifié par construction » ne voit pas :
   lint, typage, tests et construction passaient tous

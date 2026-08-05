@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 export default function MethodologyPage() {
   return (
     <Prose
+      eyebrow="méthode"
       title="Méthodologie"
       lead="Comment une détection satellitaire devient un événement, et ce que cela ne dit pas."
     >

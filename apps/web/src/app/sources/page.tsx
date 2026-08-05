@@ -24,6 +24,7 @@ export default async function SourcesPage() {
 
   return (
     <Prose
+      eyebrow="provenance"
       title="Sources et licences"
       lead="D’où viennent les données affichées, sous quelle licence, et ce que chacune permet de dire."
     >

@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <Prose
+      eyebrow="légal"
       title="Confidentialité"
       lead="Ce que le service sait de vous : très peu, et cela se vérifie."
     >

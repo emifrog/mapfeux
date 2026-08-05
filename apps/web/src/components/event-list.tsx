@@ -1,4 +1,5 @@
 import { dataAgeMs, formatDataAge } from '@mapfeux/domain';
+import { FRESHNESS_COLORS } from '@mapfeux/map-style';
 import { CONFIDENCE_LEVEL_LABELS, EVENT_FRESHNESS_LABELS } from '@mapfeux/ui';
 import Link from 'next/link';
 
@@ -17,7 +18,33 @@ import type { FireSummary } from '@/lib/data/events';
  * d'abord, puis la longue traîne des observations isolées. Rien n'est masqué —
  * le cahier l'interdit — mais rien n'est mis sur le même plan non plus, car
  * une centaine de points équivalents ne s'interprète pas.
+ *
+ * ## Pourquoi la liste emprunte les formes de la carte
+ *
+ * Disque plein pour un événement étayé, anneau creux pour une observation
+ * isolée : ce sont exactement les symboles de la carte et de sa légende. Deux
+ * vocabulaires pour une même distinction obligeraient à apprendre deux fois la
+ * même chose, et laisseraient croire que la liste dit autre chose.
+ *
+ * La couleur du repère suit l'**âge de l'observation**, comme sur la carte, et
+ * jamais la gravité — que MapFeux ne connaît pas. Elle ne porte aucune
+ * information seule : chaque entrée écrit son statut et son horodatage.
  */
+
+function AgeMarker({ freshnessStatus, hollow }: { freshnessStatus: string; hollow: boolean }) {
+  const color = FRESHNESS_COLORS[freshnessStatus] ?? FRESHNESS_COLORS.archived;
+  return (
+    <span
+      aria-hidden="true"
+      className="mt-1.75 block size-2.5 shrink-0 rounded-full"
+      style={
+        hollow
+          ? { border: `1.5px solid ${color}` }
+          : { backgroundColor: color, border: `1.5px solid ${color}` }
+      }
+    />
+  );
+}
 
 function EventEntry({
   event,
@@ -31,31 +58,70 @@ function EventEntry({
   muted: boolean;
 }) {
   return (
-    <li className="py-3">
-      <Link
-        href={`/evenements/${event.publicId}`}
-        className={`underline underline-offset-4 ${muted ? '' : 'font-medium'}`}
-      >
-        {event.nearestMunicipality?.name ?? 'Événement thermique'}
-      </Link>
-      <span className="mono ml-2 text-xs" style={{ color: 'var(--text-3)' }}>
-        {event.publicId}
-      </span>
+    <li className="flex gap-3 py-3.5">
+      <AgeMarker freshnessStatus={event.freshnessStatus} hollow={muted} />
 
-      <p className="mt-1 text-sm" style={{ color: 'var(--text-2)' }}>
-        {EVENT_FRESHNESS_LABELS[event.freshnessStatus]} · {event.detectionCount} détection
-        {event.detectionCount > 1 ? 's' : ''} · fiabilité{' '}
-        {CONFIDENCE_LEVEL_LABELS[event.confidenceLevel].toLowerCase()}
-      </p>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <Link
+            href={`/evenements/${event.publicId}`}
+            className={`underline-offset-4 hover:underline ${muted ? '' : 'font-semibold'}`}
+          >
+            {event.nearestMunicipality?.name ?? 'Événement thermique'}
+          </Link>
+          <span className="eyebrow">{event.publicId}</span>
+        </div>
 
-      <p className="text-sm" style={{ color: 'var(--text-3)' }}>
-        Dernière observation{' '}
-        <time dateTime={event.lastDetectedAt.toISOString()}>
-          {formatter.format(event.lastDetectedAt)}
-        </time>{' '}
-        (il y a {formatDataAge(dataAgeMs(event.lastDetectedAt, now))})
-      </p>
+        {/* Le décompte en chasse fixe : c'est une mesure, pas un énoncé. */}
+        <p className="text-small text-(--text-2) mt-1">
+          {EVENT_FRESHNESS_LABELS[event.freshnessStatus]}
+          <span aria-hidden="true" className="text-(--border-strong) mx-2">
+            ·
+          </span>
+          <span className="mono">{event.detectionCount}</span> détection
+          {event.detectionCount > 1 ? 's' : ''}
+          <span aria-hidden="true" className="text-(--border-strong) mx-2">
+            ·
+          </span>
+          fiabilité {CONFIDENCE_LEVEL_LABELS[event.confidenceLevel].toLowerCase()}
+        </p>
+
+        <p className="text-small text-(--text-3) mt-0.5">
+          Dernière observation{' '}
+          <time dateTime={event.lastDetectedAt.toISOString()} className="mono">
+            {formatter.format(event.lastDetectedAt)}
+          </time>{' '}
+          (il y a {formatDataAge(dataAgeMs(event.lastDetectedAt, now))})
+        </p>
+      </div>
     </li>
+  );
+}
+
+function Section({
+  id,
+  title,
+  count,
+  lead,
+  children,
+}: {
+  id: string;
+  title: string;
+  count: number;
+  lead: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section aria-labelledby={id}>
+      <h3 id={id} className="flex items-baseline gap-2.5 font-bold tracking-tight">
+        {title}
+        {/* Le compte est une mesure : chasse fixe, et jamais dans le titre
+            lui-même — il change à chaque emprise, pas le libellé. */}
+        <span className="mono text-small text-(--text-3) font-normal">{count}</span>
+      </h3>
+      <p className="text-small text-(--text-2) mt-1 max-w-[68ch]">{lead}</p>
+      {children}
+    </section>
   );
 }
 
@@ -70,7 +136,7 @@ export function EventList({
 }) {
   if (events.length === 0) {
     return (
-      <p style={{ color: 'var(--text-2)' }}>
+      <p className="text-(--text-2) max-w-[68ch]">
         Aucun événement dans cette zone pour la période consultée. Cela signifie qu’aucune détection
         thermique n’a été regroupée ici, pas qu’il ne s’y passe rien.
       </p>
@@ -87,22 +153,15 @@ export function EventList({
   const tail = events.filter((event) => event.confidenceLevel === 'low');
 
   return (
-    <div className="flex flex-col gap-8">
-      <section aria-labelledby="etayes">
-        <h3 id="etayes" className="text-base font-semibold">
-          Événements étayés
-          <span className="mono ml-2 text-sm font-normal" style={{ color: 'var(--text-3)' }}>
-            {substantiated.length}
-          </span>
-        </h3>
-        <p className="mt-1 text-sm" style={{ color: 'var(--text-2)' }}>
-          Observés à plusieurs reprises, ou par plusieurs capteurs indépendants.
-        </p>
-
+    <div className="flex flex-col gap-9">
+      <Section
+        id="etayes"
+        title="Événements étayés"
+        count={substantiated.length}
+        lead="Observés à plusieurs reprises, ou par plusieurs capteurs indépendants."
+      >
         {substantiated.length === 0 ? (
-          <p className="mt-3 text-sm" style={{ color: 'var(--text-2)' }}>
-            Aucun événement étayé dans cette zone.
-          </p>
+          <p className="text-small text-(--text-2) mt-3">Aucun événement étayé dans cette zone.</p>
         ) : (
           <ul className="mt-2 divide-y" style={{ borderColor: 'var(--border)' }}>
             {substantiated.map((event) => (
@@ -116,22 +175,15 @@ export function EventList({
             ))}
           </ul>
         )}
-      </section>
+      </Section>
 
       {tail.length > 0 && (
-        <section aria-labelledby="traine">
-          <h3 id="traine" className="text-base font-semibold">
-            Observations isolées
-            <span className="mono ml-2 text-sm font-normal" style={{ color: 'var(--text-3)' }}>
-              {tail.length}
-            </span>
-          </h3>
-          <p className="mt-1 text-sm" style={{ color: 'var(--text-2)' }}>
-            Vues une seule fois, ou sans confirmation par un second capteur. La plupart
-            correspondent à des brûlages agricoles, des sites industriels ou des artefacts. Elles
-            sont conservées et consultables, mais ne sont pas mises en avant.
-          </p>
-
+        <Section
+          id="traine"
+          title="Observations isolées"
+          count={tail.length}
+          lead="Vues une seule fois, ou sans confirmation par un second capteur. La plupart correspondent à des brûlages agricoles, des sites industriels ou des artefacts. Elles sont conservées et consultables, mais ne sont pas mises en avant."
+        >
           <ul className="mt-2 divide-y" style={{ borderColor: 'var(--border)' }}>
             {tail.map((event) => (
               <EventEntry
@@ -143,7 +195,7 @@ export function EventList({
               />
             ))}
           </ul>
-        </section>
+        </Section>
       )}
     </div>
   );
