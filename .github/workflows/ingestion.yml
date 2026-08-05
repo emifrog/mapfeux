@@ -86,8 +86,14 @@ jobs:
       # Le code de sortie ne vaut 1 que si *tous* les produits ont échoué. Un
       # capteur indisponible ne doit pas faire rougir la tâche toutes les nuits,
       # sans quoi l'alerte devient un bruit qu'on cesse de lire.
+      # `SUPABASE_URL` et `SUPABASE_SECRET_KEY` commandent l'archivage du CSV
+      # brut dans le compartiment `raw`, avant analyse (§16.1, étape 6). Sans
+      # elles, la chaîne tourne mais ne conserve rien — et sur un runner, « ne
+      # rien conserver » est définitif : le disque disparaît avec le passage.
       - name: Ingestion
         env:
           DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
           FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: python scripts/run-ingestion.py

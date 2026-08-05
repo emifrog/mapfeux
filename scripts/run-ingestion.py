@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -57,8 +58,46 @@ from geo_worker.providers.firms import (
     parse_csv,
 )
 from geo_worker.providers.models import BoundingBox
+from geo_worker.storage import BUCKET_RAW, StorageError, upload_object
 
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
+
+
+@dataclass(frozen=True)
+class ArchiveTarget:
+    """Où déposer les fichiers bruts, et avec quelle clé."""
+
+    supabase_url: str
+    secret_key: str
+    bucket: str
+
+
+def archive_target(env: dict[str, str]) -> ArchiveTarget | None:
+    """Cible d'archivage, ou `None` si elle n'est pas configurée.
+
+    L'archivage est **exigé en production** et facultatif ailleurs : une
+    calibration ou un essai local n'ont pas à posséder une clé de service pour
+    faire tourner la chaîne. Le compromis a une limite claire — une
+    configuration *partielle* est refusée, parce qu'elle signale une intention
+    d'archiver que le silence trahirait.
+    """
+    supabase_url = env.get("SUPABASE_URL", "")
+    secret_key = env.get("SUPABASE_SECRET_KEY", "")
+    bucket = env.get("SUPABASE_STORAGE_BUCKET_RAW", BUCKET_RAW)
+
+    if supabase_url == "" and secret_key == "":
+        return None
+
+    if supabase_url == "" or secret_key == "":
+        manquante = "SUPABASE_URL" if supabase_url == "" else "SUPABASE_SECRET_KEY"
+        sys.exit(
+            f"{manquante} absente alors que l'autre est renseignée.\n"
+            "L'archivage du brut est soit configuré, soit absent ; à moitié, il "
+            "échouerait à chaque passe sans qu'on sache si c'était voulu."
+        )
+
+    return ArchiveTarget(supabase_url=supabase_url, secret_key=secret_key, bucket=bucket)
+
 
 # France métropolitaine et Corse, avec tampon frontalier : un feu à quelques
 # kilomètres de la frontière concerne les communes françaises voisines (§16.3).
@@ -77,11 +116,21 @@ def parse_bbox(argv: list[str]) -> BoundingBox:
     return BoundingBox(min_lon=parts[0], min_lat=parts[1], max_lon=parts[2], max_lat=parts[3])
 
 
+def raw_object_path(product: str, stamp: datetime) -> str:
+    """Chemin du CSV brut dans le compartiment `raw`.
+
+    Arborescence par jour : une rétention de trente jours se purge alors par
+    préfixe, sans lister le compartiment entier.
+    """
+    return f"firms/{stamp.strftime('%Y/%m/%d')}/{stamp.strftime('%Y%m%dT%H%M%SZ')}_{product}.csv"
+
+
 def step_import(
     conn: psycopg.Connection[Any],
     client: httpx.Client,
     map_key: str,
     bbox: BoundingBox,
+    archive: ArchiveTarget | None,
 ) -> tuple[int, int]:
     """Importe les détections récentes. Retourne (insérées, produits en échec)."""
     firms = FirmsClient(client, map_key)
@@ -92,6 +141,31 @@ def step_import(
         try:
             with import_run(conn, source_key="firms", job_name=f"detections:{product}") as counters:
                 body = firms.fetch_area(product=product, bbox=bbox, day_range=1)
+
+                # Archivage **avant** analyse — §16.1, étape 6. Ce qui n'a pas
+                # été conservé ne peut pas être rejoué, et un changement de
+                # format chez FIRMS se diagnostique sur la donnée reçue, jamais
+                # sur son interprétation.
+                #
+                # La chaîne planifiée ne le faisait pas : seul l'import manuel
+                # écrivait le CSV, sur le disque du poste. Depuis que
+                # l'ordonnanceur est chez GitHub, ce disque est celui d'un
+                # runner qui disparaît à la fin du passage — la règle était donc
+                # tenue nulle part, alors que le plan la portait comme acquise.
+                if archive is not None:
+                    stamp = datetime.now(UTC)
+                    object_path = raw_object_path(product, stamp)
+                    counters.checksum = upload_object(
+                        client,
+                        supabase_url=archive.supabase_url,
+                        secret_key=archive.secret_key,
+                        bucket=archive.bucket,
+                        object_path=object_path,
+                        payload=body.encode("utf-8"),
+                        content_type="text/csv; charset=utf-8",
+                    )
+                    counters.artifact_path = f"{archive.bucket}/{object_path}"
+
                 detections, rejections = parse_csv(body, product=product)
                 unique = list(deduplicate(detections))
 
@@ -115,7 +189,10 @@ def step_import(
             failures += 1
             delay = exc.retry_after_seconds
             print(f"  {product} : quota atteint" + (f", réessayer dans {delay} s" if delay else ""))
-        except (FirmsUnavailableError, ImportRunError) as exc:
+        except (FirmsUnavailableError, ImportRunError, StorageError) as exc:
+            # Un dépôt refusé fait échouer **ce produit**, et le fait savoir. On
+            # ne l'avale pas : analyser une donnée qu'on n'a pas conservée, c'est
+            # produire un résultat qu'on ne pourra jamais réexaminer.
             failures += 1
             print(f"  {product} : {exc}")
 
@@ -133,8 +210,20 @@ def main(argv: list[str]) -> int:
             "Clé gratuite : https://firms.modaps.eosdis.nasa.gov/api/map_key/"
         )
 
+    archive = archive_target(env)
+
     started = datetime.now(UTC)
-    print(f"emprise : {bbox.as_firms_area()}\n", flush=True)
+    print(f"emprise : {bbox.as_firms_area()}")
+    print(
+        "archivage : "
+        + (
+            f"compartiment « {archive.bucket} »"
+            if archive is not None
+            else "désactivé — aucun fichier brut ne sera conservé"
+        )
+        + "\n",
+        flush=True,
+    )
 
     with (
         psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn,
@@ -147,7 +236,7 @@ def main(argv: list[str]) -> int:
             return 0
 
         with httpx.Client() as client:
-            inserted, failures = step_import(conn, client, map_key, bbox)
+            inserted, failures = step_import(conn, client, map_key, bbox, archive)
         print(
             f"import      : {inserted} détection(s), {failures} produit(s) en échec",
             flush=True,

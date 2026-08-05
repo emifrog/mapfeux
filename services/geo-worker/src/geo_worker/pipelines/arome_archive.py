@@ -15,7 +15,6 @@ assurance déjà souscrite ailleurs.
 
 from __future__ import annotations
 
-import hashlib
 import pathlib
 import tempfile
 from dataclasses import dataclass
@@ -26,6 +25,7 @@ import xarray as xr
 from geo_worker.logging import get_logger
 from geo_worker.providers.arome import FWI_FIELDS, AromeError, PackageRef
 from geo_worker.providers.models import BoundingBox
+from geo_worker.storage import upload_object
 
 logger = get_logger(__name__)
 
@@ -89,40 +89,6 @@ def extract(path: pathlib.Path, extent: BoundingBox, lead_hours: int) -> xr.Data
     return subset
 
 
-def upload(
-    client: httpx.Client,
-    *,
-    supabase_url: str,
-    secret_key: str,
-    bucket: str,
-    object_path: str,
-    payload: bytes,
-) -> None:
-    """Dépose l'extrait, en écrasant une éventuelle version antérieure.
-
-    `x-upsert` évite qu'un rejeu quotidien échoue sur un objet déjà présent :
-    rejouer une journée doit être anodin, pas une erreur à diagnostiquer.
-    """
-    response = client.post(
-        f"{supabase_url.rstrip('/')}/storage/v1/object/{bucket}/{object_path}",
-        content=payload,
-        headers={
-            # Les clés `sb_secret_…` ne sont pas des JWT : Storage refuse de les
-            # analyser comme tel et répond « Invalid Compact JWS ». Elles se
-            # présentent en `apikey` ; l'en-tête `Authorization` reste envoyé
-            # pour les déploiements servant encore l'ancien format.
-            "apikey": secret_key,
-            "Authorization": f"Bearer {secret_key}",
-            "Content-Type": "application/octet-stream",
-            "x-upsert": "true",
-        },
-        timeout=180,
-    )
-    if response.status_code >= 300:
-        # Le corps porte le motif ; l'URL porte le compartiment, pas de secret.
-        raise AromeError(f"Dépôt refusé ({response.status_code}) : {response.text[:200]}")
-
-
 def archive_package(
     http: httpx.Client,
     *,
@@ -158,13 +124,12 @@ def archive_package(
         subset.to_netcdf(extract_path, encoding=encoding)
         payload = extract_path.read_bytes()
 
-    checksum = hashlib.sha256(payload).hexdigest()
     object_path = (
         f"arome/{reference.run.strftime('%Y/%m/%d')}/"
         f"{reference.run_key.replace(':', '')}__{reference.span}__fwi.nc"
     )
 
-    upload(
+    checksum = upload_object(
         http,
         supabase_url=supabase_url,
         secret_key=secret_key,
@@ -190,4 +155,4 @@ def archive_package(
     return result
 
 
-__all__ = ["ArchiveResult", "archive_package", "extract", "upload"]
+__all__ = ["ArchiveResult", "archive_package", "extract"]
