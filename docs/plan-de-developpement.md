@@ -1,6 +1,7 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 5 août 2026
+**Dernière mise à jour** : 5 août 2026, seconde passe — mise en service des
+sources.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -59,6 +60,17 @@ un profil quotidien sans trou et des FRP jusqu'à 2197 MW. Un réglage plus serr
 l'éclate en cinq foyers contigus et simultanés : c'est un vrai grand feu, pas un
 chaînage de l'algorithme.
 
+**L'ingestion tourne enfin toute seule.** Le 5 août au soir, la chaîne planifiée
+a produit sa première passe réussie : 11 détections importées, 2 événements
+créés, 9 rattachements, 6 snapshots reconstruits, en 86 s. La fraîcheur affichée
+est passée de huit jours à moins d'une minute.
+
+Le blocage n'était pas celui qu'on croyait. `FIRMS_MAP_KEY` était posée depuis
+trois jours ; le rôle `mapfeux_ingest` existait avec ses vingt-et-un droits de
+table, **mais sans mot de passe** — le pooler répondait
+`(EAUTHQUERY) unsupported or invalid secret format`. L'étape 1 des trois du
+README avait été sautée, et personne n'avait lu les journaux de la CI.
+
 **Le corpus de quatorze saisons est constitué.** 337 757 détections VIIRS du
 20 janvier 2012 au 2 août 2026, France métropolitaine et Corse, empreinte de
 contenu `129f0347c2e6f77e`. C'est ce que débloquait la demande d'archive FIRMS,
@@ -77,11 +89,12 @@ cette moitié sans le dire.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 50 tests |
+| Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 50 fichiers |
-| Worker | `mypy src` | ✅ strict, 23 fichiers |
-| Worker | `pytest` | ✅ 233 tests |
+| Worker | `ruff check` / `ruff format --check` | ✅ 53 fichiers |
+| Worker | `mypy src` | ✅ strict, 24 fichiers |
+| Worker | `pytest` | ✅ 247 tests |
+| Migrations | 21 migrations sur base vierge, en CI | ✅ |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §9 bis les ont toutes passées.
@@ -101,6 +114,10 @@ Tout le reste est en place : le plafond de passe est levé, l'importeur écrit,
 et les outils qui font tourner des paramètres expérimentaux refusent désormais
 de démarrer sur la base que le site public lit.
 
+La mise en service des sources est close, à une exception près — la vigilance
+n'est dans aucun ordonnanceur (§10). Le reste du chantier visuel — `/statut`,
+`/commune`, `/territoire` — ne dépend de rien.
+
 ```bash
 micromamba run -n mapfeux-geo python scripts/import-corpus.py --limite 5000
 micromamba run -n mapfeux-geo python scripts/import-corpus.py
@@ -111,9 +128,6 @@ En parallèle, de votre côté :
 
 - ouvrir les préalables de la [phase 0](strategie.md#3-phase-0--préalables-non-techniques),
   en particulier l'autorisation de cumul — c'est un point d'arrêt du projet ;
-- poser le secret `FIRMS_MAP_KEY` côté GitHub : l'ingestion planifiée échoue à
-  chaque déclenchement faute de ce secret, et le site affiche une fraîcheur
-  exacte et mauvaise ;
 - trancher les [décisions ouvertes](strategie.md#8-décisions-ouvertes), dont
   l'ordonnancement et le préfixe d'identifiant public.
 
@@ -217,7 +231,12 @@ sans provenance ni horodatage.
   clé invalide : sans ce contrôle, l'import serait déclaré réussi en n'ayant
   rien importé, le pire des résultats puisqu'il est silencieux
 - ✅ Découpage spatial de l'emprise avec tampon frontalier
-- ✅ Archivage du fichier brut **avant** analyse, avec empreinte SHA-256
+- ✅ Archivage du fichier brut **avant** analyse, avec empreinte SHA-256, dans
+  le compartiment `raw` — **sur les deux chemins**. La ligne portait cet acquis
+  depuis J2 alors que seul l'import manuel l'assurait ; la chaîne planifiée, qui
+  alimente le site, ne conservait rien. Depuis le passage chez GitHub Actions,
+  « ne rien conserver » était devenu définitif, le disque du runner disparaissant
+  avec le passage
 - ✅ Insertion idempotente vérifiée sur données réelles : rejeu à zéro doublon
 - ✅ Un `import_run` par produit — un capteur indisponible n'empêche pas les
   autres, et `/statut` montre lequel a échoué
@@ -243,12 +262,16 @@ sans provenance ni horodatage.
 
 ### Reste ⬜
 
-- 🟢 Planification toutes les dix minutes — workflow GitHub Actions, rôle
-  `mapfeux_ingest` restreint, périmètre vérifié par 23 sondes. En attente des
-  trois étapes de mise en service décrites au README : appliquer la migration,
-  poser le mot de passe du rôle, déclarer les deux secrets
-- ⬜ Déplacer les fichiers bruts vers Storage — ils sont aujourd'hui sur le
-  disque local, sans rétention
+- ✅ **Planification toutes les dix minutes, en service.** Première passe réussie
+  le 5 août : 11 détections, 2 événements, 9 rattachements, 6 snapshots, 86 s.
+  Il aura fallu, outre les trois étapes du README, un `grant usage on schema app`
+  que la migration du rôle avait omis — le regroupement convertit vers
+  `app.confidence_level` et `app.provenance`, et échouait au dernier temps de la
+  passe. La panne de connexion masquait ce second défaut
+- ✅ Fichiers bruts dans Storage : compartiment `raw`, arborescence par jour,
+  chemin et empreinte consignés dans l'`import_run`
+- ⬜ Rétention : le compartiment `raw` est annoncé à trente jours, aucun job de
+  purge n'existe. `cold` en est exclu par construction et doit le rester
 - ✅ Algorithme de rattachement déterministe, paramètres versionnés (§17.2) —
   26 tests sur les fonctions pures
 - ✅ Reproductibilité vérifiée sur 90 jours réels : recalcul complet, empreinte
@@ -585,12 +608,15 @@ capté est perdu définitivement ([ADR-025](adr/025-plateforme-a-deux-visages.md
   rétroactivement non
 - ✅ `next_reachable_noon` — à dix-huit heures UTC la mi-journée est hors de
   portée du run, et une exécution d'après-midi sur deux échouait
-- ⬜ **`archive-arome.py` échoue au dépôt** : le compartiment `raw` n'existe pas
-  — « Bucket not found ». Tout le reste de la chaîne a tourné en conditions
-  réelles : paquet de 59,7 Mo téléchargé, cinq champs extraits, emprise
-  nationale découpée, extrait NetCDF prêt à déposer
-- ⚠️ ADR-025 chiffre l'archivage à un coût « quasi gratuit » que la mesure
-  dément : 56 Mo par tranche de six heures. D'où l'extrait, et non le paquet
+- ✅ **En service.** Dépôt vérifié dans le compartiment `cold`, jamais purgé :
+  54,1 Mo téléchargés, 10,42 Mo archivés, `import_run` en `success`, et AROME
+  passée d'« Indisponible » à « À jour » sur `/statut`
+- ✅ Planifié quotidiennement à 10 h UTC (`arome-archive.yml`)
+- ⚠️ **ADR-025 est à corriger sur les deux chiffres.** L'ADR annonce un coût
+  « quasi gratuit » ; la mesure du 2 août sur le paquet brut donnait 56 Mo par
+  tranche de six heures, soit vingt gigaoctets par an. L'extrait réel pèse
+  **10,4 Mo par jour, environ 3,8 Go par an** — ni l'un ni l'autre. C'est le
+  rapport de cinq entre paquet et extrait qui rend l'archivage quotidien tenable
 
 ### Journalisation ✅
 
@@ -623,8 +649,8 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Décisions ouvertes non tranchées | Ordonnancement, calendrier, validation, préfixe | Avant J2 |
 | CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
 | **`SUPABASE_SECRET_KEY` à régénérer** | Imprimée en clair dans une trace du 5 août. La cause est corrigée, la clé reste compromise | Immédiat |
-| Ingestion planifiée en échec à chaque déclenchement | Le secret `FIRMS_MAP_KEY` n'est pas posé côté GitHub | Immédiat |
-| Compartiments Storage à créer | `raw` et `derived`, privés. `archive-arome.py` échoue sur « Bucket not found » ; la chaîne fonctionne jusque-là | Immédiat |
+| Vigilance Météo-France dans aucun ordonnanceur | Adaptateur écrit et validé sur bulletin réel, dernier import du 2 août. `ingestion.yml` ne lance que FIRMS, `arome-archive.yml` que l'archivage | Immédiat |
+| Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
@@ -632,7 +658,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Schémas `air` et `radar` vides | Tables reportées en v2 avec le panache. `meteo` porte désormais la vigilance | v2 |
 | `app.official_messages` inutilisable par une ingestion | La table exige un `created_by` humain et un `validated_by` : la vigilance a donc ses propres tables. La [décision §8.3](strategie.md#83-validation-humaine-des-informations-officielles) reste ouverte pour les sources en texte libre | J4 |
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
-| Fichiers bruts FIRMS sur disque local | Ni Storage, ni rétention : ils s'accumulent | J2 |
+| Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service | v2 |
 | Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
 | Base de calibration à monter | Dernier point bloquant la calibration multi-saisons. Le banc efface et réécrit `fire.events` pendant des heures ; les outils refusent désormais la base publique, donc rien ne tourne tant qu'elle n'existe pas | Immédiat |
 | Écriture du corpus jamais exercée | L'importeur est couvert sur la normalisation, y compris sur le corpus réel, mais son chemin SQL — `COPY`, table de transit, 176 partitions — n'a jamais atteint une base. Le premier chargement est un essai autant qu'un import | Avec la base de calibration |
