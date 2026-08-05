@@ -11,14 +11,25 @@
 -- Aucune clé API ici : elles vivent dans l'environnement du worker (§14.3).
 -- =============================================================================
 
+-- `status` est renseigné explicitement, colonne comprise.
+--
+-- Le registre décrit ce que le cahier prévoit ; il est donc en avance sur ce
+-- qui est construit. Laisser CAMS et le radar en `active` par défaut les faisait
+-- afficher « Indisponible » sur /statut — le mot d'une panne pour un connecteur
+-- qui n'existe pas encore. `disabled` les fait lire « À venir » (FR-150).
+--
+-- Le statut vit ici, et non dans une migration seule : les migrations
+-- s'appliquent **avant** le seed, si bien qu'un `update` sur une base vierge ne
+-- toucherait aucune ligne et repartirait en `active` au premier ensemencement.
 insert into ingest.data_sources
-  (key, name, provider, expected_interval, stale_after, documentation_url,
+  (key, name, provider, status, expected_interval, stale_after, documentation_url,
    license_name, attribution, retention_policy, settings)
 values
   (
     'firms',
     'NASA FIRMS — détections de feux actifs',
     'NASA / MODAPS',
+    'active',
     interval '6 hours',
     interval '24 hours',
     'https://firms.modaps.eosdis.nasa.gov/api/area/',
@@ -35,6 +46,7 @@ values
     'vigilance',
     'Météo-France — vigilance météorologique',
     'Météo-France',
+    'active',
     -- Diffusion nominale à 6 h et 16 h locales, et davantage si la situation
     -- l'exige. Un bulletin vieux de plus de vingt heures signale une panne, pas
     -- une accalmie.
@@ -55,6 +67,7 @@ values
     'arome',
     'Météo-France — modèle AROME',
     'Météo-France',
+    'active',
     interval '3 hours',
     interval '9 hours',
     'https://donneespubliques.meteofrance.fr/?fond=produit&id_produit=131&id_rubrique=51',
@@ -67,6 +80,10 @@ values
     'cams',
     'Copernicus CAMS — qualité de l''air Europe',
     'Copernicus / ECMWF',
+    -- Aucun connecteur écrit : reportée en v2 avec le panache. Déclarée pour
+    -- que le registre reste le reflet du cahier, arrêtée pour que /statut le
+    -- dise sans annoncer une panne.
+    'disabled',
     interval '24 hours',
     interval '48 hours',
     'https://ads.atmosphere.copernicus.eu/datasets/cams-europe-air-quality-forecasts',
@@ -79,6 +96,8 @@ values
     'radar',
     'Météo-France — radar de précipitations',
     'Météo-France',
+    -- Idem CAMS : schéma `radar` créé, vide, sans connecteur.
+    'disabled',
     interval '5 minutes',
     interval '1 hour',
     'https://donneespubliques.meteofrance.fr/',
@@ -91,6 +110,7 @@ values
     'ign_admin_express',
     'IGN — ADMIN EXPRESS COG',
     'IGN / Géoplateforme',
+    'active',
     interval '30 days',
     interval '400 days',
     'https://geoservices.ign.fr/telechargement-api',

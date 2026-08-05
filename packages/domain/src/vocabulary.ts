@@ -9,15 +9,40 @@
  * unique champ « statut » est un défaut de conception, pas une simplification.
  */
 
-/** Fraîcheur d'une source de données externe. Annexe D. */
+/**
+ * Fraîcheur d'une source de données externe. Annexe D.
+ *
+ * `unavailable`, `maintenance` et `upcoming` décrivent trois situations que le
+ * public ne doit pas confondre :
+ *
+ * - `unavailable` — la source est en service et n'a jamais rien livré. C'est
+ *   une panne.
+ * - `maintenance` — arrêtée volontairement, après avoir fonctionné.
+ * - `upcoming` — déclarée au registre mais jamais mise en service : le
+ *   connecteur n'existe pas encore. Ce n'est pas une panne, et la compter comme
+ *   telle fait passer un service inachevé pour un service cassé (FR-150).
+ */
 export const SOURCE_FRESHNESS = [
   'fresh',
   'delayed',
   'stale',
   'unavailable',
   'maintenance',
+  'upcoming',
 ] as const;
 export type SourceFreshness = (typeof SOURCE_FRESHNESS)[number];
+
+/**
+ * Une source compte-t-elle dans le décompte affiché au public ?
+ *
+ * Le compteur d'en-tête répond à « le service fonctionne-t-il », pas à
+ * « combien de sources le cahier prévoit-il ». Une source à venir ou en
+ * maintenance n'entre donc ni au numérateur ni au dénominateur : la laisser au
+ * dénominateur seul creuserait le ratio sans qu'aucune panne existe.
+ */
+export function isInService(freshness: SourceFreshness): boolean {
+  return freshness !== 'upcoming' && freshness !== 'maintenance';
+}
 
 /**
  * Fraîcheur technique d'un événement : décrit uniquement l'ancienneté de la
