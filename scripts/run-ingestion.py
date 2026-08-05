@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import pathlib
 import sys
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -58,45 +57,15 @@ from geo_worker.providers.firms import (
     parse_csv,
 )
 from geo_worker.providers.models import BoundingBox
-from geo_worker.storage import BUCKET_RAW, StorageError, upload_object
+from geo_worker.storage import (
+    ArchiveTarget,
+    StorageConfigError,
+    StorageError,
+    archive_target,
+    upload_object,
+)
 
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
-
-
-@dataclass(frozen=True)
-class ArchiveTarget:
-    """Où déposer les fichiers bruts, et avec quelle clé."""
-
-    supabase_url: str
-    secret_key: str
-    bucket: str
-
-
-def archive_target(env: dict[str, str]) -> ArchiveTarget | None:
-    """Cible d'archivage, ou `None` si elle n'est pas configurée.
-
-    L'archivage est **exigé en production** et facultatif ailleurs : une
-    calibration ou un essai local n'ont pas à posséder une clé de service pour
-    faire tourner la chaîne. Le compromis a une limite claire — une
-    configuration *partielle* est refusée, parce qu'elle signale une intention
-    d'archiver que le silence trahirait.
-    """
-    supabase_url = env.get("SUPABASE_URL", "")
-    secret_key = env.get("SUPABASE_SECRET_KEY", "")
-    bucket = env.get("SUPABASE_STORAGE_BUCKET_RAW", BUCKET_RAW)
-
-    if supabase_url == "" and secret_key == "":
-        return None
-
-    if supabase_url == "" or secret_key == "":
-        manquante = "SUPABASE_URL" if supabase_url == "" else "SUPABASE_SECRET_KEY"
-        sys.exit(
-            f"{manquante} absente alors que l'autre est renseignée.\n"
-            "L'archivage du brut est soit configuré, soit absent ; à moitié, il "
-            "échouerait à chaque passe sans qu'on sache si c'était voulu."
-        )
-
-    return ArchiveTarget(supabase_url=supabase_url, secret_key=secret_key, bucket=bucket)
 
 
 # France métropolitaine et Corse, avec tampon frontalier : un feu à quelques
@@ -210,7 +179,10 @@ def main(argv: list[str]) -> int:
             "Clé gratuite : https://firms.modaps.eosdis.nasa.gov/api/map_key/"
         )
 
-    archive = archive_target(env)
+    try:
+        archive = archive_target(env)
+    except StorageConfigError as exc:
+        sys.exit(str(exc))
 
     started = datetime.now(UTC)
     print(f"emprise : {bbox.as_firms_area()}")

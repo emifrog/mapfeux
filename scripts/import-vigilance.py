@@ -28,7 +28,7 @@ import psycopg
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
-from geo_worker.db import dsn_from_env_file
+from geo_worker.db import dsn_from_env_file, load_env
 from geo_worker.pipelines.import_run import ImportRunError, import_run
 from geo_worker.pipelines.vigilance import store_bulletin
 from geo_worker.providers.vigilance import (
@@ -37,6 +37,7 @@ from geo_worker.providers.vigilance import (
     latest_reference,
     parse_carte,
 )
+from geo_worker.storage import StorageConfigError, StorageError, archive_target, upload_object
 
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
 RAW_DIR = ROOT / "data" / "raw" / "vigilance"
@@ -44,8 +45,24 @@ RAW_DIR = ROOT / "data" / "raw" / "vigilance"
 SOURCE_KEY = "vigilance"
 
 
-def archive(reference_path: str, body: str, stamp: datetime) -> tuple[pathlib.Path, str]:
-    """Écrit le bulletin brut et retourne son chemin et son empreinte."""
+def raw_object_path(reference_path: str, stamp: datetime) -> str:
+    """Chemin du bulletin brut dans le compartiment `raw`.
+
+    Arborescence par jour, comme pour FIRMS : une rétention de trente jours se
+    purge alors par préfixe, sans lister le compartiment entier.
+    """
+    safe = reference_path.replace("/", "")
+    return f"vigilance/{stamp.strftime('%Y/%m/%d')}/{stamp.strftime('%Y%m%dT%H%M%SZ')}_{safe}.json"
+
+
+def archive_local(reference_path: str, body: str, stamp: datetime) -> tuple[pathlib.Path, str]:
+    """Écrit le bulletin brut sur le disque et retourne son chemin et son empreinte.
+
+    Repli lorsque le stockage objet n'est pas configuré — un poste de
+    développement n'a pas à détenir une clé de service. Sur un ordonnanceur, ce
+    repli ne conserve rien : le disque du runner disparaît avec le passage, et
+    c'est pourquoi l'archivage distant est le chemin nominal.
+    """
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     safe = reference_path.replace("/", "")
     path = RAW_DIR / f"{stamp.strftime('%Y%m%dT%H%M%SZ')}_{safe}.json"
@@ -55,6 +72,20 @@ def archive(reference_path: str, body: str, stamp: datetime) -> tuple[pathlib.Pa
 
 def main() -> int:
     stamp = datetime.now(UTC)
+    try:
+        archive = archive_target(load_env(ENV_FILE))
+    except StorageConfigError as exc:
+        sys.exit(str(exc))
+
+    print(
+        "archivage : "
+        + (
+            f"compartiment « {archive.bucket} »"
+            if archive is not None
+            else "disque local — aucune conservation sur un ordonnanceur"
+        ),
+        flush=True,
+    )
 
     with (
         psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn,
@@ -68,8 +99,23 @@ def main() -> int:
                 url, body = client.fetch_carte(reference)
                 print(f"bulletin : {reference.path}")
 
-                path, checksum = archive(reference.path, body, stamp)
-                counters.artifact_path = str(path.relative_to(ROOT))
+                # Archivage avant analyse — §16.1, étape 6.
+                if archive is None:
+                    path, checksum = archive_local(reference.path, body, stamp)
+                    counters.artifact_path = str(path.relative_to(ROOT))
+                else:
+                    object_path = raw_object_path(reference.path, stamp)
+                    checksum = upload_object(
+                        http,
+                        supabase_url=archive.supabase_url,
+                        secret_key=archive.secret_key,
+                        bucket=archive.bucket,
+                        object_path=object_path,
+                        payload=body.encode("utf-8"),
+                        content_type="application/json; charset=utf-8",
+                    )
+                    counters.artifact_path = f"{archive.bucket}/{object_path}"
+
                 counters.checksum = checksum
 
                 bulletin, levels, rejections = parse_carte(json.loads(body))
@@ -107,7 +153,10 @@ def main() -> int:
                         f"{len(above)} au-dessus du vert"
                     )
 
-        except (VigilanceError, ImportRunError) as exc:
+        # Un dépôt refusé fait échouer l'import : analyser un bulletin qu'on n'a
+        # pas conservé, c'est produire des niveaux de vigilance qu'on ne pourra
+        # jamais réexaminer contre leur source.
+        except (VigilanceError, ImportRunError, StorageError) as exc:
             print(f"échec : {exc}")
             return 1
 

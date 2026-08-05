@@ -1,0 +1,67 @@
+# =============================================================================
+# Vigilance météorologique — cahier §9.2 et §16.1.
+#
+# Météo-France diffuse au moins deux fois par jour, à 6 h et 16 h locales, et
+# davantage si la situation l'exige. Le registre annonce la source « trop
+# ancienne » au-delà de vingt heures : une cadence horaire laisse donc large
+# marge pour rattraper une diffusion manquée, sans interroger pour rien.
+#
+# L'adaptateur est validé sur bulletin réel — 1216 niveaux, zéro rejet — mais il
+# n'était dans aucun ordonnanceur : le dernier bulletin importé datait du 2 août,
+# et /statut affichait « Trop ancienne » depuis.
+#
+# Voie **sans clé** : l'API temps réel de Météo-France en exige une, absente ;
+# le dépôt objet de data.gouv.fr sert les mêmes produits sous Licence Ouverte
+# Etalab v2. Ce workflow n'a donc besoin d'aucun secret fournisseur.
+#
+# `requirements-ingestion.txt` suffit : contrairement à AROME, la vigilance lit
+# du JSON, sans ecCodes ni pile géospatiale. On reste sur pip, bien plus rapide
+# que la restauration d'un environnement conda.
+#
+# Secrets requis (dépôt) :
+#   INGESTION_DATABASE_URL  — déjà posé pour ingestion.yml (pooler session, 5432)
+#   SUPABASE_URL            — archivage du bulletin brut dans `raw`
+#   SUPABASE_SECRET_KEY     — idem, clé service, jamais côté client
+# =============================================================================
+
+name: Vigilance
+
+on:
+  schedule:
+    - cron: '20 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: vigilance
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    name: Import du dernier bulletin
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Dépendances
+        run: pip install -r services/geo-worker/requirements-ingestion.txt
+
+      # Retrouver un bulletin déjà connu est le cas courant, pas une anomalie :
+      # la diffusion est biquotidienne et l'import horaire. Le script le dit et
+      # sort en succès.
+      - name: Import
+        env:
+          DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python scripts/import-vigilance.py

@@ -12,6 +12,8 @@ le cas de l'en-tête `apikey` ci-dessous en est un exemple vivant.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
+from dataclasses import dataclass
 
 import httpx
 
@@ -30,6 +32,52 @@ BUCKET_COLD = "cold"
 
 class StorageError(RuntimeError):
     """Le dépôt a échoué. Porte le motif rendu par Storage, jamais la clé."""
+
+
+class StorageConfigError(RuntimeError):
+    """La configuration de l'archivage est incomplète."""
+
+
+@dataclass(frozen=True)
+class ArchiveTarget:
+    """Où déposer les fichiers bruts, et avec quelle clé."""
+
+    supabase_url: str
+    secret_key: str
+    bucket: str
+
+
+def archive_target(env: Mapping[str, str], *, bucket: str = BUCKET_RAW) -> ArchiveTarget | None:
+    """Cible d'archivage, ou `None` si elle n'est pas configurée.
+
+    L'archivage est **exigé en production** et facultatif ailleurs : un poste de
+    développement ou une base de calibration n'ont pas à détenir une clé de
+    service pour faire tourner une chaîne.
+
+    Le compromis a une limite nette : une configuration **partielle** est
+    refusée. Une seule des deux variables renseignée signale une intention
+    d'archiver, que le silence trahirait — la chaîne tournerait en croyant
+    conserver, et ne conserverait rien.
+    """
+    supabase_url = env.get("SUPABASE_URL", "")
+    secret_key = env.get("SUPABASE_SECRET_KEY", "")
+
+    if supabase_url == "" and secret_key == "":
+        return None
+
+    if supabase_url == "" or secret_key == "":
+        manquante = "SUPABASE_URL" if supabase_url == "" else "SUPABASE_SECRET_KEY"
+        raise StorageConfigError(
+            f"{manquante} absente alors que l'autre est renseignée. "
+            "L'archivage du brut est soit configuré, soit absent ; à moitié, il "
+            "échouerait à chaque passe sans qu'on sache si c'était voulu."
+        )
+
+    return ArchiveTarget(
+        supabase_url=supabase_url,
+        secret_key=secret_key,
+        bucket=env.get("SUPABASE_STORAGE_BUCKET_RAW", bucket),
+    )
 
 
 def upload_object(
@@ -83,6 +131,9 @@ __all__ = [
     "BUCKET_COLD",
     "BUCKET_DERIVED",
     "BUCKET_RAW",
+    "ArchiveTarget",
+    "StorageConfigError",
     "StorageError",
+    "archive_target",
     "upload_object",
 ]

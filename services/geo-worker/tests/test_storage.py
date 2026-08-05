@@ -14,7 +14,14 @@ from typing import Any
 import httpx
 import pytest
 
-from geo_worker.storage import BUCKET_COLD, BUCKET_RAW, StorageError, upload_object
+from geo_worker.storage import (
+    BUCKET_COLD,
+    BUCKET_RAW,
+    StorageConfigError,
+    StorageError,
+    archive_target,
+    upload_object,
+)
 
 SECRET = "sb_secret_valeur_qui_ne_doit_jamais_paraitre"
 
@@ -169,6 +176,56 @@ class TestUploadObject:
                 object_path="x.csv",
                 payload=b"",
             )
+
+
+class TestArchiveTarget:
+    """Résolution de la configuration d'archivage."""
+
+    def test_absente_des_deux_cotes_desactive_l_archivage(self) -> None:
+        # Un poste de développement ou une base de calibration n'ont pas à
+        # détenir une clé de service pour faire tourner une chaîne.
+        assert archive_target({}) is None
+
+    def test_configuration_complete(self) -> None:
+        cible = archive_target(
+            {"SUPABASE_URL": "https://projet.supabase.co", "SUPABASE_SECRET_KEY": SECRET}
+        )
+        assert cible is not None
+        assert cible.bucket == BUCKET_RAW
+
+    @pytest.mark.parametrize(
+        "env",
+        [
+            {"SUPABASE_URL": "https://projet.supabase.co"},
+            {"SUPABASE_SECRET_KEY": SECRET},
+        ],
+    )
+    def test_une_configuration_a_moitie_est_refusee(self, env: dict[str, str]) -> None:
+        # C'est le cas dangereux : une seule variable posée signale une
+        # intention d'archiver. Laisser passer ferait tourner la chaîne en
+        # croyant conserver, sans rien conserver.
+        with pytest.raises(StorageConfigError):
+            archive_target(env)
+
+    def test_le_compartiment_est_surchargeable(self) -> None:
+        cible = archive_target(
+            {
+                "SUPABASE_URL": "https://projet.supabase.co",
+                "SUPABASE_SECRET_KEY": SECRET,
+                "SUPABASE_STORAGE_BUCKET_RAW": "raw-recette",
+            }
+        )
+        assert cible is not None
+        assert cible.bucket == "raw-recette"
+
+    def test_ne_vise_jamais_le_froid_par_defaut(self) -> None:
+        # `cold` n'est jamais purgé : y déverser du brut quotidien ferait
+        # grossir sans fin une archive censée rester choisie.
+        cible = archive_target(
+            {"SUPABASE_URL": "https://projet.supabase.co", "SUPABASE_SECRET_KEY": SECRET}
+        )
+        assert cible is not None
+        assert cible.bucket != BUCKET_COLD
 
 
 class TestNomsDeCompartiments:
