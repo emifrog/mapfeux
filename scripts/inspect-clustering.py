@@ -109,14 +109,16 @@ def restore(conn: psycopg.Connection[Any]) -> None:
     reference = ClusteringParams()
     clear(conn, INSPECTION_VERSION)
     clear(conn, reference.version)
-    cluster_detections(conn, params=reference)
+    cluster_detections(conn, params=reference, limit=None)
     conn.commit()
 
 
 def inspect(conn: psycopg.Connection[Any], params: ClusteringParams, top: int) -> None:
     clear(conn, INSPECTION_VERSION)
     clear(conn, ClusteringParams().version)
-    cluster_detections(conn, params=params)
+    # Sans plafond : l'inspection cherche le plus gros événement du corpus, et
+    # une passe bornée n'en montrerait que le plus gros de sa tranche.
+    cluster_detections(conn, params=params, limit=None)
     conn.commit()
 
     with conn.cursor(row_factory=dict_row) as cur:

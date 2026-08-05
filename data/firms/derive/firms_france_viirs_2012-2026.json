@@ -1,0 +1,76 @@
+{
+  "sources": [
+    {
+      "fichier": "DL_FIRE_J1V-C2_781726.zip",
+      "octets": 2097636,
+      "sha256": "66e02a311ed67d837246888256bb3741f0d6872559a72c35c68622bd4e988611",
+      "membres": [
+        {
+          "nom": "fire_archive_J1V-C2_781726.csv",
+          "octets": 8284672
+        },
+        {
+          "nom": "fire_nrt_J1V-C2_781726.csv",
+          "octets": 707408
+        }
+      ]
+    },
+    {
+      "fichier": "DL_FIRE_J2V-C2_781727.zip",
+      "octets": 556279,
+      "sha256": "6154ea094924c28cb3fb6dfcea895bb344df93001940acd355bb63f71d8ab497",
+      "membres": [
+        {
+          "nom": "fire_nrt_J2V-C2_781727.csv",
+          "octets": 2489598
+        }
+      ]
+    },
+    {
+      "fichier": "DL_FIRE_SV-C2_781728.zip",
+      "octets": 3600681,
+      "sha256": "11d03799b1a10361508ded2b9e645a7bd3cc283c18c23da5f3e17db2993ceadc",
+      "membres": [
+        {
+          "nom": "fire_archive_SV-C2_781728.csv",
+          "octets": 14770301
+        },
+        {
+          "nom": "fire_nrt_SV-C2_781728.csv",
+          "octets": 704688
+        }
+      ]
+    }
+  ],
+  "regles": {
+    "nrt_ecartees_recouvrement_standard": 0,
+    "bornes_standard": {
+      "N20": "2026-04-30T12:05:00+00:00",
+      "SNPP": "2026-04-27T12:43:00+00:00"
+    },
+    "satellites_sans_standard": [
+      "N21"
+    ],
+    "doublons_exacts_supprimes": 0,
+    "empreinte_contenu": "129f0347c2e6f77e",
+    "lignes": 337757,
+    "periode_debut": "2012-01-20T01:11:00+00:00",
+    "periode_fin": "2026-08-02T03:00:00+00:00",
+    "par_satellite_corpus": {
+      "N20/nrt": 8557,
+      "N20/standard": 104346,
+      "N21/nrt": 30180,
+      "SNPP/nrt": 8524,
+      "SNPP/standard": 186150
+    },
+    "par_type": {
+      "2": 165629,
+      "0": 112341,
+      "absent": 47261,
+      "3": 12526
+    },
+    "sources_statiques": 165629,
+    "sources_statiques_pct": 49.0,
+    "sans_type": 47261
+  }
+}

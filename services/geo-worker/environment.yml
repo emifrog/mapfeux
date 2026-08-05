@@ -51,6 +51,11 @@ dependencies:
   # Absent, `pd.read_parquet` échoue à l'import et non à l'exécution : la CI
   # comme toute recréation d'environnement casserait sur le corpus.
   - pyarrow
+  # Typage de pandas. Les autres bibliothèques scientifiques sont déclarées
+  # `ignore_missing_imports` faute de stubs publiés ; pandas en a, et le corpus
+  # est justement du code qui remanie des tableaux — l'endroit où le typage
+  # rapporte le plus. Sans ce paquet, `mypy strict` échoue sur `geo_worker.corpus`.
+  - pandas-stubs
 
   # Base de données
   - psycopg

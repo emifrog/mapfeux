@@ -1,6 +1,6 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 28 juillet 2026
+**Dernière mise à jour** : 5 août 2026
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -59,6 +59,17 @@ un profil quotidien sans trou et des FRP jusqu'à 2197 MW. Un réglage plus serr
 l'éclate en cinq foyers contigus et simultanés : c'est un vrai grand feu, pas un
 chaînage de l'algorithme.
 
+**Le corpus de quatorze saisons est constitué.** 337 757 détections VIIRS du
+20 janvier 2012 au 2 août 2026, France métropolitaine et Corse, empreinte de
+contenu `129f0347c2e6f77e`. C'est ce que débloquait la demande d'archive FIRMS,
+et cela lève le préalable de la calibration multi-saisons.
+
+**Une détection sur deux n'est pas de la végétation.** 165 629 lignes portent
+`type = 2` — source thermique statique : 49,0 % du corpus, sur quatorze ans.
+Ce n'est plus une intuition tirée d'une saison dans le Var, et c'est ce qui
+fonde le masque des sources statiques. La carte publique montre aujourd'hui
+cette moitié sans le dire.
+
 ### Portes de qualité — dernier passage
 
 | Chaîne | Commande | Résultat |
@@ -68,33 +79,34 @@ chaînage de l'algorithme.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 44 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 17 fichiers |
-| Worker | `mypy src` | ✅ strict, 12 fichiers |
-| Worker | `pytest` | ✅ 106 tests |
+| Worker | `ruff check` / `ruff format --check` | ✅ 47 fichiers |
+| Worker | `mypy src` | ✅ strict, 22 fichiers |
+| Worker | `pytest` | ✅ 196 tests |
+
+⚠️ Les portes web n'ont pas tourné depuis la refonte visuelle et la bascule de
+thème ; la ligne ci-dessus reporte le passage du 2 août.
 
 ---
 
 ## 2. Prochaine action
 
-**Mettre l'ingestion planifiée en service** — trois étapes de votre côté,
-détaillées au [README](../README.md#ingestion-planifiée--à-faire-une-fois) :
-appliquer les migrations, poser le mot de passe du rôle `mapfeux_ingest`,
-déclarer les deux secrets du dépôt. Le workflow est écrit et le périmètre du
-rôle vérifié ; tant que ces étapes manquent, le site affiche une fraîcheur
-exacte et mauvaise.
+**Charger le corpus de quatorze saisons dans une base de calibration séparée.**
+C'est le maillon manquant entre le corpus et le banc : `fusion_corpus_firms.py`
+produit un Parquet, `calibrate-clustering.py` lit `fire.detections`, et rien ne
+relie les deux. Il faut donc un importeur Parquet → `fire.detections`, et une
+base distincte de celle que le site public lit — un balayage de 112 jeux sur
+337 757 détections dure des heures, pendant lesquelles la table servirait des
+regroupements expérimentaux.
 
-Le chantier suivant est **la couverture nationale** : géométries des
-départements, agrégation à petite échelle, tuiles PMTiles. Aujourd'hui seuls le
-06 et le 83 ont des limites communales, et l'échelle nationale n'a rien à
-montrer.
+Le plafond de passe qui rendait ce chargement inexploitable est levé (§5).
 
 En parallèle, de votre côté :
 
 - ouvrir les préalables de la [phase 0](strategie.md#3-phase-0--préalables-non-techniques),
   en particulier l'autorisation de cumul — c'est un point d'arrêt du projet ;
-- demander l'**archive FIRMS** (§3.4 de la stratégie) : le flux temps réel ne
-  couvre qu'environ quatre mois glissants, donc une seule saison. La calibration
-  multi-saisons ne dépend plus que de cette donnée ;
+- poser le secret `FIRMS_MAP_KEY` côté GitHub : l'ingestion planifiée échoue à
+  chaque déclenchement faute de ce secret, et le site affiche une fraîcheur
+  exacte et mauvaise ;
 - trancher les [décisions ouvertes](strategie.md#8-décisions-ouvertes), dont
   l'ordonnancement et le préfixe d'identifiant public.
 
@@ -243,9 +255,41 @@ sans provenance ni horodatage.
 - ✅ Inspection ciblée : `scripts/inspect-clustering.py` montre le profil
   temporel des plus gros événements, ce que les agrégats ne disent pas
 - ✅ **Les paramètres de référence sont confirmés** — voir ci-dessous
-- ⬜ Calibration fine sur plusieurs saisons — une seule est chargée, et le flux
-  temps réel FIRMS ne couvre qu'environ quatre mois glissants. Bloqué sur la
-  demande d'archive (stratégie §3.4)
+- ✅ **Corpus de quatorze saisons constitué** — 337 757 détections VIIRS,
+  20 janvier 2012 → 2 août 2026, France métropolitaine et Corse. Règles de
+  fusion dans `geo_worker.corpus`, 26 tests ; point d'entrée
+  `tools/fusion_corpus_firms.py`, qui lit les zips FIRMS directement et écrit
+  un compte rendu à côté du Parquet
+- ✅ **Le plafond de passe ne tronque plus en silence.** `cluster_detections`
+  bornait chaque passe à 5 000 détections sans que l'appelant puisse le lever
+  ni le savoir. Invisible sur 939 détections ; sur le corpus, le banc aurait
+  mesuré 1,5 % — la tête, l'ordre étant chronologique — et publié ces chiffres
+  sous le nom du corpus. `limit=None` lève la borne, `truncated` la signale, et
+  `pending_detection_count` fait échouer banc et contrôle plutôt que d'écrire
+  une mesure partielle
+- 🟡 Calibration fine sur plusieurs saisons — le corpus existe, le banc existe,
+  il manque l'importeur Parquet → `fire.detections` et la base de calibration
+  séparée
+
+#### Ce que le corpus dit avant même d'être calibré
+
+| `type` FIRMS | lignes | part |
+|---|---:|---:|
+| 2 — source thermique statique | 165 629 | **49,0 %** |
+| 0 — végétation | 112 341 | 33,3 % |
+| 3 — offshore | 12 526 | 3,7 % |
+| absent | 47 261 | 14,0 % |
+
+**Le masque des sources statiques ne peut pas être un filtre sur `type`.** La
+colonne n'existe que dans le corpus retraité : `fire_nrt_*.csv` ne la porte
+pas, et c'est le flux NRT que l'ingestion lit toutes les dix minutes. Les
+165 629 lignes `type = 2` ne sont donc pas un filtre mais **quatorze ans de
+vérité terrain** pour bâtir un registre spatial de sources statiques, appliqué
+ensuite par proximité aux détections temps réel — la machinerie FR-036, qui
+classe sans jamais supprimer.
+
+⚠️ Le masque changera l'empreinte `66849fb15a6445ff`. Le changement doit être
+mesuré, pas subi : d'où l'ordre — calibration d'abord, masque ensuite.
 
 #### Ce que le balayage croisé a montré
 
@@ -462,6 +506,46 @@ site reste consultable et dit exactement ce qui manque et depuis quand.
 
 ---
 
+## 9 bis. Chantiers transverses
+
+Deux chantiers ne relèvent d'aucun jalon en particulier et se poursuivent en
+parallèle. Ils manquaient à ce fichier ; les voici, à leur état réel.
+
+### Refonte visuelle 🟡
+
+Direction validée en deux règles : l'orange appartient à l'observation
+thermique et à elle seule, le site empruntant le bleu d'autorité pour ses
+affordances ; ce qui est mesuré passe en chasse fixe, ce qui est affirmé reste
+en linéale.
+
+- ✅ Fondations : jetons, échelle typographique de 10,5 à 46 px, bandeau de
+  positionnement récrit pour être lu plutôt qu'ignoré
+- ✅ Coque et fiche événement
+- ✅ Thème sombre éclairci, bascule à trois états — clair, auto, sombre — posée
+  sur le document avant la première peinture
+- ⬜ **Carte, liste, et les huit pages restantes** gardent l'ancien traitement
+- ⚠️ Le rendu réel n'a pas été regardé : la vérification s'est arrêtée à la
+  construction des 17 pages
+
+### Archivage AROME 🟡
+
+Champs météo archivés au fil de l'eau, la donnée étant périssable — un jour non
+capté est perdu définitivement ([ADR-025](adr/025-plateforme-a-deux-visages.md)).
+
+- ✅ Adaptateur découplé du panache : ADR-025 en faisait dépendre l'archivage
+  d'un jalon que la stratégie a supprimé, donc le corpus n'aurait jamais commencé
+- ✅ Voie sans clé par le dépôt objet data.gouv.fr, comme pour la vigilance
+- ✅ Emprise nationale : réduire l'emprise plus tard reste possible, l'élargir
+  rétroactivement non
+- ✅ `next_reachable_noon` — à dix-huit heures UTC la mi-journée est hors de
+  portée du run, et une exécution d'après-midi sur deux échouait
+- ⬜ **`archive-arome.py` échoue au dépôt** : le compartiment Storage visé
+  n'existe pas. La chaîne fonctionne jusque-là
+- ⚠️ ADR-025 chiffre l'archivage à un coût « quasi gratuit » que la mesure
+  dément : 56 Mo par tranche de six heures. D'où l'extrait, et non le paquet
+
+---
+
 ## 10. Dettes et points de vigilance
 
 | Sujet | Nature | Échéance |
@@ -469,6 +553,8 @@ site reste consultable et dit exactement ce qui manque et depuis quand.
 | Préalables de phase 0 non engagés | Autorisation de cumul, cadre juridique — point d'arrêt | Immédiat |
 | Décisions ouvertes non tranchées | Ordonnancement, calendrier, validation, préfixe | Avant J2 |
 | CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
+| Ingestion planifiée en échec à chaque déclenchement | Le secret `FIRMS_MAP_KEY` n'est pas posé côté GitHub | Immédiat |
+| `archive-arome.py` échoue au dépôt | Le compartiment Storage visé n'existe pas ; la chaîne fonctionne jusque-là | J2 |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
@@ -478,7 +564,11 @@ site reste consultable et dit exactement ce qui manque et depuis quand.
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Fichiers bruts FIRMS sur disque local | Ni Storage, ni rétention : ils s'accumulent | J2 |
 | Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
-| Calibration limitée à une saison | L'API FIRMS NRT ne sert qu'une fenêtre glissante d'environ quatre mois. Juillet 2025 renvoie zéro ligne. Les saisons antérieures exigent une demande à l'archive FIRMS | Avant le jalon C |
+| Pas d'importeur Parquet → `fire.detections` | Le corpus et le banc existent, rien ne les relie. Bloque la calibration multi-saisons | Immédiat |
+| Base de calibration séparée à monter | Le banc efface et réécrit `fire.events`, la table que le site public lit. À 939 détections c'était l'affaire de minutes ; sur 337 757 le balayage dure des heures | Immédiat |
+| N21 sans corpus retraité | 30 180 lignes — 8,9 % du corpus — de janvier 2024 à août 2026, servies en NRT faute d'archive publiée par FIRMS. Ni retraitement scientifique, ni `type` : les deux saisons les plus récentes sont partiellement non étiquetées | J2 |
+| La borne de R4 suppose le corpus standard dense | Un satellite indisponible en milieu de période retraitée verrait ses lignes NRT de la panne écartées à tort. FIRMS ne publie pas de calendrier de couverture. La borne employée est consignée dans le compte rendu du corpus | J2 |
+| Corpus dérivé versionné | Le Parquet pèse 6,8 Mo et se régénère depuis les zips. Chaque régénération dépose un nouveau blob dans l'historique. À arbitrer : le compte rendu JSON suffit à prouver la provenance | J6 |
 | `api.fire_events` expose l'`id` interne | §15.1 demande des identifiants publics opaques. Non exploité par nos réponses, mais lisible via PostgREST | J6 |
 | Coût d'un pic non chiffré | Conditionne un point d'arrêt | Phase 0 |
 | Réponse à la première erreur publique | Runbook éditorial absent | Avant J6 |

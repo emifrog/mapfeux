@@ -35,7 +35,11 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
 from geo_worker.db import dsn_from_env_file
-from geo_worker.pipelines.clustering import ClusteringParams, cluster_detections
+from geo_worker.pipelines.clustering import (
+    ClusteringParams,
+    cluster_detections,
+    pending_detection_count,
+)
 
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
 
@@ -101,12 +105,25 @@ def replay(
     attached = 0
 
     while True:
-        result = cluster_detections(conn, params=params, limit=chunk or 5_000)
+        # `chunk` à None demande la passe en bloc : le plafond est levé, sans
+        # quoi « en bloc » ne voudrait dire « tout le corpus » que tant que le
+        # corpus tient sous le plafond par défaut.
+        result = cluster_detections(conn, params=params, limit=chunk)
         conn.commit()
         created += result.created
         attached += result.attached
         if chunk is None or result.processed == 0:
             break
+
+    # Le contrôle compare deux empreintes du partitionnement. Si le rejeu a
+    # laissé des orphelines, il compare deux partitionnements partiels et peut
+    # les déclarer égaux : le contrôle passerait sans rien avoir contrôlé.
+    remaining = pending_detection_count(conn)
+    if remaining > 0:
+        raise SystemExit(
+            f"{remaining} détection(s) publiable(s) sans événement après le rejeu. "
+            "L'empreinte ne porterait pas sur tout le corpus."
+        )
 
     return created, attached, time.monotonic() - started
 

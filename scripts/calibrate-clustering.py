@@ -50,6 +50,7 @@ from geo_worker.db import dsn_from_env_file
 from geo_worker.pipelines.clustering import (
     ClusteringParams,
     cluster_detections,
+    pending_detection_count,
 )
 
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
@@ -213,7 +214,7 @@ def main(argv: list[str]) -> int:
 
 def restore(conn: psycopg.Connection[Any]) -> None:
     clear(conn)
-    cluster_detections(conn, params=ClusteringParams())
+    cluster_detections(conn, params=ClusteringParams(), limit=None)
     conn.commit()
     print("\nBase restaurée avec les paramètres de référence (grouping-v1).", flush=True)
 
@@ -226,9 +227,24 @@ def sweep(
     for params in grid:
         clear(conn)
         started = time.monotonic()
-        cluster_detections(conn, params=params)
+        # Passe unique sans plafond : un jeu de paramètres se juge sur le corpus
+        # entier. Une passe bornée en regrouperait la tête — les premières
+        # semaines, l'ordre étant chronologique — et le tableau annoncerait ces
+        # chiffres comme ceux du corpus.
+        cluster_detections(conn, params=params, limit=None)
         conn.commit()
         elapsed = time.monotonic() - started
+
+        # Le banc mesure ce qu'il a regroupé, pas ce qu'il croit avoir regroupé.
+        # Si des orphelines subsistent, la ligne décrirait une fraction du
+        # corpus sous le nom du corpus : on s'arrête plutôt que de l'écrire.
+        remaining = pending_detection_count(conn)
+        if remaining > 0:
+            raise SystemExit(
+                f"{params.version} : {remaining} détection(s) publiable(s) sans "
+                "événement après la passe. Le balayage s'arrête — une ligne "
+                "mesurée sur une partie du corpus n'est pas comparable aux autres."
+            )
 
         m = measure(conn, params.version)
         singleton_pct = percent(m["singletons"], m["evenements"])

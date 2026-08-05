@@ -39,6 +39,7 @@ sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
 from geo_worker.db import dsn_from_env_file, exclusive_run, load_env
 from geo_worker.pipelines.clustering import (
+    ClusteringResult,
     cluster_detections,
 )
 from geo_worker.pipelines.detections import (
@@ -163,11 +164,28 @@ def main(argv: list[str]) -> int:
 
         # Le regroupement tourne même sans nouvelle détection : un import
         # précédent a pu échouer après insertion, laissant des orphelines.
-        result = cluster_detections(conn)
-        conn.commit()
+        #
+        # Les passes restent bornées — une transaction de taille prévisible est
+        # ce qui rend une tâche périodique sûre — mais on les répète jusqu'à
+        # vider la file. Une reprise après panne, ou un rattrapage d'historique,
+        # dépose plus d'orphelines qu'un plafond n'en absorbe : s'arrêter à la
+        # première passe laisserait une file grossir en silence, et la carte
+        # publique manquerait des feux sans rien signaler. Le découpage est sans
+        # effet sur le résultat, `verify-clustering.py --incremental` le vérifie.
+        result = ClusteringResult()
+        passes = 0
+        while True:
+            current = cluster_detections(conn)
+            conn.commit()
+            passes += 1
+            result.created += current.created
+            result.attached += current.attached
+            result.touched_events |= current.touched_events
+            if not current.truncated or current.processed == 0:
+                break
         print(
             f"regroupement: {result.created} événement(s) créé(s), "
-            f"{result.attached} rattachement(s)",
+            f"{result.attached} rattachement(s)" + (f", {passes} passes" if passes > 1 else ""),
             flush=True,
         )
 

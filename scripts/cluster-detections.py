@@ -66,7 +66,9 @@ def main(argv: list[str]) -> int:
             deleted = reset(conn, params.version)
             print(f"{deleted} événement(s) supprimé(s) avant recalcul.\n")
 
-        result = cluster_detections(conn, params=params)
+        # Outil de recalcul manuel : il doit vider la file, pas en prendre la
+        # tête. Le plafond appartient au traitement périodique.
+        result = cluster_detections(conn, params=params, limit=None)
         conn.commit()
 
         print(

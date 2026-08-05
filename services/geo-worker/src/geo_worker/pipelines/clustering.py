@@ -47,6 +47,14 @@ class ClusteringResult:
     attached: int = 0
     created: int = 0
     touched_events: set[str] = field(default_factory=set)
+    truncated: bool = False
+    """La passe a rempli son plafond : d'autres orphelines attendent peut-être.
+
+    Conservateur par construction — si le nombre d'orphelines vaut exactement le
+    plafond, le drapeau est levé alors qu'il ne restait rien. Se tromper dans ce
+    sens fait tourner une passe pour rien ; se tromper dans l'autre laisserait
+    une file grossir sans que personne le sache.
+    """
 
     @property
     def processed(self) -> int:
@@ -74,7 +82,7 @@ class _Event:
     lat: float
 
 
-def _pending_detections(conn: psycopg.Connection[Any], limit: int) -> list[dict[str, Any]]:
+def _pending_detections(conn: psycopg.Connection[Any], limit: int | None) -> list[dict[str, Any]]:
     """Détections publiables sans événement, dans un ordre total et stable.
 
     L'ordre chronologique n'est pas seulement esthétique : la fenêtre spatiale
@@ -83,6 +91,9 @@ def _pending_detections(conn: psycopg.Connection[Any], limit: int) -> list[dict[
 
     `provider_key` départage les acquisitions simultanées — fréquentes, un
     satellite produisant plusieurs pixels à la même seconde.
+
+    `limit` à `None` lève le plafond : PostgreSQL lit `limit null` comme
+    l'absence de borne, ce qui évite de brancher la requête sur deux textes.
     """
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -101,6 +112,43 @@ def _pending_detections(conn: psycopg.Connection[Any], limit: int) -> list[dict[
             {"limit": limit},
         )
         return cur.fetchall()
+
+
+def pass_was_capped(fetched: int, limit: int | None) -> bool:
+    """La passe a-t-elle rempli son plafond ?
+
+    Isolée du reste pour être vérifiable sans base : c'est la règle qui décide
+    si l'appelant doit repasser, et la laisser en ligne dans `cluster_detections`
+    la rendait invérifiable autrement qu'en montant tout le pipeline.
+
+    Une passe qui ramène exactement son plafond est déclarée tronquée, faute de
+    pouvoir distinguer « il n'en restait pas plus » de « il en reste » sans une
+    requête supplémentaire. Le coût de l'erreur est une passe à vide.
+    """
+    return limit is not None and fetched >= limit
+
+
+def pending_detection_count(conn: psycopg.Connection[Any]) -> int:
+    """Nombre de détections publiables encore sans événement.
+
+    Même prédicat que `_pending_detections`, sans les colonnes ni la borne. Sert
+    aux outils de mesure à vérifier qu'ils ont bien consommé tout le corpus :
+    une ligne de calibration établie sur une tranche, mais présentée comme
+    portant sur l'ensemble, est pire qu'une ligne absente.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            select count(*)
+            from fire.detections d
+            left join fire.event_detections ed
+              on ed.detection_id = d.id and ed.detection_acquired_at = d.acquired_at
+            where ed.detection_id is null
+              and d.is_public
+            """
+        )
+        row = cur.fetchone()
+    return 0 if row is None else int(row[0])
 
 
 def _existing_events(
@@ -385,14 +433,28 @@ def cluster_detections(
     conn: psycopg.Connection[Any],
     *,
     params: ClusteringParams | None = None,
-    limit: int = 5_000,
+    limit: int | None = 5_000,
 ) -> ClusteringResult:
-    """Rattache les détections orphelines. L'appelant gère la transaction."""
+    """Rattache les détections orphelines. L'appelant gère la transaction.
+
+    `limit` borne la passe, pour que le traitement périodique garde une
+    transaction de taille prévisible. Une passe bornée ne vide pas forcément la
+    file : l'appelant doit **soit** répéter tant que `truncated` est vrai, soit
+    demander `limit=None` s'il veut une passe unique sur tout le corpus. Ignorer
+    les deux revient à mesurer une fraction du corpus en la présentant comme le
+    tout — la faute silencieuse que le jalon cherche justement à exclure.
+    """
     settings = params or ClusteringParams()
     result = ClusteringResult()
 
     detections = _pending_detections(conn, limit)
-    logger.info("clustering.started", pending=len(detections), version=settings.version)
+    result.truncated = pass_was_capped(len(detections), limit)
+    logger.info(
+        "clustering.started",
+        pending=len(detections),
+        version=settings.version,
+        truncated=result.truncated,
+    )
 
     if not detections:
         logger.info("clustering.finished", attached=0, created=0, events=0)
@@ -504,5 +566,7 @@ __all__ = [
     "ClusteringParams",
     "ClusteringResult",
     "cluster_detections",
+    "pass_was_capped",
+    "pending_detection_count",
     "spatial_window_m",
 ]
