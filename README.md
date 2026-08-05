@@ -188,25 +188,36 @@ Puis déclencher une fois à la main — onglet Actions, workflow « Ingestion �
 > GitHub désactive les workflows planifiés après soixante jours sans activité
 > sur le dépôt, et ne les déclenche que depuis la branche par défaut.
 
-### Stockage objet — à créer une fois
+### Stockage objet
 
-Deux compartiments **privés**, nommés d'après les *valeurs* de
-`SUPABASE_STORAGE_BUCKET_RAW` et `SUPABASE_STORAGE_BUCKET_DERIVED`, non d'après
-les noms de variables :
+Les trois compartiments sont créés par **migration**, pas depuis le tableau de
+bord : un compartiment posé à la main n'existe que sur le projet où on l'a
+cliqué, et toute base reconstruite repartirait sans lui.
 
-| Compartiment | Contenu |
-|---|---|
-| `raw` | extraits AROME, puis les CSV FIRMS bruts |
-| `derived` | produits dérivés |
+| Compartiment | Contenu | Rétention |
+|---|---|---|
+| `raw` | fichiers bruts des fournisseurs | 30 jours (§12.4) |
+| `derived` | produits dérivés, régénérables | libre |
+| `cold` | archive AROME | **jamais purgé** (PR-1) |
 
-Privés : `raw` porte de la donnée brute que [ADR-004](docs/adr/README.md) déclare
-immuable et que §14.2 n'expose pas publiquement. Le dépôt se fait avec la clé
-secrète côté serveur, qui traverse RLS — aucune politique d'accès n'est
+Tous privés : ils portent de la donnée brute que [ADR-004](docs/adr/README.md)
+déclare immuable et que §14.2 n'expose pas publiquement. Le dépôt se fait avec
+la clé secrète côté serveur, qui traverse RLS — aucune politique d'accès n'est
 nécessaire.
+
+`cold` est distinct de `raw` pour une raison de fond : ce qu'on y dépose ne se
+retrouve nulle part. Météo-France ne republie pas indéfiniment ses paquets, donc
+une purge de rétention appliquée à cette archive détruirait des années de corpus
+sans recours. Tout futur job de purge doit l'exclure **explicitement**.
 
 ```bash
 micromamba run -n mapfeux-geo python scripts/archive-arome.py
 ```
+
+L'archivage tourne aussi tous les jours à 10 h UTC
+(`.github/workflows/arome-archive.yml`). Il exige trois secrets de dépôt :
+`INGESTION_DATABASE_URL` — déjà posé pour l'ingestion —, `SUPABASE_URL` et
+`SUPABASE_SECRET_KEY`.
 
 ### Base de calibration — à monter une fois
 

@@ -138,6 +138,20 @@ jobs:
           create schema if not exists auth;
           create table if not exists auth.users (id uuid primary key);
           create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+
+          -- Supabase Storage, réduit à ce dont les migrations ont besoin. Le
+          -- registre des compartiments est une table de la plateforme : elle
+          -- existe sur tout projet hébergé, jamais sur un PostgreSQL nu. Sans
+          -- ce doublure, la migration des compartiments échouerait ici alors
+          -- qu'elle est correcte — et la faire porter un « if exists » la
+          -- rendrait muette le jour où elle viserait la mauvaise base.
+          create schema if not exists storage;
+          create table if not exists storage.buckets (
+            id text primary key,
+            name text not null unique,
+            public boolean not null default false,
+            created_at timestamptz not null default now()
+          );
           SQL
 
       # Garde-fou : si PostGIS repartait dans `public`, l'échec doit être lisible
