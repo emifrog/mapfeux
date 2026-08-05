@@ -47,6 +47,10 @@ dependencies:
   # Numérique
   - numpy
   - pandas
+  # Lecture et écriture du corpus d'archives FIRMS, stocké en Parquet.
+  # Absent, `pd.read_parquet` échoue à l'import et non à l'exécution : la CI
+  # comme toute recréation d'environnement casserait sur le corpus.
+  - pyarrow
 
   # Base de données
   - psycopg
