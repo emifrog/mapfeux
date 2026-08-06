@@ -103,26 +103,34 @@ cette moitié sans le dire.
 
 ## 2. Prochaine action
 
-**Monter la base de calibration**, puis y charger le corpus. C'est la seule
-étape qui reste avant la calibration quatorze saisons, et elle est de votre
-côté : un second projet Supabase ou un PostgreSQL local avec PostGIS, les
-migrations, le seed, et `CALIBRATION_DATABASE_URL` dans
-`services/geo-worker/.env`. La marche à suivre est au
-[README](../README.md#base-de-calibration--à-monter-une-fois).
+**Décider de la taille du balayage croisé, une fois connu le coût d'un jeu.**
 
-Tout le reste est en place : le plafond de passe est levé, l'importeur écrit,
-et les outils qui font tourner des paramètres expérimentaux refusent désormais
-de démarrer sur la base que le site public lit.
+La base de calibration existe — projet Supabase `mapfeux-calibration`, région
+eu-west-2, schéma monté en 5 s par `scripts/setup-calibration-db.py`. Le corpus
+y est chargé : **337 757 détections en 133 s**, 176 partitions mensuelles, zéro
+rejet, et les 20 000 lignes de l'essai préalable reconnues sans doublon.
 
-La mise en service des sources est close, à une exception près — la vigilance
-n'est dans aucun ordonnanceur (§10). Le reste du chantier visuel — `/statut`,
-`/commune`, `/territoire` — ne dépend de rien.
+Reste la question qui commande tout le reste. Le balayage croisé à 112 jeux a
+été dimensionné quand un jeu coûtait deux secondes sur 939 détections. Sur le
+corpus complet, **le jeu de référence a dépassé dix minutes** — donc les 112
+demanderaient une vingtaine d'heures au bas mot.
+
+Trois issues, à trancher sur la mesure des huit jeux de `--axes` :
+
+- le laisser tourner une nuit, en acceptant qu'une interruption perde tout ;
+- réduire la grille — le balayage précédent a montré que la croissance du rayon
+  est quasi inerte, ce qui divise déjà le produit cartésien ;
+- calibrer sur un sous-corpus représentatif, et ne rejouer le réglage retenu sur
+  quatorze saisons qu'une fois.
 
 ```bash
-micromamba run -n mapfeux-geo python scripts/import-corpus.py --limite 5000
-micromamba run -n mapfeux-geo python scripts/import-corpus.py
-micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py
+micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py --axes
 ```
+
+Tout le reste est en place : le plafond de passe est levé — vérifié à l'échelle,
+`clustering.started pending=337757 truncated=false` —, l'importeur éprouvé, et
+les outils qui font tourner des paramètres expérimentaux refusent de démarrer
+sur la base que le site public lit.
 
 En parallèle, de votre côté :
 
@@ -312,7 +320,17 @@ sans provenance ni horodatage.
   base que `DATABASE_URL` — comparaison sur hôte, port et nom de base, non sur
   la chaîne : un rôle distinct sur la base de production est le cas le plus
   facile à confondre. Les deux refus vérifiés sur la configuration réelle
-- 🟡 Calibration fine sur plusieurs saisons — il ne manque que la base
+- ✅ **Base de calibration en service** — projet Supabase `mapfeux-calibration`,
+  eu-west-2. `scripts/setup-calibration-db.py` monte les 23 migrations et le
+  seed sans toucher au lien Supabase de production : la cible vient de
+  `CALIBRATION_DATABASE_URL`, jamais d'un état enregistré. `seed/dev/` en est
+  exclu — des événements inventés fausseraient toutes les mesures
+- ✅ **Corpus chargé** : 337 757 détections en 133 s, 2 568 lignes/s à travers
+  le pooler, 176 partitions mensuelles, zéro rejet. L'idempotence tient à
+  l'échelle — les 20 000 lignes de l'essai préalable ont été reconnues, aucune
+  dupliquée
+- 🟡 Calibration fine sur plusieurs saisons — le balayage tourne ; reste à
+  trancher sa taille, voir §2
 
 #### Ce que le corpus dit avant même d'être calibré
 
@@ -695,8 +713,8 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service | v2 |
 | Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
-| Base de calibration à monter | Dernier point bloquant la calibration multi-saisons. Le banc efface et réécrit `fire.events` pendant des heures ; les outils refusent désormais la base publique, donc rien ne tourne tant qu'elle n'existe pas | Immédiat |
-| Écriture du corpus jamais exercée | L'importeur est couvert sur la normalisation, y compris sur le corpus réel, mais son chemin SQL — `COPY`, table de transit, 176 partitions — n'a jamais atteint une base. Le premier chargement est un essai autant qu'un import | Avec la base de calibration |
+| Coût d'un jeu de calibration non borné | Le jeu de référence dépasse dix minutes sur le corpus complet, contre deux secondes sur 939 détections. Les 112 jeux du balayage croisé demanderaient une vingtaine d'heures : à mesurer sur `--axes` avant d'engager | Immédiat |
+| `cluster-detections.py` vise encore la production | Seul outil de regroupement resté sur `DATABASE_URL`. Le banc et l'inspection exigent la base de calibration ; celui-ci devrait recevoir la même bascule, ou au moins un `--calibration` | J2 |
 | N21 sans corpus retraité | 30 180 lignes — 8,9 % du corpus — de janvier 2024 à août 2026, servies en NRT faute d'archive publiée par FIRMS. Ni retraitement scientifique, ni `type` : les deux saisons les plus récentes sont partiellement non étiquetées | J2 |
 | La borne de R4 suppose le corpus standard dense | Un satellite indisponible en milieu de période retraitée verrait ses lignes NRT de la panne écartées à tort. FIRMS ne publie pas de calendrier de couverture. La borne employée est consignée dans le compte rendu du corpus | J2 |
 | Corpus dérivé versionné | Le Parquet pèse 6,8 Mo et se régénère depuis les zips. Chaque régénération dépose un nouveau blob dans l'historique. À arbitrer : le compte rendu JSON suffit à prouver la provenance | J6 |
