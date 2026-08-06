@@ -69,7 +69,7 @@ export default async function HomePage() {
             {departments.map((department) => (
               <li key={department.slug}>
                 <Link
-                  href={`/territoire/${department.slug}`}
+                  href={`/territoires/${department.slug}`}
                   className="underline underline-offset-4"
                 >
                   {department.name} <span className="mono text-(--text-3)">{department.code}</span>

@@ -3,7 +3,7 @@ import { FRESHNESS_COLORS } from '@mapfeux/map-style';
 import { CONFIDENCE_LEVEL_LABELS, EVENT_FRESHNESS_LABELS } from '@mapfeux/ui';
 import Link from 'next/link';
 
-import type { FireSummary } from '@/lib/data/events';
+import type { EventSummary } from '@/lib/data/events';
 
 /**
  * Liste textuelle des événements de l'emprise.
@@ -52,7 +52,7 @@ function EventEntry({
   formatter,
   muted,
 }: {
-  event: FireSummary;
+  event: EventSummary;
   now: Date;
   formatter: Intl.DateTimeFormat;
   muted: boolean;
@@ -130,7 +130,7 @@ export function EventList({
   now,
   timeZone = 'Europe/Paris',
 }: {
-  events: FireSummary[];
+  events: EventSummary[];
   now: Date;
   timeZone?: string;
 }) {

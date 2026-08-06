@@ -2,11 +2,11 @@ import { bboxSchema } from '@mapfeux/contracts';
 import type { NextRequest } from 'next/server';
 
 import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
-import { fetchFiresInBbox } from '@/lib/data/events';
+import { fetchEventsInBbox } from '@/lib/data/events';
 import { fetchSourceStatus, toMetaSources } from '@/lib/sources';
 
 /**
- * GET /api/v1/fires — événements par emprise et période. Cahier §15.4.
+ * GET /api/v1/events — événements par emprise et période. Cahier §15.4.
  *
  * L'emprise est obligatoire. Sans elle, un appel unique ramènerait toute la
  * France : c'est précisément ce que FR-007 interdit, et ce qui s'effondrerait
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return jsonError('VALIDATION_ERROR', 'Paramètre limit invalide.', requestId);
   }
 
-  const events = await fetchFiresInBbox(parsedBbox.data, {
+  const events = await fetchEventsInBbox(parsedBbox.data, {
     ...(since === undefined ? {} : { since }),
     limit: Math.min(limit, 500),
   });

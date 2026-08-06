@@ -52,7 +52,7 @@ async function reload(map: maplibregl.Map): Promise<void> {
     .join(',');
 
   try {
-    const response = await fetch(`/api/v1/fires?bbox=${bbox}&limit=500`);
+    const response = await fetch(`/api/v1/events?bbox=${bbox}&limit=500`);
     if (!response.ok) return;
 
     const payload = (await response.json()) as {

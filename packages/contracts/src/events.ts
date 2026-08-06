@@ -1,6 +1,10 @@
 /**
- * Contrats des endpoints `/api/v1/fires`.
+ * Contrats des endpoints `/api/v1/events`.
  * Référence : cahier §15.2, §15.3, §15.4 et §5.6.
+ *
+ * L'API dit « événement », jamais « feu » : le vocabulaire public (§2.4)
+ * interdit de présenter une détection thermique comme un incendie, et le nom
+ * de la ressource est la première formulation que voit un consommateur.
  */
 
 import {
@@ -31,8 +35,8 @@ export const publicEventIdSchema = z
   .string()
   .regex(/^[A-Z]{2,4}-[0-9A-HJ-NP-Z]{6,10}$/, 'Identifiant public invalide');
 
-/** Paramètres de `GET /api/v1/fires`. §15.4 */
-export const firesQuerySchema = z.object({
+/** Paramètres de `GET /api/v1/events`. §15.4 */
+export const eventsQuerySchema = z.object({
   bbox: bboxSchema.optional(),
   since: isoInstantSchema.optional(),
   until: isoInstantSchema.optional(),
@@ -44,10 +48,10 @@ export const firesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 
-export type FiresQuery = z.infer<typeof firesQuerySchema>;
+export type EventsQuery = z.infer<typeof eventsQuerySchema>;
 
 /** Résumé d'événement renvoyé sur la carte. */
-export const fireSummarySchema = z.object({
+export const eventSummarySchema = z.object({
   id: publicEventIdSchema,
   freshnessStatus: eventFreshnessSchema,
   verificationStatus: verificationStatusSchema,
@@ -60,10 +64,10 @@ export const fireSummarySchema = z.object({
   confidence: confidenceLevelSchema,
 });
 
-export type FireSummary = z.infer<typeof fireSummarySchema>;
+export type EventSummary = z.infer<typeof eventSummarySchema>;
 
 /** Fiche complète. §5.6 */
-export const fireDetailSchema = fireSummarySchema.extend({
+export const eventDetailSchema = eventSummarySchema.extend({
   sensors: z.array(z.string()),
   frpMw: z
     .object({
@@ -102,7 +106,7 @@ export const fireDetailSchema = fireSummarySchema.extend({
     .nullable(),
 });
 
-export type FireDetail = z.infer<typeof fireDetailSchema>;
+export type EventDetail = z.infer<typeof eventDetailSchema>;
 
 /** Entrée de chronologie publique. §13.9 — les notes internes ne sortent jamais. */
 export const timelineEntrySchema = z.object({

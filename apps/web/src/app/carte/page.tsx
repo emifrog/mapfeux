@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { EventList } from '@/components/event-list';
 import { MapLegend } from '@/components/map/legend';
 import { MapView } from '@/components/map/map-view';
-import { fetchFiresInBbox } from '@/lib/data/events';
+import { fetchEventsInBbox } from '@/lib/data/events';
 
 /**
  * Carte nationale. Cahier §7.1, FR-001 à FR-007.
@@ -39,7 +39,7 @@ export const revalidate = 120;
 const INITIAL_BBOX = { minLon: 5.2, minLat: 42.6, maxLon: 8.0, maxLat: 44.6 };
 
 export default async function MapPage() {
-  const events = await fetchFiresInBbox(INITIAL_BBOX, { limit: 500 });
+  const events = await fetchEventsInBbox(INITIAL_BBOX, { limit: 500 });
   const now = new Date();
 
   const generatedAt = new Intl.DateTimeFormat('fr-FR', {

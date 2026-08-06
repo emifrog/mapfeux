@@ -5,7 +5,7 @@ import { fetchEvent, fetchEventDetections } from '@/lib/data/events';
 import { fetchSourceStatus, toMetaSources } from '@/lib/sources';
 
 /**
- * GET /api/v1/fires/{publicId}/detections — détections membres. Cahier §15.2.
+ * GET /api/v1/events/{publicId}/observations — observations membres. Cahier §15.2.
  *
  * Les attributs bruts du fournisseur ne sont pas republiés tels quels : la
  * confiance VIIRS et la confiance MODIS n'ont pas le même sens, seul le niveau

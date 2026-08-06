@@ -4,7 +4,7 @@ import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
 import { fetchEvent, fetchEventTimeline } from '@/lib/data/events';
 
 /**
- * GET /api/v1/fires/{publicId}/timeline — chronologie publique. FR-055.
+ * GET /api/v1/events/{publicId}/timeline — chronologie publique. FR-055.
  *
  * Triée par heure de survenue, indépendamment de l'heure d'enregistrement. Les
  * entrées internes ou retirées ne sortent jamais de la base (§5.7).

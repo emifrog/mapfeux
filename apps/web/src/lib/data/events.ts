@@ -356,7 +356,7 @@ export async function fetchEventView(publicId: string): Promise<EventView | null
 }
 
 /** Résumé d'événement pour la carte et la liste textuelle. */
-export interface FireSummary {
+export interface EventSummary {
   publicId: string;
   freshnessStatus: EventFreshness;
   verificationStatus: VerificationStatus;
@@ -383,11 +383,13 @@ export interface BoundingBox {
  * la règle « ne charger que les données nécessaires à l'emprise visible », et
  * deviendrait intenable dès qu'une saison chargée aura rempli la base.
  */
-export async function fetchFiresInBbox(
+export async function fetchEventsInBbox(
   bbox: BoundingBox,
   options: { since?: Date; limit?: number } = {},
-): Promise<FireSummary[]> {
+): Promise<EventSummary[]> {
   const supabase = createPublicReadClient();
+  // La fonction SQL garde son nom historique : la renommer passe par une
+  // migration, sans bénéfice public — seul le nom exposé par l'URL compte.
   const { data, error } = await supabase.rpc('fires_in_bbox', {
     min_lon: bbox.minLon,
     min_lat: bbox.minLat,

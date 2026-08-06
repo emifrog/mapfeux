@@ -1,4 +1,4 @@
 export * from './common';
 export * from './errors';
-export * from './fires';
+export * from './events';
 export * from './territories';

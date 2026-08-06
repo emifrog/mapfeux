@@ -1,6 +1,8 @@
 # MapFeux — Stratégie
 
-**Version 1.0 — 28 juillet 2026**
+**Version 1.1 — 6 août 2026** — décision D-0 (option A) répercutée au §4,
+autorisation de cumul obtenue (§3.1, point d'arrêt du §7 levé), calendrier
+tranché (§8.2). Version 1.0 : 28 juillet 2026.
 
 Ce document porte les décisions qui ne bougent pas d'une semaine sur l'autre :
 positionnement, périmètre, préalables juridiques, modèle économique, conditions
@@ -8,9 +10,11 @@ d'arrêt. Il ne décrit **pas** l'avancement — c'est le rôle de
 [plan-de-developpement.md](plan-de-developpement.md), qui porte seul le
 découpage en jalons et l'état réel du code.
 
-Il ne remplace pas le [cahier de développement v1.1](../MapFeux_Cahier_de_developpement_v1.1.md),
-il en réorganise la livraison. Les écarts techniques assumés sont au
-[registre des ADR](adr/README.md).
+Le document de référence est le **cahier des charges v2.1** (5 août 2026, PDF
+hors dépôt), qui remplace le
+[cahier de développement v1.1](../MapFeux_Cahier_de_developpement_v1.1.md) —
+conservé pour l'historique. Le présent document en organise la livraison. Les
+écarts techniques assumés sont au [registre des ADR](adr/README.md).
 
 ---
 
@@ -65,10 +69,14 @@ technique déjà engagé.
 
 ### 3.1 Position vis-à-vis du SDIS 06 et de l'employeur
 
-- Demande écrite d'autorisation de cumul d'activité accessoire, avec
-  description précise du projet.
-- Note explicite : plateforme grand public, aucune donnée opérationnelle,
-  aucune donnée DFCI, aucun lien technique avec les systèmes du SDIS.
+**Autorisation de cumul accordée le 6 août 2026.** La demande écrite — avec la
+note explicite : plateforme grand public, aucune donnée opérationnelle, aucune
+donnée DFCI, aucun lien technique avec les systèmes du SDIS — a reçu une
+réponse favorable de l'employeur. Le point d'arrêt correspondant du §7 est
+levé.
+
+Restent à traiter, sans bloquer les jalons :
+
 - Point avec la hiérarchie sur la communication : que se passe-t-il si un
   journaliste cite MapFeux en présentant l'auteur comme sapeur-pompier du 06 ?
 - Décider si le lien auteur/SDIS est mentionné publiquement ou dissocié. Les
@@ -132,31 +140,49 @@ suffit à obtenir un ordre de grandeur.
 
 ## 4. Périmètre du MVP
 
-### Entre dans la v1 publique
+**Décision D-0 — option A, confirmée le 5 août 2026 (cahier v2.1, §26.1) : le
+périmètre v2.0 est livré intégralement à l'ouverture publique.** Ce choix
+privilégie la complétude et la crédibilité du produit au lancement sur la
+précocité du calendrier ; sa conséquence assumée est le report du démarrage de
+PREVIFEU après le lancement, pilote SDIS visé saison feux 2028 (ADR-025).
+L'option C — renfort ou partenariat — reste ouverte à tout moment et resserre
+le calendrier sans changer le périmètre.
+
+### Entre dans l'ouverture publique
 
 - fiche événement permanente, rendue côté serveur, avec chronologie textuelle ;
 - trois dimensions de statut séparées et provenance sur chaque bloc ;
 - import FIRMS, dédoublonnage, regroupement en événements ;
 - carte nationale et départementale, recherche de commune ;
+- catalogue national des événements récents et archivés ;
+- relecture temporelle partageable et version imprimable ;
+- vent, panache indicatif et communes potentiellement concernées ;
+- qualité de l'air CAMS et radar de précipitations ;
+- périmètres sourcés, versionnés, multi-sources ;
 - agrégation des informations officielles attribuées ;
 - pages statut, méthodologie, sources, mentions ;
-- snapshots publics et mode dégradé ;
+- PWA, snapshots publics et mode dégradé ;
 - administration privée et audit.
 
-### Sort du MVP, reporté en v2
+### Réserves de la v1.0, converties en contraintes de conception
+
+La version 1.0 de ce document sortait du MVP le panache, les communes
+concernées, CAMS/radar et la relecture. La décision D-0 les réintègre ; les
+raisons du report ne disparaissent pas pour autant — elles changent de forme :
 
 - **Panache indicatif.** Physiquement fragile avec un vent à 10 m, très fragile
-  dans le relief du 06, et c'est la seule fonction qui pousse un utilisateur
-  vers une décision. Reporté jusqu'à disposer d'un vent de transport en altitude
-  et d'une calibration sur cas historiques.
-- **Communes potentiellement concernées** — dépend du panache.
-- **Qualité de l'air CAMS et radar de précipitations** — utiles mais non
-  structurants, et chacun ajoute un pipeline à exploiter.
-- **Animation de relecture temporelle** — les tables la préparent, l'interface
-  ne la livre pas.
-
-Gain estimé : environ huit semaines, et suppression des trois risques les plus
-lourds du registre du cahier §29.
+  dans le relief du 06. La réponse n'est plus le retrait mais les garde-fous du
+  cahier §18 : incertitude affichée et croissante, confiance dégradée en
+  relief, aucun panache sur modèle expiré, désactivation globale immédiate
+  possible (FR-106). C'est la seule fonction qui pousse un utilisateur vers une
+  décision : sa formulation publique passe par la validation métier avant toute
+  mise en ligne.
+- **Communes potentiellement concernées** — dépendent du panache et héritent de
+  ses garde-fous ; le libellé « potentiellement concernée » est obligatoire
+  (FR-111).
+- **CAMS et radar** — chacun ajoute un pipeline à exploiter ; leur panne ne
+  doit jamais toucher la carte des détections (FR-125), et ils restent
+  affichés « à venir » tant que le connecteur n'existe pas.
 
 ### Ajouté au MVP
 
@@ -217,7 +243,8 @@ téléchargement de données.
 
 Le projet s'arrête ou change de forme si :
 
-- l'autorisation de cumul est refusée, ou assortie de conditions incompatibles ;
+- ~~l'autorisation de cumul est refusée, ou assortie de conditions
+  incompatibles~~ — **levé le 6 août 2026**, autorisation accordée (§3.1) ;
 - l'audit de licences interdit la rediffusion d'une source structurante ;
 - le regroupement en événements ne produit pas de résultat stable et
   reproductible sur données historiques ;
@@ -277,16 +304,18 @@ verrouillage et l'idempotence vivent en base : cron, tâche planifiée Windows,
 minuterie systemd ou APScheduler appellent le même point d'entrée. C'est ce qui
 rend la décision peu coûteuse à défaire.
 
-### 8.2 Calendrier et saison
+### 8.2 Calendrier et saison — tranché le 5 août 2026 (D-0)
 
-Une ouverture visée au printemps place la première mise en charge réelle du
-service au même moment que la première crise majeure. Et les premiers jalons
-tombent en pleine saison des feux, c'est-à-dire au moment où la disponibilité de
-l'auteur s'effondre.
+La décision D-0 cale la fenêtre de lancement **hors pic saisonnier**
+(automne-hiver), pour ne pas faire coïncider la première mise en charge
+nationale avec une crise. C'est la forme retenue de l'alternative envisagée
+ici : ouverture discrète sur le 06 et le 83 en période calme, flux en
+production pendant plusieurs mois, puis communication au printemps sur un
+service déjà éprouvé — avec hypercare avant l'été suivant.
 
-Alternative à considérer : ouverture discrète sur le 06 et le 83 en période
-calme, flux en production pendant plusieurs mois, puis communication au
-printemps sur un service déjà éprouvé.
+Le point de vigilance demeure : les jalons intermédiaires tombent en pleine
+saison des feux, au moment où la disponibilité de l'auteur s'effondre. Les
+durées du plan sont calendaires et l'assument.
 
 ### 8.3 Validation humaine des informations officielles
 

@@ -1,14 +1,16 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 6 août 2026, seconde passe — préalables de phase 0
-engagés, clé régénérée, rendu enfin regardé.
+**Dernière mise à jour** : 6 août 2026, troisième passe — plan recalé sur la
+décision D-0 (option A), autorisation de cumul obtenue, API et routes
+renommées « events ».
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
 
 | Document | Rôle |
 |---|---|
-| [Cahier de développement v1.1](../MapFeux_Cahier_de_developpement_v1.1.md) | Ce qu'il faut construire. Ne bouge qu'en révision. |
+| Cahier des charges v2.1 (PDF, 5 août 2026, hors dépôt) | Ce qu'il faut construire — **document maître**. Toute divergence se règle par ADR ou par révision du cahier, jamais en silence. |
+| [Cahier de développement v1.1](../MapFeux_Cahier_de_developpement_v1.1.md) | Version précédente du cahier, conservée pour l'historique et les références « cahier §x » des commits antérieurs au 5 août. |
 | [Stratégie](strategie.md) | Positionnement, périmètre, préalables, modèle économique, décisions ouvertes. Stable. |
 | **Ce fichier** | Où l'on en est, ce qui reste, quelle est la prochaine action. Mis à jour à chaque session. |
 | [Registre des ADR](adr/README.md) | Décisions techniques et écarts assumés au cahier. |
@@ -82,6 +84,24 @@ Ce n'est plus une intuition tirée d'une saison dans le Var, et c'est ce qui
 fonde le masque des sources statiques. La carte publique montre aujourd'hui
 cette moitié sans le dire.
 
+**Le plan est recalé sur la décision D-0 — option A, périmètre intégral**
+(cahier v2.1 §26.1, confirmée le 5 août, répercutée ici le 6). La version
+précédente de ce fichier suivait le périmètre allégé de la stratégie v1.0 :
+sans panache, sans CAMS ni radar, sans périmètres versionnés, sans relecture
+ni catalogue. Ces blocs reviennent sous quatre jalons nouveaux (J7 à J10), et
+le total restant passe d'environ 21 à environ 51 semaines — le haut de la
+fourchette 40-50 que la D-0 annonce en solo.
+
+**L'API et les pages disent désormais « événement ».** `/api/v1/fires` est
+devenu `/api/v1/events`, `/detections` est devenu `/observations`, `/commune`
+et `/territoire` passent au pluriel (cahier v2.1 §7.1 et §15.2). Le motif
+n'est pas cosmétique : le vocabulaire public (§2.4) interdit de présenter une
+détection comme un feu, et l'ancienne API s'appelait précisément « fires ».
+Renommé avant que la moindre URL ne devienne permanente ; redirections 308
+posées dans `next.config.ts` ; la fonction SQL `fires_in_bbox` garde son nom,
+interne. Portes repassées après renommage : format, lint, typecheck, tests,
+build — vertes.
+
 ### Portes de qualité — dernier passage
 
 | Chaîne | Commande | Résultat |
@@ -97,7 +117,7 @@ cette moitié sans le dire.
 | Migrations | 23 migrations sur base vierge, en CI | ✅ |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
-élément. Les 86 classes CSS invalides du §9 bis les ont toutes passées.
+élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
 
 ---
 
@@ -132,15 +152,16 @@ Tout le reste est en place : le plafond de passe est levé — vérifié à l'é
 les outils qui font tourner des paramètres expérimentaux refusent de démarrer
 sur la base que le site public lit.
 
-Les préalables de la [phase 0](strategie.md#3-phase-0--préalables-non-techniques)
-sont engagés depuis le 6 août : la demande d'autorisation de cumul est déposée et
-le cadre juridique de l'édition est posé. Le point d'arrêt du
-[§7](strategie.md#7-conditions-darrêt) ne tombe qu'à la **réponse** de
-l'employeur, pas au dépôt — il reste ouvert, mais il n'est plus immobile.
-L'estimation du coût d'un pic (§3.5) reste le dernier préalable non traité.
-Restent aussi, de votre côté, les
-[décisions ouvertes](strategie.md#8-décisions-ouvertes), dont l'ordonnancement,
-le calendrier par rapport à la saison et le préfixe d'identifiant public.
+Côté [phase 0](strategie.md#3-phase-0--préalables-non-techniques) :
+**l'autorisation de cumul est accordée depuis le 6 août** — le point d'arrêt
+correspondant du [§7](strategie.md#7-conditions-darrêt) est levé — et le cadre
+juridique de l'édition est posé. L'estimation du coût d'un pic (§3.5) reste le
+dernier préalable non traité. Restent aussi, de votre côté, trois
+[décisions ouvertes](strategie.md#8-décisions-ouvertes) : la validation
+humaine des informations officielles (§8.3), le préfixe d'identifiant public
+(§8.4, à figer avant la première URL durable) et la réponse à la première
+erreur publique (§8.5). L'ordonnancement (§8.1) et le calendrier (§8.2, tranché
+par D-0 : lancement hors pic saisonnier) ne sont plus ouverts.
 
 ---
 
@@ -150,26 +171,37 @@ Hypothèse de charge : développement principalement solo, à temps partiel, en
 parallèle d'un service de sapeur-pompier professionnel. Les durées sont en
 **semaines calendaires**, pas en jours-homme.
 
-| Jalon | Contenu | Estimé | Reste | État |
-|---|---|---:|---:|---|
-| J1 | Fondations et fiche événement sur données figées | 8 sem. | **1 sem.** | 🟡 critère de sortie atteint |
-| J2 | Ingestion FIRMS et regroupement réel | 6 sem. | **2 sem.** | 🟡 critère de sortie atteint, calibration close |
-| J3 | Carte et territoires | 6 sem. | **2 sem.** | 🟡 pilote livré |
-| J4 | Informations officielles automatisées | 6 sem. | 6 sem. | ⬜ |
-| J5 | Administration, supervision, mode dégradé | 5 sem. | 5 sem. | ⬜ |
-| J6 | Recette, charge, sécurité, ouverture | 5 sem. | 5 sem. | ⬜ |
-| | | 36 sem. | **21 sem.** | |
+Le découpage suit la **décision D-0 (option A)** : périmètre v2.0 intégral à
+l'ouverture publique. La numérotation J1-J6 est historique ; J7 à J10 portent
+les blocs réintégrés par D-0. **L'ordre du tableau est l'ordre d'exécution
+prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 
-Les fondations, la fiche événement, la couche territoriale du pilote et
-l'ingestion FIRMS étant livrées, il reste **environ 21 semaines** au lieu de 36.
-Le reste de J2 tient à deux choses : déclencher l'ingestion et sortir les
-fichiers bruts du disque local.
+| Jalon | Contenu | Phase cahier v2.1 | Estimé | Reste | État |
+|---|---|---|---:|---:|---|
+| J1 | Fondations et fiche événement sur données figées | 1-4 (socle) | 8 sem. | **1 sem.** | 🟡 critère de sortie atteint |
+| J2 | Ingestion FIRMS et regroupement réel | 2-3 | 6 sem. | **2 sem.** | 🟡 critère de sortie atteint, calibration close |
+| J3 | Carte et territoires | 3 | 6 sem. | **2 sem.** | 🟡 pilote livré |
+| J7 | Expérience FeuScope complète : catalogue, archives, relecture, partage | 4 — gate G4 Alpha | 10 sem. | 10 sem. | ⬜ |
+| J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | 6 sem. | ⬜ |
+| J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | 8 sem. | ⬜ |
+| J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | 2 sem. | ⬜ |
+| J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | 6 sem. | ⬜ vigilance déjà en service |
+| J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
+| J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
+| | | | 66 sem. | **≈ 51 sem.** | |
 
-⚠️ Le phasage par rapport à la saison des feux est une
-[décision ouverte](strategie.md#82-calendrier-et-saison) : les premiers jalons
-tombent au moment où la disponibilité de l'auteur s'effondre, et une ouverture
-au printemps ferait coïncider la première mise en charge réelle avec la première
-crise majeure.
+Il reste **environ 51 semaines** — le haut de la fourchette 40-50 que la D-0
+annonce pour un développement principalement solo depuis l'état de départ. Le
+recalage du 6 août ajoute 30 semaines au total précédent (21) : c'est le prix,
+connu et accepté, du périmètre intégral. L'option C (renfort ou partenariat,
+24-30 semaines en équipe) reste ouverte à tout moment et resserre le
+calendrier sans toucher au périmètre.
+
+Le calendrier par rapport à la saison est
+[tranché par D-0](strategie.md#82-calendrier-et-saison--tranché-le-5-août-2026-d-0) :
+lancement hors pic saisonnier (automne-hiver), hypercare avant l'été suivant.
+⚠️ Le point de vigilance demeure : plusieurs jalons intermédiaires tombent en
+pleine saison des feux, au moment où la disponibilité de l'auteur s'effondre.
 
 ---
 
@@ -199,7 +231,9 @@ historiques importé à la main.
 - ✅ Tableau accessible des détections membres — alternative textuelle §8.6
 - ✅ Redirection permanente des identifiants fusionnés (§13.10)
 - ✅ Métadonnées de partage et URL canonique rendue côté serveur
-- ✅ `GET /api/v1/fires/{publicId}`, `/timeline`, `/detections`
+- ✅ `GET /api/v1/events/{publicId}`, `/timeline`, `/observations` — livrés
+  sous le nom `fires`/`detections`, renommés le 6 août (cahier v2.1 §15.2),
+  redirections 308 posées
 - ✅ Jeu de démonstration, cantonné à `supabase/seed/dev/` et signalé par un
   bandeau sur la fiche
 
@@ -443,7 +477,7 @@ elle est tranchée :
   agricoles, sites industriels, artefacts. Vérifié sur données réelles :
   **20 étayés, 103 isolées**
 - ⬜ Fusion et séparation manuelles réversibles
-- ⬜ `GET /api/v1/fires` avec bbox obligatoire au-delà du seuil national
+- ⬜ `GET /api/v1/events` avec bbox obligatoire au-delà du seuil national
 - ⬜ Détection des candidats à la fusion, sans fusion silencieuse (§17.2, étape 8)
 - ⬜ ADR-006 et ADR-012 à rédiger
 - ⚠️ L'ordonnanceur reste une [décision ouverte](strategie.md#81-ordonnancement--revenir-à-celery-et-redis).
@@ -468,7 +502,8 @@ stables ; deux exécutions successives donnent le même résultat.
 - ✅ `GET /api/v1/territories`, `/municipalities/{insee}`, `/search`
 - ✅ `POST /api/v1/location/resolve` — position en corps de requête et non en
   URL, car les URL atterrissent dans les journaux des CDN (§22.2)
-- ✅ Pages `/carte`, `/territoire/[slug]`, `/commune/[insee]`, `/statut`
+- ✅ Pages `/carte`, `/territoires/[slug]`, `/communes/[insee]`, `/statut` —
+  passées au pluriel le 6 août (cahier v2.1 §7.1), redirections 308 posées
 - ✅ Couche d'accès partagée : une page rendue serveur n'appelle pas sa propre
   API par HTTP
 
@@ -478,7 +513,7 @@ stables ; deux exécutions successives donnent le même résultat.
 - ✅ Liste textuelle rendue serveur, fonctionnelle sans JavaScript (§8.6)
 - ✅ Légende avec pastille **et** libellé, expliquant que la taille d'un marqueur
   suit le nombre d'observations et non la gravité (FR-049)
-- ✅ `GET /api/v1/fires`, emprise obligatoire, rechargement au déplacement (FR-007)
+- ✅ `GET /api/v1/events`, emprise obligatoire, rechargement au déplacement (FR-007)
 - ⬜ **Génération PMTiles**, sans GeoJSON national servi en direct
 - ⬜ Agrégation par département à l'échelle nationale (§21.3)
 - ⬜ Géométries des régions et départements : seuls les quatre territoires du
@@ -495,7 +530,131 @@ milieu de gamme ; la carte reste utilisable si FIRMS est indisponible.
 
 ---
 
-## 7. J4 — Informations officielles ⬜
+## 7. J7 — Expérience FeuScope complète ⬜
+
+Premier des quatre jalons réintégrés par la décision D-0 (phase 4 du cahier
+v2.1, gate G4 Alpha) : ce qui transforme une fiche en expérience FeuScope.
+
+- ⬜ Catalogue national `/evenements` : carte et liste synchronisées, filtres
+  territoire, période, niveau de vérification, source, capteur, périmètre
+  disponible et information officielle, tris explicites (FR-050 à FR-052,
+  FR-055)
+- ⬜ Archives `/archives` avec pagination par curseur (FR-053)
+- ⬜ Vue textuelle complète du catalogue, utilisable sans interaction
+  cartographique (FR-054)
+- ⬜ Slug éditorial facultatif `/evenements/[publicId]/[slug?]` (FR-042, FR-060)
+- ⬜ Relecture temporelle : curseur entre première observation et dernier état,
+  lecture automatique, parcours clavier et alternative textuelle, données
+  absentes signalées et jamais interpolées sans mention (FR-080 à FR-084,
+  FR-087)
+- ⬜ URL d'instant `?at=` : le même instant logique s'ouvre sur un autre
+  appareil (FR-085)
+- ⬜ États générés à la demande d'abord ; une table de frames pré-calculées
+  n'est créée que si la performance l'exige (FR-086)
+- ⬜ Carte sociale Open Graph générée à partir du snapshot, avec avertissement
+  et horodatage (FR-067)
+- ⬜ Version imprimable : les faits sourcés, sans navigation inutile (FR-068)
+- ⬜ Bouton « Autour de moi » et page dédiée — l'endpoint de résolution existe
+  depuis J3
+- ⚠️ Le préfixe d'identifiant public
+  ([décision §8.4](strategie.md#84-préfixe-didentifiant-public)) doit être figé
+  **avant** ce jalon : le catalogue multiplie les URL publiques durables.
+
+**Critère de sortie** (G4) : page événement, chronologie et relecture
+fonctionnelles sur plusieurs cas du corpus historique ; une URL `?at=` ouvre le
+même instant logique sur un autre appareil.
+
+---
+
+## 8. J8 — Météo et panache ⬜
+
+Phase 5 du cahier v2.1, gate G5. La réserve de la stratégie v1.0 — un vent à
+10 m est physiquement fragile en relief — devient une contrainte d'affichage
+et d'exploitation, pas un retrait de périmètre
+([stratégie §4](strategie.md#4-périmètre-du-mvp)).
+
+- ✅ Archivage froid AROME (PR-1) en service depuis le 5 août — voir le
+  chantier transverse. Le corpus de calibration du panache s'accumule déjà.
+- ⬜ Tables `meteo.model_runs`, `wind_samples`, `smoke_forecasts`,
+  `smoke_steps`, `affected_municipalities` (cahier §13.12 à §13.16)
+- ⬜ Ingestion des runs AROME pour le calcul, au-delà de l'archivage : index
+  des paramètres et échéances, extraction autour des événements, interpolation
+  validée, garde-fous sur valeurs aberrantes (§16.4)
+- ⬜ Panache indicatif §18 : advection pas à pas, élargissement latéral,
+  garde-fous — distance et surface maximales, `ST_IsValid` obligatoire,
+  résultat vide si entrées insuffisantes, jamais de panache sur modèle expiré
+- ⬜ Incertitude affichée et croissante ; modèle, run, échéance, résolution et
+  période de validité visibles (FR-101 à FR-103)
+- ⬜ Versionnement complet : algorithme, commit du worker, run météo,
+  paramètres, checksum des entrées (§18.6)
+- ⬜ Désactivation globale ou par territoire, immédiate, sans déploiement
+  (FR-106, FR-155)
+- ⬜ Communes potentiellement concernées : intersection géospatiale, libellé
+  « potentiellement concernée » obligatoire, fenêtre temporelle seulement si
+  calculable (FR-110 à FR-114)
+- ⬜ Formulation publique obligatoire du panache (§22.5), validée métier avant
+  toute mise en ligne
+- ⬜ Calibration sur cas connus du corpus — Gironde 2022 — avant publication
+
+**Critère de sortie** (G5) : panache reproductible — mêmes entrées, même
+sortie — et désactivable en une action ; communes concernées reproductibles
+pour une même version d'entrée.
+
+---
+
+## 9. J9 — CAMS, radar et périmètres ⬜
+
+Phase 6 du cahier v2.1, gate G6. Les schémas `air` et `radar`, vides depuis
+l'origine, se remplissent ici.
+
+- ⬜ CAMS : connecteur, import par run, PM2,5 et PM10, COG ou tuiles raster,
+  publication atomique avec conservation de la version précédente (§16.5,
+  FR-120 à FR-121)
+- ⬜ Radar : connecteur, frames, conversion contrôlée, timeline, animation de
+  12 à 24 frames avec lecture/pause et respect de la réduction des animations,
+  expiration automatique (§16.6, §19.3, FR-123 à FR-124)
+- ⬜ Panne de CAMS ou du radar sans effet sur la carte des détections — déjà
+  la règle pour les sources en service, à vérifier sur les nouvelles (FR-125)
+- ⬜ `fire.event_perimeters` : périmètres versionnés multi-sources — officiel,
+  institutionnel, EFFIS, estimé, éditorial, historique —, import
+  GeoJSON/KML/Shape, validation géométrique, surfaces recalculées avec méthode,
+  masquage sans destruction (§13.23, FR-090 à FR-096)
+- ⬜ Styles par provenance : un périmètre satellitaire ou estimé n'est jamais
+  présenté comme un contour opérationnel (FR-093)
+- ⬜ Versions successives affichables dans la relecture (FR-094)
+
+**Critère de sortie** (G6) : couper CAMS puis le radar ne touche ni la carte ni
+les fiches ; un périmètre importé porte source, nature, dates, méthode et
+confiance, et son remplacement conserve la version précédente.
+
+---
+
+## 10. J10 — Sources statiques et réconciliation ⬜
+
+Phase 7 du cahier v2.1. Le corpus a déjà fourni la matière : 165 629
+détections `type = 2` sur quatorze ans.
+
+- ⬜ Registre spatial `fire.known_thermal_sources` dérivé du corpus —
+  agrégation des détections récurrentes — puis enrichi éditorialement
+  (§13.11, FR-035)
+- ⬜ Application par proximité au flux NRT : la colonne `type` n'existe pas en
+  temps réel ; la correspondance classe la détection, ne la supprime jamais
+  (FR-036)
+- ⬜ Mesure du changement d'empreinte de regroupement — après calibration,
+  jamais avant : l'ordre est acté au §5
+- ⬜ Réconciliation trimestrielle NRT/standard : import de l'archive,
+  rapprochement par clés spatiotemporelles, corrections enregistrées comme
+  enrichissements, jamais comme réécritures (§16.3, FR-032)
+- ⚠️ N21 sans corpus retraité (dette du §15) : la réconciliation résorbera
+  progressivement les 8,9 % de lignes non étiquetées.
+
+**Critère de sortie** : la carte publique ne montre plus la moitié
+non-végétation du signal sans le dire ; rejouer la réconciliation sur un
+trimestre déjà traité ne change rien.
+
+---
+
+## 11. J4 — Informations officielles ⬜
 
 Le jalon différenciant. Capter automatiquement ce que publient les autorités,
 sans jamais le réécrire.
@@ -542,7 +701,7 @@ sans réécriture.
 
 ---
 
-## 8. J5 — Administration et exploitation ⬜
+## 12. J5 — Administration et exploitation ⬜
 
 - ⬜ Authentification par lien magique, MFA obligatoire pour `super_admin`
 - ⬜ `proxy.ts` pour le rafraîchissement de session
@@ -564,8 +723,14 @@ site reste consultable et dit exactement ce qui manque et depuis quand.
 
 ---
 
-## 9. J6 — Recette et ouverture ⬜
+## 13. J6 — Durcissement, recette, pilote et ouverture ⬜
 
+Phases 9 à 11 du cahier v2.1, gates G8 à G10.
+
+- ⬜ **PWA** : installable, cache du shell et du dernier snapshot consulté,
+  jamais présenté comme frais — heure et mode hors ligne visibles (FR-160 à
+  FR-162)
+- ⬜ Architecture i18n en place, français seul activé (FR-166)
 - ⬜ Tests E2E Playwright sur les parcours publics et administrateur
 - ⬜ Tests de contrat fournisseur avec réponses figées
 - ⬜ Tests géospatiaux : enclave, Corse, frontière maritime, point sur limite,
@@ -573,15 +738,18 @@ site reste consultable et dit exactement ce qui manque et depuis quand.
 - ⬜ Test de charge : pic de crise, 200 000 visites/jour sur un département
 - ⬜ **CSP avec nonces**, revue RLS, revue des fonctions `security definer`
 - ⬜ Revue de sécurité indépendante
-- ⬜ Audit RGAA 4.1 niveau AA et déclaration d'accessibilité
+- ⬜ Audit RGAA niveau AA et déclaration d'accessibilité
 - ⬜ Pages légales, méthodologie, limites, confidentialité
 - ⬜ Test de sauvegarde et de restauration
 - ⬜ Checklist de mise en production (annexe G)
-- ⬜ Ouverture progressive : 06 et 83, puis Sud-Est, puis national
+- ⬜ **Pilote 06/83** (G9) : recette métier sur situations historiques du
+  corpus, dont Gironde 2022 (§24.8)
+- ⬜ **Bêta nationale puis ouverture** (G10) : hors pic saisonnier, hypercare,
+  runbooks, astreinte et page statut prêts
 
 ---
 
-## 9 bis. Chantiers transverses
+## 14. Chantiers transverses
 
 Deux chantiers ne relèvent d'aucun jalon en particulier et se poursuivent en
 parallèle. Ils manquaient à ce fichier ; les voici, à leur état réel.
@@ -621,8 +789,8 @@ en linéale.
 - ✅ Utilitaires canonisés : les paliers déclarés dans `@theme` engendrent déjà
   `text-small`, `text-title`, `rounded-md`. Trente classes passaient par la
   valeur arbitraire pour produire exactement la même règle
-- ✅ **`/statut`, `/commune/[insee]`, `/territoire/[slug]`** — la refonte couvre
-  désormais toutes les pages
+- ✅ **`/statut`, `/communes/[insee]`, `/territoires/[slug]`** — la refonte
+  couvre désormais toutes les pages
 - ⚠️ Le libellé du titre d'accueil n'a pas été touché : une formulation
   publique passe par une validation métier, pas par une passe de style
 - ✅ **Le rendu a été regardé**, le 6 août, sur le déploiement
@@ -703,23 +871,23 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 
 ---
 
-## 10. Dettes et points de vigilance
+## 15. Dettes et points de vigilance
 
 | Sujet | Nature | Échéance |
 |---|---|---|
-| Décisions ouvertes non tranchées | Ordonnancement, calendrier, validation, préfixe. L'échéance « avant J2 » est dépassée, J2 ayant atteint son critère de sortie | Immédiat |
+| Décisions ouvertes restantes | Validation humaine des informations officielles (§8.3), préfixe d'identifiant public (§8.4) et réponse à la première erreur publique (§8.5). Ordonnancement (§8.1) et calendrier (§8.2, tranché par D-0) ne sont plus ouverts | Préfixe avant J7 ; validation avant J4 |
 | Mesures faussées par le cache Vercel | `Cache-Control: no-cache` ne traverse pas le cache de bordure : on conclut sur un rendu vieux de plusieurs jours en croyant lire l'état courant. Lire `x-vercel-cache` et `age`, ou interroger la base. `/statut` répondait `STALE` le 6 août | Continu |
-| Affichage des détections par commune | `/commune/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
+| Affichage des détections par commune | `/communes/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
 | ADR-001 à 013 non rédigés | Décisions actées, non documentées | Au fil des jalons |
-| Schémas `air` et `radar` vides | Tables reportées en v2 avec le panache. `meteo` porte désormais la vigilance | v2 |
+| Schémas `air` et `radar` vides | Tables créées en J9 ; le panache arrive en J8 — la décision D-0 a réintégré ces blocs au périmètre d'ouverture. `meteo` porte déjà la vigilance | J9 |
 | `app.official_messages` inutilisable par une ingestion | La table exige un `created_by` humain et un `validated_by` : la vigilance a donc ses propres tables. La [décision §8.3](strategie.md#83-validation-humaine-des-informations-officielles) reste ouverte pour les sources en texte libre | J4 |
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
-| Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service | v2 |
+| Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service. ⚠️ Phrase d'attente à retirer le jour de la mise en service (J9) | J9 |
 | Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
 | Coût d'un jeu de calibration non borné | Le jeu de référence dépasse dix minutes sur le corpus complet, contre deux secondes sur 939 détections. Les 112 jeux du balayage croisé demanderaient une vingtaine d'heures : à mesurer sur `--axes` avant d'engager | Immédiat |
 | `cluster-detections.py` vise encore la production | Seul outil de regroupement resté sur `DATABASE_URL`. Le banc et l'inspection exigent la base de calibration ; celui-ci devrait recevoir la même bascule, ou au moins un `--calibration` | J2 |
@@ -727,12 +895,13 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | La borne de R4 suppose le corpus standard dense | Un satellite indisponible en milieu de période retraitée verrait ses lignes NRT de la panne écartées à tort. FIRMS ne publie pas de calendrier de couverture. La borne employée est consignée dans le compte rendu du corpus | J2 |
 | Corpus dérivé versionné | Le Parquet pèse 6,8 Mo et se régénère depuis les zips. Chaque régénération dépose un nouveau blob dans l'historique. À arbitrer : le compte rendu JSON suffit à prouver la provenance | J6 |
 | `api.fire_events` expose l'`id` interne | §15.1 demande des identifiants publics opaques. Non exploité par nos réponses, mais lisible via PostgREST | J6 |
-| Coût d'un pic non chiffré | Conditionne un point d'arrêt | Phase 0 |
+| Coût d'un pic non chiffré | Conditionne un point d'arrêt — dernier préalable de phase 0 encore ouvert | Phase 0 |
 | Réponse à la première erreur publique | Runbook éditorial absent | Avant J6 |
+| `fires_in_bbox` sous son nom historique | L'API publique dit désormais `events` (cahier v2.1 §15.2) ; la fonction SQL interne garde son nom — la renommer passe par une migration, sans bénéfice public | Libre |
 
 ---
 
-## 11. Tenue de ce fichier
+## 16. Tenue de ce fichier
 
 À la fin de chaque session :
 
@@ -740,7 +909,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 2. Faire passer les éléments terminés à 🟢, et à ✅ **seulement** après exécution.
 3. Rafraîchir le tableau des portes de qualité si elles ont tourné.
 4. Réécrire la section « Prochaine action » — elle ne doit contenir qu'une chose.
-5. Ajouter toute dette nouvelle au tableau du §10 plutôt que de la laisser
+5. Ajouter toute dette nouvelle au tableau du §15 plutôt que de la laisser
    implicite dans le code.
 6. Consigner dans [docs/adr/](adr/) tout écart au cahier, et l'ajouter à la liste
    du registre.

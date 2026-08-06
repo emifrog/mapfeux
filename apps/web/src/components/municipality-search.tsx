@@ -86,7 +86,7 @@ export function MunicipalitySearch({ autoFocus = false }: { autoFocus?: boolean 
 
   function select(result: Result) {
     setIsOpen(false);
-    router.push(`/commune/${result.insee}`);
+    router.push(`/communes/${result.insee}`);
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {

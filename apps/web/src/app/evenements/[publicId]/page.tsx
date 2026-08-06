@@ -287,7 +287,7 @@ export default async function EventPage({ params }: PageParams) {
             <span aria-hidden="true" className="text-(--border-strong)">
               /
             </span>
-            <Link href={`/territoire/${event.territory.slug}`} className="hover:text-(--text-2)">
+            <Link href={`/territoires/${event.territory.slug}`} className="hover:text-(--text-2)">
               {event.territory.name}
             </Link>
           </>
@@ -539,7 +539,7 @@ export default async function EventPage({ params }: PageParams) {
             <>
               {' · commune la plus proche : '}
               <Link
-                href={`/commune/${event.nearestMunicipality.insee}`}
+                href={`/communes/${event.nearestMunicipality.insee}`}
                 className="underline underline-offset-4"
               >
                 {event.nearestMunicipality.name}

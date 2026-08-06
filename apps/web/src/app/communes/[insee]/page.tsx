@@ -56,7 +56,7 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
               /
             </span>
             <Link
-              href={`/territoire/${municipality.departmentSlug}`}
+              href={`/territoires/${municipality.departmentSlug}`}
               className="hover:text-(--text-2)"
             >
               {municipality.departmentName ?? municipality.departmentCode}

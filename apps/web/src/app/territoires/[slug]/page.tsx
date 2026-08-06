@@ -72,7 +72,7 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
             <span aria-hidden="true" className="text-(--border-strong)">
               /
             </span>
-            <Link href={`/territoire/${parent.slug}`} className="hover:text-(--text-2)">
+            <Link href={`/territoires/${parent.slug}`} className="hover:text-(--text-2)">
               {parent.name}
             </Link>
           </>
@@ -156,7 +156,7 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
           <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
             {children.map((child) => (
               <li key={child.slug}>
-                <Link href={`/territoire/${child.slug}`} className="underline underline-offset-4">
+                <Link href={`/territoires/${child.slug}`} className="underline underline-offset-4">
                   {child.name}
                 </Link>
               </li>

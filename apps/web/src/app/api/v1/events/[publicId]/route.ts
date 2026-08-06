@@ -5,7 +5,7 @@ import { fetchEvent, resolveEventAlias } from '@/lib/data/events';
 import { fetchSourceStatus, toMetaSources } from '@/lib/sources';
 
 /**
- * GET /api/v1/fires/{publicId} — fiche événement. Cahier §15.2 et §15.3.
+ * GET /api/v1/events/{publicId} — fiche événement. Cahier §15.2 et §15.3.
  *
  * La réponse porte la provenance de chaque bloc : un consommateur de l'API doit
  * pouvoir distinguer une observation d'un calcul sans connaître notre

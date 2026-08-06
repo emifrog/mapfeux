@@ -36,6 +36,25 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
+
+  /**
+   * Anciens chemins, renommés le 6 août 2026 pour s'aligner sur le cahier
+   * v2.1 (§7.1 et §15.2) avant que la moindre URL ne devienne permanente.
+   * Le site étant déjà déployé, un lien copié hier doit continuer de porter.
+   * 308 : le renommage est définitif, les moteurs peuvent oublier l'ancien.
+   */
+  async redirects() {
+    return [
+      { source: '/commune/:insee', destination: '/communes/:insee', permanent: true },
+      { source: '/territoire/:slug', destination: '/territoires/:slug', permanent: true },
+      {
+        source: '/api/v1/fires/:publicId/detections',
+        destination: '/api/v1/events/:publicId/observations',
+        permanent: true,
+      },
+      { source: '/api/v1/fires/:path*', destination: '/api/v1/events/:path*', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;
