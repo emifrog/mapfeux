@@ -65,43 +65,43 @@ function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
 
   return (
     <tr className="border-b align-top" style={{ borderColor: 'var(--border)' }}>
-      <th scope="row" className="py-3 pr-4 text-left font-medium">
+      <th scope="row" className="py-3.5 pr-4 text-left font-semibold">
         {source.name}
-        <span className="block text-xs font-normal" style={{ color: 'var(--text-3)' }}>
-          {source.provider}
-        </span>
+        <span className="eyebrow mt-0.5 block">{source.provider}</span>
       </th>
-      <td className="py-3 pr-4">
+      <td className="py-3.5 pr-4">
         <span
-          className="inline-block rounded-full px-3 py-1 text-xs font-medium"
+          className="text-small inline-block rounded-full px-3 py-1 font-medium"
           style={FRESHNESS_STYLES[source.freshness] ?? FRESHNESS_STYLES['unavailable']}
         >
           {freshnessLabel(source.freshness)}
         </span>
       </td>
-      <td className="py-3 pr-4 text-sm">
+      <td className="text-small py-3.5 pr-4">
         {dataAt === null ? (
-          <span style={{ color: 'var(--text-3)' }}>Aucune donnée</span>
+          <span className="text-(--text-3)">Aucune donnée</span>
         ) : (
           <>
-            <time dateTime={dataAt.toISOString()}>
+            {/* L'horodatage est une mesure : chasse fixe et chiffres tabulaires,
+                pour qu'une colonne de dates se lise en colonne. */}
+            <time dateTime={dataAt.toISOString()} className="mono">
               {new Intl.DateTimeFormat('fr-FR', {
                 dateStyle: 'short',
                 timeStyle: 'short',
                 timeZone: 'Europe/Paris',
               }).format(dataAt)}
             </time>
-            <span className="block text-xs" style={{ color: 'var(--text-3)' }}>
+            <span className="text-micro text-(--text-3) mt-0.5 block">
               il y a {formatDataAge(Math.max(0, now.getTime() - dataAt.getTime()))}
             </span>
           </>
         )}
       </td>
-      <td className="py-3 text-sm">
+      <td className="text-small py-3.5">
         {source.incident_message === null ? (
-          <span style={{ color: 'var(--text-3)' }}>—</span>
+          <span className="text-(--text-3)">—</span>
         ) : (
-          <span style={{ color: 'var(--color-degraded)' }}>{source.incident_message}</span>
+          <span className="text-degraded">{source.incident_message}</span>
         )}
       </td>
     </tr>
@@ -114,47 +114,65 @@ export default async function StatusPage() {
   const now = new Date();
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight">État des données</h1>
-      <p className="mt-3 max-w-2xl" style={{ color: 'var(--text-2)' }}>
+    <div className="shell max-w-[880px] py-10">
+      <nav aria-label="Fil d’Ariane" className="eyebrow flex flex-wrap items-center gap-2">
+        <span>état des données</span>
+        <span aria-hidden="true" className="text-(--border-strong)">
+          /
+        </span>
+        <span>{sources.length} sources déclarées</span>
+      </nav>
+
+      <h1 className="text-display mt-3 max-w-[15ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
+        État des données
+      </h1>
+
+      <p className="text-lead text-(--text-2) mt-4 max-w-[68ch]">
         Chaque source est indépendante. L’indisponibilité de l’une n’empêche pas l’affichage des
         autres : les couches concernées sont signalées comme indisponibles plutôt que masquées
         silencieusement.
       </p>
 
       {!result.readable ? (
+        // La page doit rester lisible quand sa propre source de vérité tombe.
+        // Annoncer l'ignorance vaut mieux qu'un tableau vide, qui se lirait
+        // comme « aucune source en panne ».
         <p
-          className="mt-8 rounded-xl border p-4 text-sm"
-          style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}
+          className="text-small mt-8 rounded-md border-l-[3px] px-4 py-3"
+          style={{
+            background: 'var(--color-degraded-wash)',
+            borderColor: 'var(--color-degraded)',
+            color: 'var(--color-degraded)',
+          }}
         >
           L’état des sources n’est pas consultable actuellement. Cette page ne reflète donc pas la
           situation réelle des imports.
         </p>
       ) : sources.length === 0 ? (
         <p
-          className="mt-8 rounded-xl border p-4 text-sm"
+          className="text-small mt-8 rounded-md border p-4"
           style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}
         >
           Aucune source de données n’est encore enregistrée sur cette instance.
         </p>
       ) : (
-        <div className="mt-8 overflow-x-auto">
+        <div className="mt-10 overflow-x-auto">
           <table className="min-w-xl w-full border-collapse text-left">
             <caption className="sr-only">
               Fraîcheur des sources de données, dernière donnée disponible et incidents en cours
             </caption>
             <thead>
-              <tr className="border-b-2 text-sm" style={{ borderColor: 'var(--border-strong)' }}>
-                <th scope="col" className="py-2 pr-4">
+              <tr className="eyebrow border-b-2" style={{ borderColor: 'var(--border-strong)' }}>
+                <th scope="col" className="py-2.5 pr-4">
                   Source
                 </th>
-                <th scope="col" className="py-2 pr-4">
+                <th scope="col" className="py-2.5 pr-4">
                   État
                 </th>
-                <th scope="col" className="py-2 pr-4">
+                <th scope="col" className="py-2.5 pr-4">
                   Dernière donnée
                 </th>
-                <th scope="col" className="py-2">
+                <th scope="col" className="py-2.5">
                   Incident
                 </th>
               </tr>
@@ -168,9 +186,12 @@ export default async function StatusPage() {
         </div>
       )}
 
-      <p className="mt-8 text-xs" style={{ color: 'var(--text-3)' }}>
+      {/* Trois horodatages coexistent sur ce site et ne se confondent jamais :
+          l'heure de service de la page, celle de la donnée, celle de l'import.
+          Celui-ci est le premier, et il le dit. */}
+      <p className="text-micro text-(--text-3) mt-10">
         Page générée le{' '}
-        <time dateTime={now.toISOString()}>
+        <time dateTime={now.toISOString()} className="mono">
           {new Intl.DateTimeFormat('fr-FR', {
             dateStyle: 'long',
             timeStyle: 'medium',

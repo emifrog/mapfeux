@@ -93,8 +93,8 @@ cette moitié sans le dire.
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 53 fichiers |
 | Worker | `mypy src` | ✅ strict, 24 fichiers |
-| Worker | `pytest` | ✅ 247 tests |
-| Migrations | 21 migrations sur base vierge, en CI | ✅ |
+| Worker | `pytest` | ✅ 266 tests |
+| Migrations | 23 migrations sur base vierge, en CI | ✅ |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §9 bis les ont toutes passées.
@@ -481,13 +481,24 @@ sans jamais le réécrire.
 
 - ✅ Modèle `app.official_messages` : organisme, URL source, date de publication,
   période de validité, territoire, événement lié, validateur
-- 🟢 **Vigilance Météo-France** — format V6, 9 phénomènes, 96 départements et
-  25 pourtours littoraux. Adaptateur, 23 tests, migration et pipeline validés en
-  transaction annulée sur un bulletin réel : 1216 niveaux, zéro rejet, rejeu
-  idempotent. Reste à appliquer la migration
-  - Voie **sans clé** : l'API temps réel de Météo-France en exige une, le dépôt
-    objet de data.gouv.fr sert les mêmes produits sous Licence Ouverte
-    Etalab v2. L'adaptateur du cahier §9.2 rend le point d'accès remplaçable
+- ✅ **Vigilance Météo-France, en service** — format V6, 9 phénomènes,
+  96 départements et 25 pourtours littoraux. Import horaire planifié, bulletin
+  brut archivé dans `raw`. Éprouvé en production : 1216 niveaux, 38 au-dessus du
+  vert, zéro rejet
+  - Voie **temps réel**, avec clé. Le dépôt objet de data.gouv.fr avait été
+    retenu pour éviter d'ouvrir un compte, et la mesure a montré ce que ce
+    raccourci coûtait : le jeu s'appelle `vigilance-meteorologique-archivee`, et
+    le nom disait vrai. Sondé le 6 août à 9 h UTC, il s'arrêtait au bulletin du
+    5 août 4 h — vingt-neuf heures de retard, contre un seuil de péremption à
+    vingt. La vigilance affichait « Trop ancienne » en permanence : un signal
+    exact et faux, qui apprend à ignorer l'indicateur
+  - L'adaptateur du §9.2 a rendu le basculement local : seule la récupération
+    change, `parse_carte` lit la réponse de l'API sans modification, les deux
+    voies servant le même produit « carte ». L'archive reste en repli, mais
+    **annoncée** — la voie employée est consignée dans `import_run.metrics.acces`
+  - Une clé par application au portail Météo-France : la variable porte donc
+    l'application, `METEOFRANCE_VIGILANCE_API_KEY`. Poser celle du radar à sa
+    place produirait un 403 sans motif visible
   - Les correspondances de codes viennent du descriptif technique officiel, pas
     d'une supposition : publier « orange » pour le mauvais phénomène serait la
     désinformation que §2.4 interdit
@@ -589,12 +600,28 @@ en linéale.
 - ✅ Utilitaires canonisés : les paliers déclarés dans `@theme` engendrent déjà
   `text-small`, `text-title`, `rounded-md`. Trente classes passaient par la
   valeur arbitraire pour produire exactement la même règle
-- ⬜ Restent `/statut`, `/commune/[insee]`, `/territoire/[slug]`
+- ✅ **`/statut`, `/commune/[insee]`, `/territoire/[slug]`** — la refonte couvre
+  désormais toutes les pages
 - ⚠️ Le libellé du titre d'accueil n'a pas été touché : une formulation
   publique passe par une validation métier, pas par une passe de style
 - ⚠️ Le rendu réel n'a toujours pas été regardé dans un navigateur. Le défaut
   ci-dessus est exactement ce que « vérifié par construction » ne voit pas :
   lint, typage, tests et construction passaient tous
+
+#### Une affirmation devenue fausse, trouvée en refondant
+
+`/commune/[insee]` annonçait que « les détections thermiques satellitaires ne
+sont pas encore importées ». C'était vrai jusqu'au 5 août ; l'ingestion tourne
+depuis, et la phrase était devenue une affirmation fausse sur une page publique.
+
+La page dit maintenant ce qu'elle sait — les détections sont importées et
+regroupées, leur affichage par commune reste à écrire — et renvoie vers la carte
+et vers `/statut`. Elle rappelle aussi que l'absence d'événement affiché ne
+signifie pas qu'il ne s'en produit pas.
+
+⚠️ La leçon dépasse cette page : **une phrase d'attente devient un mensonge le
+jour où l'attente cesse.** Il en reste probablement d'autres, écrites quand une
+brique manquait, à relire à chaque mise en service.
 
 ### Archivage AROME 🟡
 
@@ -612,10 +639,17 @@ capté est perdu définitivement ([ADR-025](adr/025-plateforme-a-deux-visages.md
   54,1 Mo téléchargés, 10,42 Mo archivés, `import_run` en `success`, et AROME
   passée d'« Indisponible » à « À jour » sur `/statut`
 - ✅ Planifié quotidiennement à 10 h UTC (`arome-archive.yml`)
+- ✅ **La date de donnée est celle du run, non celle de l'échéance.** Le script
+  écrivait l'échéance de la prévision — un horodatage à venir. La fraîcheur se
+  calculant en `now() - source_data_at`, la valeur devenait négative : `/statut`
+  affichait « il y a moins d'une minute » pour une heure future, et la détection
+  de panne était neutralisée. Migration `20260806110000` pour les passes déjà
+  enregistrées : elles sont effacées plutôt que rectifiées, l'heure du run n'y
+  ayant jamais été écrite
 - ⚠️ **ADR-025 est à corriger sur les deux chiffres.** L'ADR annonce un coût
   « quasi gratuit » ; la mesure du 2 août sur le paquet brut donnait 56 Mo par
   tranche de six heures, soit vingt gigaoctets par an. L'extrait réel pèse
-  **10,4 Mo par jour, environ 3,8 Go par an** — ni l'un ni l'autre. C'est le
+  **10,4 à 12 Mo par jour, environ 4 Go par an** — ni l'un ni l'autre. C'est le
   rapport de cinq entre paquet et extrait qui rend l'archivage quotidien tenable
 
 ### Journalisation ✅
@@ -649,7 +683,8 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Décisions ouvertes non tranchées | Ordonnancement, calendrier, validation, préfixe | Avant J2 |
 | CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
 | **`SUPABASE_SECRET_KEY` à régénérer** | Imprimée en clair dans une trace du 5 août. La cause est corrigée, la clé reste compromise | Immédiat |
-| Vigilance Météo-France dans aucun ordonnanceur | Adaptateur écrit et validé sur bulletin réel, dernier import du 2 août. `ingestion.yml` ne lance que FIRMS, `arome-archive.yml` que l'archivage | Immédiat |
+| Affichage des détections par commune | `/commune/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
+| Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
