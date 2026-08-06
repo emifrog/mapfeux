@@ -45,6 +45,7 @@ dans tous les cas et qui est de toute façon la grandeur affichée.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -71,6 +72,35 @@ CARTE_FILE = "CDP_CARTE_EXTERNE.json"
 #: donnée vieille d'un jour serait indiscernable d'une donnée fraîche.
 ACCESS_LIVE = "temps-reel"
 ACCESS_ARCHIVE = "archive"
+
+#: Variables portant la clé, par ordre de préférence.
+#:
+#: Le portail Météo-France délivre une clé **par application** — « Bulletin
+#: Vigilance », « Données Publiques Radar », et ainsi de suite. Un nom générique
+#: unique deviendrait donc faux dès la seconde application : on ne saurait plus
+#: laquelle il porte, et poser la mauvaise produirait un 403 sans motif visible.
+#:
+#: Le nom générique reste lu en second, pour les environnements qui l'emploient
+#: déjà. Il est déprécié, non supprimé : casser une configuration en place au
+#: milieu d'une mise en service serait payer cher une cohérence de nommage.
+API_KEY_VARIABLES: tuple[str, ...] = (
+    "METEOFRANCE_VIGILANCE_API_KEY",
+    "METEOFRANCE_API_KEY",
+)
+
+
+def api_key_from(env: Mapping[str, str]) -> str:
+    """Clé de l'application « Bulletin Vigilance », ou chaîne vide.
+
+    Un secret non renseigné arrive en chaîne vide chez un ordonnanceur, jamais
+    en variable absente : les deux cas se traitent donc de la même façon.
+    """
+    for name in API_KEY_VARIABLES:
+        value = env.get(name, "").strip()
+        if value != "":
+            return value
+    return ""
+
 
 #: Diffusions inspectées avant d'abandonner. La carte paraît au moins deux fois
 #: par jour : n'en trouver aucune sur une vingtaine de diffusions signale une
@@ -420,6 +450,7 @@ class VigilanceClient:
 __all__ = [
     "ACCESS_ARCHIVE",
     "ACCESS_LIVE",
+    "API_KEY_VARIABLES",
     "COLOURS",
     "LIVE_CARTE_URL",
     "Bulletin",
@@ -429,6 +460,7 @@ __all__ = [
     "VigilanceClient",
     "VigilanceError",
     "VigilanceUnavailableError",
+    "api_key_from",
     "department_of",
     "highest_colour",
     "latest_reference",

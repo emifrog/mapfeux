@@ -241,8 +241,15 @@ Quota annoncé : 60 requêtes par minute, là où l'import en consomme une par h
 Puis dans `services/geo-worker/.env`, et en secret de dépôt du même nom :
 
 ```
-METEOFRANCE_API_KEY=...
+METEOFRANCE_VIGILANCE_API_KEY=...
 ```
+
+> **Une clé par application.** Le portail en délivre une pour « Bulletin
+> Vigilance », une autre pour « Données Publiques Radar », et ainsi de suite.
+> Le nom de variable porte donc l'application : poser l'une pour l'autre
+> produirait un 403 sans motif visible. Le nom générique `METEOFRANCE_API_KEY`
+> reste lu en second, pour les environnements qui l'emploient déjà ; il est
+> déprécié.
 
 Sans elle l'import fonctionne quand même, sur l'archive, et l'annonce en clair
 au démarrage. La voie employée est consignée dans `import_run.metrics.acces` :

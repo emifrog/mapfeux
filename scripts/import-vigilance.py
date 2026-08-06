@@ -13,12 +13,15 @@ Retrouver un bulletin déjà connu est le cas courant, pas une anomalie :
 Météo-France diffuse au moins deux fois par jour, l'ingestion passe plus
 souvent. Le script le dit et sort en succès.
 
-`METEOFRANCE_API_KEY` commande la voie d'accès. Avec elle, l'API temps réel ;
-sans elle, le dépôt d'archive de data.gouv.fr, qui accuse environ un jour de
-retard — le script le dit alors en clair, parce qu'une vigilance d'hier servie
+`METEOFRANCE_VIGILANCE_API_KEY` commande la voie d'accès. Avec elle, l'API temps
+réel ; sans elle, le dépôt d'archive de data.gouv.fr, qui accuse environ un jour
+de retard — le script le dit alors en clair, parce qu'une vigilance d'hier servie
 sans le dire est pire qu'une vigilance absente.
 
 Clé gratuite : portail-api.meteofrance.fr, application « Bulletin Vigilance ».
+Le nom porte l'application parce que le portail délivre une clé par
+application : celle du radar ne vaut pas ici, et poser l'une pour l'autre
+produirait un 403 sans motif visible.
 """
 
 from __future__ import annotations
@@ -41,6 +44,7 @@ from geo_worker.pipelines.vigilance import store_bulletin
 from geo_worker.providers.vigilance import (
     VigilanceClient,
     VigilanceError,
+    api_key_from,
     parse_carte,
 )
 from geo_worker.storage import StorageConfigError, StorageError, archive_target, upload_object
@@ -88,7 +92,7 @@ def main() -> int:
     except StorageConfigError as exc:
         sys.exit(str(exc))
 
-    api_key = load_env(ENV_FILE).get("METEOFRANCE_API_KEY", "").strip()
+    api_key = api_key_from(load_env(ENV_FILE))
 
     print(
         "archivage : "
@@ -103,7 +107,7 @@ def main() -> int:
         # L'avertissement est le point : sans clé, la donnée servie a près
         # d'une journée de retard, et rien à l'écran ne le dirait autrement.
         print(
-            "accès     : dépôt d'archive — METEOFRANCE_API_KEY absente.\n"
+            "accès     : dépôt d'archive — METEOFRANCE_VIGILANCE_API_KEY absente.\n"
             "            Le dépôt accuse environ un jour de retard : la vigilance\n"
             "            restera affichée « trop ancienne ».",
             flush=True,

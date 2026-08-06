@@ -21,6 +21,7 @@ from geo_worker.providers.vigilance import (
     VigilanceClient,
     VigilanceError,
     VigilanceUnavailableError,
+    api_key_from,
     department_of,
     highest_colour,
     latest_reference,
@@ -348,3 +349,46 @@ class TestVoieDAcces:
         # de diagnostiquer un changement de format sur la donnée reçue.
         client, _ = self.client(200, '{"product":{"warning_type":"vigilance"}}', "cle")
         assert client.fetch_latest().body == '{"product":{"warning_type":"vigilance"}}'
+
+
+class TestNomDeCleParApplication:
+    """Le portail délivre une clé par application, pas une clé par compte.
+
+    « Bulletin Vigilance » et « Données Publiques Radar » en ont chacune une.
+    Un nom générique unique deviendrait faux dès la seconde : on ne saurait plus
+    laquelle il porte, et poser la mauvaise produit un 403 sans motif visible.
+    """
+
+    def test_le_nom_specifique_l_emporte(self) -> None:
+        assert (
+            api_key_from(
+                {
+                    "METEOFRANCE_VIGILANCE_API_KEY": "vigilance",
+                    "METEOFRANCE_API_KEY": "generique",
+                }
+            )
+            == "vigilance"
+        )
+
+    def test_le_nom_generique_reste_lu(self) -> None:
+        # Déprécié, non supprimé : casser une configuration en place au milieu
+        # d'une mise en service serait payer cher une cohérence de nommage.
+        assert api_key_from({"METEOFRANCE_API_KEY": "heritee"}) == "heritee"
+
+    def test_une_valeur_vide_ne_compte_pas(self) -> None:
+        # Un secret non renseigné arrive en chaîne vide chez un ordonnanceur,
+        # jamais en variable absente.
+        assert api_key_from({"METEOFRANCE_VIGILANCE_API_KEY": "   "}) == ""
+
+    def test_une_valeur_vide_laisse_sa_chance_au_nom_generique(self) -> None:
+        assert (
+            api_key_from({"METEOFRANCE_VIGILANCE_API_KEY": "", "METEOFRANCE_API_KEY": "heritee"})
+            == "heritee"
+        )
+
+    def test_aucune_cle(self) -> None:
+        assert api_key_from({}) == ""
+
+    def test_la_cle_du_radar_n_est_pas_prise_pour_celle_de_la_vigilance(self) -> None:
+        # Le cas qui motive tout ceci : deux clés en poche, une seule valable ici.
+        assert api_key_from({"METEOFRANCE_RADAR_API_KEY": "radar"}) == ""

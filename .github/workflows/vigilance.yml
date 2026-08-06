@@ -23,10 +23,14 @@
 #
 # Secrets requis (dépôt) :
 #   INGESTION_DATABASE_URL  — déjà posé pour ingestion.yml (pooler session, 5432)
-#   METEOFRANCE_API_KEY     — portail-api.meteofrance.fr, application
-#                             « Bulletin Vigilance ». Sans elle, l'import
-#                             bascule sur l'archive et le signale, mais la
-#                             fraîcheur affichée restera mauvaise.
+#   METEOFRANCE_VIGILANCE_API_KEY
+#                           — portail-api.meteofrance.fr, application
+#                             « Bulletin Vigilance ». Le nom porte l'application
+#                             parce que le portail délivre une clé par
+#                             application : celle du radar ne vaut pas ici.
+#                             Sans elle, l'import bascule sur l'archive et le
+#                             signale, mais la fraîcheur affichée restera
+#                             mauvaise.
 #   SUPABASE_URL            — archivage du bulletin brut dans `raw`
 #   SUPABASE_SECRET_KEY     — idem, clé service, jamais côté client
 # =============================================================================
@@ -69,7 +73,7 @@ jobs:
       - name: Import
         env:
           DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
-          METEOFRANCE_API_KEY: ${{ secrets.METEOFRANCE_API_KEY }}
+          METEOFRANCE_VIGILANCE_API_KEY: ${{ secrets.METEOFRANCE_VIGILANCE_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: python scripts/import-vigilance.py
