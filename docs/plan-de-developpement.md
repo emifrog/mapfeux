@@ -1,7 +1,7 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 5 août 2026, seconde passe — mise en service des
-sources.
+**Dernière mise à jour** : 6 août 2026, seconde passe — préalables de phase 0
+engagés, clé régénérée, rendu enfin regardé.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -132,12 +132,15 @@ Tout le reste est en place : le plafond de passe est levé — vérifié à l'é
 les outils qui font tourner des paramètres expérimentaux refusent de démarrer
 sur la base que le site public lit.
 
-En parallèle, de votre côté :
-
-- ouvrir les préalables de la [phase 0](strategie.md#3-phase-0--préalables-non-techniques),
-  en particulier l'autorisation de cumul — c'est un point d'arrêt du projet ;
-- trancher les [décisions ouvertes](strategie.md#8-décisions-ouvertes), dont
-  l'ordonnancement et le préfixe d'identifiant public.
+Les préalables de la [phase 0](strategie.md#3-phase-0--préalables-non-techniques)
+sont engagés depuis le 6 août : la demande d'autorisation de cumul est déposée et
+le cadre juridique de l'édition est posé. Le point d'arrêt du
+[§7](strategie.md#7-conditions-darrêt) ne tombe qu'à la **réponse** de
+l'employeur, pas au dépôt — il reste ouvert, mais il n'est plus immobile.
+L'estimation du coût d'un pic (§3.5) reste le dernier préalable non traité.
+Restent aussi, de votre côté, les
+[décisions ouvertes](strategie.md#8-décisions-ouvertes), dont l'ordonnancement,
+le calendrier par rapport à la saison et le préfixe d'identifiant public.
 
 ---
 
@@ -622,9 +625,14 @@ en linéale.
   désormais toutes les pages
 - ⚠️ Le libellé du titre d'accueil n'a pas été touché : une formulation
   publique passe par une validation métier, pas par une passe de style
-- ⚠️ Le rendu réel n'a toujours pas été regardé dans un navigateur. Le défaut
-  ci-dessus est exactement ce que « vérifié par construction » ne voit pas :
-  lint, typage, tests et construction passaient tous
+- ✅ **Le rendu a été regardé**, le 6 août, sur le déploiement
+  <https://mapfeux.vercel.app/>. La refonte cesse d'être vérifiée par la seule
+  construction — c'est-à-dire par les portes qui avaient laissé passer les 86
+  classes invalides
+- ✅ Contrôle complémentaire sur la feuille de style **servie en production** :
+  zéro déclaration de la forme `propriété: --jeton`. Le défaut n'a pas
+  reparu au déploiement, et ce contrôle-là est rejouable sur l'URL publique,
+  contrairement à un coup d'œil
 
 #### Une affirmation devenue fausse, trouvée en refondant
 
@@ -689,7 +697,9 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 - ✅ Non-régression : 12 tests, dont un qui journalise une exception portant un
   faux secret en variable locale et vérifie qu'il n'apparaît pas, la trace
   restant exploitable
-- ⚠️ La clé exposée reste à régénérer — voir §10
+- ✅ **`SUPABASE_SECRET_KEY` régénérée** le 6 août. La cause était corrigée la
+  veille, mais une clé imprimée en clair reste compromise tant qu'elle vit :
+  corriger la fuite ne révoque pas ce qui a fui
 
 ---
 
@@ -697,10 +707,8 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 
 | Sujet | Nature | Échéance |
 |---|---|---|
-| Préalables de phase 0 non engagés | Autorisation de cumul, cadre juridique — point d'arrêt | Immédiat |
-| Décisions ouvertes non tranchées | Ordonnancement, calendrier, validation, préfixe | Avant J2 |
-| CI jamais observée en vert | Premier déclenchement au commit initial | Immédiat |
-| **`SUPABASE_SECRET_KEY` à régénérer** | Imprimée en clair dans une trace du 5 août. La cause est corrigée, la clé reste compromise | Immédiat |
+| Décisions ouvertes non tranchées | Ordonnancement, calendrier, validation, préfixe. L'échéance « avant J2 » est dépassée, J2 ayant atteint son critère de sortie | Immédiat |
+| Mesures faussées par le cache Vercel | `Cache-Control: no-cache` ne traverse pas le cache de bordure : on conclut sur un rendu vieux de plusieurs jours en croyant lire l'état courant. Lire `x-vercel-cache` et `age`, ou interroger la base. `/statut` répondait `STALE` le 6 août | Continu |
 | Affichage des détections par commune | `/commune/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
