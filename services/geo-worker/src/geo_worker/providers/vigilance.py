@@ -2,15 +2,29 @@
 
 Référence : cahier §9.2 et §16.1, stratégie §4.
 
-L'API temps réel de `public-api.meteofrance.fr` exige une clé. Les mêmes
-produits sont publiés sans clé sur le dépôt objet de data.gouv.fr, sous Licence
-Ouverte Etalab v2 : c'est cette voie qu'on emprunte, ce qui évite d'attendre
-l'ouverture d'un compte.
+Deux voies d'accès, et le choix entre elles n'est pas indifférent.
+
+**Temps réel** — `public-api.meteofrance.fr`, avec clé. C'est la voie nominale.
+
+**Dépôt objet data.gouv.fr** — sans clé, sous Licence Ouverte Etalab v2. Elle a
+d'abord été retenue pour éviter d'attendre l'ouverture d'un compte, et la mesure
+a montré ce qu'elle coûte : le jeu s'appelle `vigilance-meteorologique-archivee`,
+et c'est une archive. Sondé le 6 août à 9 h UTC, il s'arrêtait au bulletin du
+5 août 4 h — vingt-neuf heures de retard, là où le registre déclare la source
+périmée au-delà de vingt. La vigilance affichait donc « Trop ancienne » en
+permanence : un signal exact et faux, qui apprend à ignorer l'indicateur.
+
+Le repli reste possible, mais il est **annoncé** : la voie employée est
+consignée dans l'`import_run`, et la fraîcheur affichée reste celle du bulletin,
+non celle de l'import. Servir sans le dire de la donnée d'hier serait pire que
+ne rien servir.
 
 Le cahier §9.2 impose un **adaptateur** parce que le portail de Météo-France est
 en migration. L'accès est donc isolé derrière `VigilanceClient`, et l'analyse
 derrière des fonctions pures : changer de point d'accès ne doit toucher ni
-l'interprétation du format, ni ce qui est écrit en base.
+l'interprétation du format, ni ce qui est écrit en base. C'est ce qui rend ce
+basculement local — seule la récupération change, `parse_carte` est intacte, les
+deux voies servant le même produit « carte ».
 
 ## Ce que le format impose
 
@@ -37,6 +51,12 @@ from typing import Any
 
 import httpx
 
+#: Carte de vigilance en cours, API temps réel. Exige une clé de l'espace
+#: développeur Météo-France (application « Bulletin Vigilance »), présentée en
+#: en-tête `apikey`. Quota annoncé : 60 requêtes par minute, très au-delà d'une
+#: passe horaire.
+LIVE_CARTE_URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours"
+
 TREE_URL = (
     "https://console.object.files.data.gouv.fr/api/v1/buckets/meteofrance/"
     "objects/download?prefix=data/vigilance/vigilance-hexagone-tree.json"
@@ -46,6 +66,11 @@ BULLETIN_BASE = (
     "objects/download?prefix=data/vigilance/metropole"
 )
 CARTE_FILE = "CDP_CARTE_EXTERNE.json"
+
+#: Voie effectivement empruntée, consignée dans l'`import_run`. Sans elle, une
+#: donnée vieille d'un jour serait indiscernable d'une donnée fraîche.
+ACCESS_LIVE = "temps-reel"
+ACCESS_ARCHIVE = "archive"
 
 #: Diffusions inspectées avant d'abandonner. La carte paraît au moins deux fois
 #: par jour : n'en trouver aucune sur une vingtaine de diffusions signale une
@@ -254,18 +279,109 @@ def highest_colour(levels: list[Level]) -> str:
     return max(levels, key=lambda level: order[level.colour]).colour if levels else "vert"
 
 
+@dataclass(frozen=True)
+class Fetched:
+    """Un produit « carte » récupéré, et par quelle voie."""
+
+    access: str
+    url: str
+    body: str
+    label: str
+    """Nom de la diffusion, pour l'archive.
+
+    C'est l'adaptateur qui le connaît : l'horodatage de la diffusion côté dépôt,
+    « encours » côté temps réel, dont l'URL n'expose aucun chemin. Le déduire de
+    l'URL a produit des objets nommés `CDP_CARTE_EXTERNE.json.json`, identiques
+    d'un bulletin à l'autre — une archive qui ne dit pas ce qu'elle archive.
+    """
+
+    @property
+    def is_live(self) -> bool:
+        return self.access == ACCESS_LIVE
+
+
 class VigilanceClient:
-    """Accès au dépôt public. Le point d'accès est remplaçable (§9.2)."""
+    """Accès au produit « carte ». Le point d'accès est remplaçable (§9.2).
+
+    Avec une clé, la voie temps réel. Sans clé, le dépôt objet — qui accuse un
+    retard d'archive et le fait savoir.
+    """
 
     def __init__(
         self,
         client: httpx.Client,
+        api_key: str | None = None,
         tree_url: str = TREE_URL,
         bulletin_base: str = BULLETIN_BASE,
+        live_url: str = LIVE_CARTE_URL,
     ) -> None:
         self._client = client
+        self._api_key = (api_key or "").strip() or None
         self._tree_url = tree_url
         self._bulletin_base = bulletin_base
+        self._live_url = live_url
+
+    @property
+    def has_key(self) -> bool:
+        return self._api_key is not None
+
+    def fetch_latest(self) -> Fetched:
+        """Dernier produit « carte » disponible, par la meilleure voie ouverte.
+
+        Sans clé, on ne tente même pas le temps réel : l'API répondrait 401, et
+        transformer une configuration absente en panne réseau brouillerait le
+        diagnostic.
+        """
+        if self._api_key is None:
+            reference = latest_reference(self.fetch_tree())
+            url = self.bulletin_url(reference)
+            return Fetched(
+                access=ACCESS_ARCHIVE,
+                url=url,
+                body=self._get(url).text,
+                label=reference.path.replace("/", ""),
+            )
+
+        return Fetched(
+            access=ACCESS_LIVE,
+            url=self._live_url,
+            body=self.fetch_live().text,
+            label="encours",
+        )
+
+    def fetch_live(self) -> httpx.Response:
+        """Carte en cours, API temps réel.
+
+        La clé voyage en en-tête `apikey` et jamais dans l'URL : celle-ci
+        atterrit dans les journaux des intermédiaires (§22.2), et c'est
+        exactement le défaut qu'on a corrigé sur FIRMS le 5 août.
+        """
+        if self._api_key is None:
+            raise VigilanceUnavailableError("Clé Météo-France absente.")
+
+        try:
+            response = self._client.get(
+                self._live_url,
+                headers={"apikey": self._api_key, "accept": "*/*"},
+                timeout=60,
+                follow_redirects=True,
+            )
+        except httpx.HTTPError as exc:
+            raise VigilanceUnavailableError(f"Source injoignable ({type(exc).__name__})") from exc
+
+        if response.status_code in (401, 403):
+            # Distinguer l'authentification du reste : une clé expirée se règle
+            # au portail, pas en relançant la tâche.
+            raise VigilanceUnavailableError(
+                f"Clé Météo-France refusée (HTTP {response.status_code}). "
+                "Vérifier l'application « Bulletin Vigilance » au portail."
+            )
+        if response.status_code == 429:
+            raise VigilanceUnavailableError("Quota Météo-France atteint (HTTP 429).")
+        if response.status_code != 200:
+            raise VigilanceUnavailableError(f"HTTP {response.status_code}")
+
+        return response
 
     def fetch_tree(self) -> dict[str, Any]:
         return self._json(self._tree_url)
@@ -302,9 +418,13 @@ class VigilanceClient:
 
 
 __all__ = [
+    "ACCESS_ARCHIVE",
+    "ACCESS_LIVE",
     "COLOURS",
+    "LIVE_CARTE_URL",
     "Bulletin",
     "BulletinRef",
+    "Fetched",
     "Level",
     "VigilanceClient",
     "VigilanceError",

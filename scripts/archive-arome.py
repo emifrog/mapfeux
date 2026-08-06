@@ -104,11 +104,24 @@ def main() -> int:
                 counters.records_inserted = 1
                 counters.artifact_path = f"{bucket}/{result.object_path}"
                 counters.checksum = result.checksum
-                counters.source_data_at = noon
+                # Heure de **publication du run**, non l'échéance de la
+                # prévision. La question posée par /statut est « à quand
+                # remonte la donnée dont nous disposons », pas « que
+                # décrit-elle ».
+                #
+                # L'échéance est dans le futur : la fraîcheur, calculée en
+                # `now() - source_data_at`, devenait négative. La page affichait
+                # « il y a moins d'une minute » pour un horodatage à venir, et
+                # surtout la détection de panne était neutralisée — AROME
+                # serait resté « à jour » des heures après l'arrêt de
+                # l'archivage. L'échéance reste consignée dans les métriques,
+                # où elle décrit le contenu sans prétendre le dater.
+                counters.source_data_at = reference.run
                 counters.metrics = {
                     "source_bytes": result.source_bytes,
                     "archived_bytes": result.archived_bytes,
                     "reduction": round(result.reduction, 1),
+                    "echeance": noon.isoformat(),
                     "lead_hours": lead,
                     "fields": list(result.fields),
                 }

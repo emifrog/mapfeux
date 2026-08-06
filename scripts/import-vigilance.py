@@ -5,13 +5,20 @@ Usage :
 
 Référence : cahier §16.1, stratégie §4.
 
-Le fichier brut est écrit sur disque **avant** toute analyse : ce qui n'a pas
-été conservé ne peut pas être rejoué, et un changement de format se diagnostique
-sur la donnée reçue, pas sur son interprétation.
+Le fichier brut est archivé **avant** toute analyse : ce qui n'a pas été
+conservé ne peut pas être rejoué, et un changement de format se diagnostique sur
+la donnée reçue, pas sur son interprétation.
 
 Retrouver un bulletin déjà connu est le cas courant, pas une anomalie :
 Météo-France diffuse au moins deux fois par jour, l'ingestion passe plus
 souvent. Le script le dit et sort en succès.
+
+`METEOFRANCE_API_KEY` commande la voie d'accès. Avec elle, l'API temps réel ;
+sans elle, le dépôt d'archive de data.gouv.fr, qui accuse environ un jour de
+retard — le script le dit alors en clair, parce qu'une vigilance d'hier servie
+sans le dire est pire qu'une vigilance absente.
+
+Clé gratuite : portail-api.meteofrance.fr, application « Bulletin Vigilance ».
 """
 
 from __future__ import annotations
@@ -34,7 +41,6 @@ from geo_worker.pipelines.vigilance import store_bulletin
 from geo_worker.providers.vigilance import (
     VigilanceClient,
     VigilanceError,
-    latest_reference,
     parse_carte,
 )
 from geo_worker.storage import StorageConfigError, StorageError, archive_target, upload_object
@@ -45,14 +51,19 @@ RAW_DIR = ROOT / "data" / "raw" / "vigilance"
 SOURCE_KEY = "vigilance"
 
 
-def raw_object_path(reference_path: str, stamp: datetime) -> str:
+def raw_object_path(label: str, stamp: datetime) -> str:
     """Chemin du bulletin brut dans le compartiment `raw`.
 
     Arborescence par jour, comme pour FIRMS : une rétention de trente jours se
     purge alors par préfixe, sans lister le compartiment entier.
+
+    Le libellé vient de l'adaptateur et identifie la diffusion. L'extension
+    n'est ajoutée que si le libellé n'en porte pas déjà : la déduire de l'URL
+    avait produit des objets en `.json.json`.
     """
-    safe = reference_path.replace("/", "")
-    return f"vigilance/{stamp.strftime('%Y/%m/%d')}/{stamp.strftime('%Y%m%dT%H%M%SZ')}_{safe}.json"
+    safe = label.replace("/", "").removesuffix(".json")
+    horodatage = stamp.strftime("%Y%m%dT%H%M%SZ")
+    return f"vigilance/{stamp.strftime('%Y/%m/%d')}/{horodatage}_{safe}.json"
 
 
 def archive_local(reference_path: str, body: str, stamp: datetime) -> tuple[pathlib.Path, str]:
@@ -77,6 +88,8 @@ def main() -> int:
     except StorageConfigError as exc:
         sys.exit(str(exc))
 
+    api_key = load_env(ENV_FILE).get("METEOFRANCE_API_KEY", "").strip()
+
     print(
         "archivage : "
         + (
@@ -86,25 +99,38 @@ def main() -> int:
         ),
         flush=True,
     )
+    if api_key == "":
+        # L'avertissement est le point : sans clé, la donnée servie a près
+        # d'une journée de retard, et rien à l'écran ne le dirait autrement.
+        print(
+            "accès     : dépôt d'archive — METEOFRANCE_API_KEY absente.\n"
+            "            Le dépôt accuse environ un jour de retard : la vigilance\n"
+            "            restera affichée « trop ancienne ».",
+            flush=True,
+        )
+    else:
+        print("accès     : API temps réel Météo-France", flush=True)
 
     with (
         psycopg.connect(dsn_from_env_file(ENV_FILE), connect_timeout=30) as conn,
         httpx.Client() as http,
     ):
-        client = VigilanceClient(http)
+        client = VigilanceClient(http, api_key=api_key)
 
         try:
             with import_run(conn, source_key=SOURCE_KEY, job_name="vigilance:carte") as counters:
-                reference = latest_reference(client.fetch_tree())
-                url, body = client.fetch_carte(reference)
-                print(f"bulletin : {reference.path}")
+                fetched = client.fetch_latest()
+                body = fetched.body
+                url = fetched.url
+                label = fetched.label
+                print(f"bulletin : {label}")
 
                 # Archivage avant analyse — §16.1, étape 6.
                 if archive is None:
-                    path, checksum = archive_local(reference.path, body, stamp)
+                    path, checksum = archive_local(label, body, stamp)
                     counters.artifact_path = str(path.relative_to(ROOT))
                 else:
-                    object_path = raw_object_path(reference.path, stamp)
+                    object_path = raw_object_path(label, stamp)
                     checksum = upload_object(
                         http,
                         supabase_url=archive.supabase_url,
@@ -139,6 +165,10 @@ def main() -> int:
                     "already_known": result.already_known,
                     "vigilance_version": bulletin.vigilance_version,
                     "domains": len({level.domain_id for level in levels}),
+                    # Sans cette trace, une donnée vieille d'un jour serait
+                    # indiscernable d'une donnée fraîche dans l'historique des
+                    # imports.
+                    "acces": fetched.access,
                 }
                 # Date de la donnée, pas de l'import : c'est elle qui fait la
                 # fraîcheur affichée (§5.13).

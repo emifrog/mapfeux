@@ -219,6 +219,35 @@ L'archivage tourne aussi tous les jours à 10 h UTC
 `INGESTION_DATABASE_URL` — déjà posé pour l'ingestion —, `SUPABASE_URL` et
 `SUPABASE_SECRET_KEY`.
 
+### Clé Météo-France — vigilance en temps réel
+
+La vigilance a deux voies d'accès, et le choix se voit sur `/statut`.
+
+| Voie | Clé | Retard |
+|---|---|---|
+| API temps réel | requise | aucun |
+| Dépôt objet data.gouv.fr | aucune | **~1 jour** |
+
+Le dépôt est le jeu `vigilance-meteorologique-archivee`, et le nom dit vrai :
+mesuré le 6 août à 9 h UTC, il s'arrêtait au bulletin du 5 août 4 h. Vingt-neuf
+heures de retard, contre un seuil de péremption à vingt — la vigilance
+s'affichait « Trop ancienne » en permanence. Un signal exact et faux apprend à
+ignorer l'indicateur ; c'est pourquoi le temps réel est la voie nominale.
+
+**Obtenir la clé** : compte sur [portail-api.meteofrance.fr](https://portail-api.meteofrance.fr/web/fr/),
+puis créer une application sur « Bulletin Vigilance » et engendrer une clé.
+Quota annoncé : 60 requêtes par minute, là où l'import en consomme une par heure.
+
+Puis dans `services/geo-worker/.env`, et en secret de dépôt du même nom :
+
+```
+METEOFRANCE_API_KEY=...
+```
+
+Sans elle l'import fonctionne quand même, sur l'archive, et l'annonce en clair
+au démarrage. La voie employée est consignée dans `import_run.metrics.acces` :
+une donnée vieille d'un jour ne doit pas être indiscernable d'une donnée fraîche.
+
 ### Base de calibration — à monter une fois
 
 Le banc de calibration efface et réécrit `fire.events` à chaque jeu de

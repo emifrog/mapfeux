@@ -10,9 +10,12 @@
 # n'était dans aucun ordonnanceur : le dernier bulletin importé datait du 2 août,
 # et /statut affichait « Trop ancienne » depuis.
 #
-# Voie **sans clé** : l'API temps réel de Météo-France en exige une, absente ;
-# le dépôt objet de data.gouv.fr sert les mêmes produits sous Licence Ouverte
-# Etalab v2. Ce workflow n'a donc besoin d'aucun secret fournisseur.
+# Voie nominale : l'**API temps réel** de Météo-France, avec clé. Une première
+# version empruntait le dépôt objet de data.gouv.fr, sans clé — mais c'est le jeu
+# « vigilance-meteorologique-archivee », et le nom disait vrai : sondé le 6 août
+# à 9 h UTC, il s'arrêtait au bulletin du 5 août 4 h. Vingt-neuf heures de
+# retard, contre un seuil de péremption à vingt : la vigilance s'affichait « trop
+# ancienne » en permanence.
 #
 # `requirements-ingestion.txt` suffit : contrairement à AROME, la vigilance lit
 # du JSON, sans ecCodes ni pile géospatiale. On reste sur pip, bien plus rapide
@@ -20,6 +23,10 @@
 #
 # Secrets requis (dépôt) :
 #   INGESTION_DATABASE_URL  — déjà posé pour ingestion.yml (pooler session, 5432)
+#   METEOFRANCE_API_KEY     — portail-api.meteofrance.fr, application
+#                             « Bulletin Vigilance ». Sans elle, l'import
+#                             bascule sur l'archive et le signale, mais la
+#                             fraîcheur affichée restera mauvaise.
 #   SUPABASE_URL            — archivage du bulletin brut dans `raw`
 #   SUPABASE_SECRET_KEY     — idem, clé service, jamais côté client
 # =============================================================================
@@ -62,6 +69,7 @@ jobs:
       - name: Import
         env:
           DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
+          METEOFRANCE_API_KEY: ${{ secrets.METEOFRANCE_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: python scripts/import-vigilance.py

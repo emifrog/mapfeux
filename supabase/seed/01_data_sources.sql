@@ -52,15 +52,24 @@ values
     -- une accalmie.
     interval '12 hours',
     interval '20 hours',
-    'https://www.data.gouv.fr/datasets/vigilance-meteorologique-archivee/',
+    'https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesVigilance',
     'Licence Ouverte Etalab v2',
     'Source : Météo-France',
     'Bulletins bruts conservés ; niveaux conservés',
     jsonb_build_object(
       'format', 'V6',
       'domain', 'FRA',
-      'poll_interval_minutes', 30,
-      'phenomena_relevant_to_fire', jsonb_build_array(1, 3, 6)
+      'poll_interval_minutes', 60,
+      'phenomena_relevant_to_fire', jsonb_build_array(1, 3, 6),
+      -- Voie nominale : l'API temps réel, avec clé. Le dépôt objet de
+      -- data.gouv.fr sert le même produit sans clé, mais c'est une **archive**
+      -- — environ un jour de retard, mesuré le 6 août. Employé en repli, il
+      -- ferait afficher « trop ancienne » en permanence, et l'ingestion le dit.
+      'access', 'temps-reel',
+      'endpoint', 'https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours',
+      'rate_limit_per_minute', 60,
+      'fallback', 'depot-objet-data-gouv-archive',
+      'fallback_lag_hours', 24
     )
   ),
   (

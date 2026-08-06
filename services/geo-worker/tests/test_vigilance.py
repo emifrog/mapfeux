@@ -8,12 +8,17 @@ département — exactement la désinformation que le cahier §2.4 interdit.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
+import httpx
 import pytest
 
 from geo_worker.providers.vigilance import (
+    ACCESS_LIVE,
+    LIVE_CARTE_URL,
     BulletinRef,
     Level,
+    VigilanceClient,
     VigilanceError,
     VigilanceUnavailableError,
     department_of,
@@ -277,3 +282,69 @@ class TestHighestColour:
 
     def test_sans_niveau_reste_vert(self) -> None:
         assert highest_colour([]) == "vert"
+
+
+class TestVoieDAcces:
+    """Temps réel avec clé, dépôt d'archive sans — et jamais en silence.
+
+    Le dépôt objet a été la voie unique jusqu'au 6 août. Sondé ce jour-là à
+    9 h UTC, il s'arrêtait au bulletin du 5 août 4 h : vingt-neuf heures de
+    retard, contre un seuil de péremption à vingt. La vigilance affichait donc
+    « trop ancienne » en permanence — un signal exact et faux, qui apprend à
+    ignorer l'indicateur.
+    """
+
+    def client(self, status: int, body: str, api_key: str | None) -> tuple[Any, list[Any]]:
+        recues: list[httpx.Request] = []
+
+        def transport(request: httpx.Request) -> httpx.Response:
+            recues.append(request)
+            return httpx.Response(status, text=body)
+
+        http = httpx.Client(transport=httpx.MockTransport(transport))
+        return VigilanceClient(http, api_key=api_key), recues
+
+    def test_avec_cle_interroge_le_temps_reel(self) -> None:
+        client, recues = self.client(200, '{"product":{}}', "cle-de-test")
+        resultat = client.fetch_latest()
+        assert resultat.access == ACCESS_LIVE
+        assert resultat.is_live
+        assert str(recues[0].url) == LIVE_CARTE_URL
+
+    def test_la_cle_voyage_en_entete_jamais_dans_l_url(self) -> None:
+        # Même règle que pour FIRMS, dont l'URL portait la clé dans son chemin
+        # et la faisait fuiter dans les journaux (§22.2).
+        client, recues = self.client(200, '{"product":{}}', "cle-secrete")
+        client.fetch_latest()
+        assert recues[0].headers["apikey"] == "cle-secrete"
+        assert "cle-secrete" not in str(recues[0].url)
+
+    def test_sans_cle_ne_tente_pas_le_temps_reel(self) -> None:
+        # L'API répondrait 401 : transformer une configuration absente en panne
+        # réseau brouillerait le diagnostic.
+        client, _ = self.client(200, "{}", None)
+        assert client.has_key is False
+        with pytest.raises(VigilanceUnavailableError, match="Clé"):
+            client.fetch_live()
+
+    def test_une_cle_vide_vaut_une_cle_absente(self) -> None:
+        # Un secret non renseigné arrive en chaîne vide chez un ordonnanceur.
+        client, _ = self.client(200, "{}", "   ")
+        assert client.has_key is False
+
+    def test_une_cle_refusee_le_dit(self) -> None:
+        # Une clé expirée se règle au portail, pas en relançant la tâche.
+        client, _ = self.client(401, "unauthorized", "cle-perimee")
+        with pytest.raises(VigilanceUnavailableError, match="refusée"):
+            client.fetch_live()
+
+    def test_le_quota_est_distingue(self) -> None:
+        client, _ = self.client(429, "too many", "cle-de-test")
+        with pytest.raises(VigilanceUnavailableError, match="Quota"):
+            client.fetch_live()
+
+    def test_le_corps_est_rendu_tel_quel(self) -> None:
+        # Il est archivé avant analyse : le rendre déjà interprété interdirait
+        # de diagnostiquer un changement de format sur la donnée reçue.
+        client, _ = self.client(200, '{"product":{"warning_type":"vigilance"}}', "cle")
+        assert client.fetch_latest().body == '{"product":{"warning_type":"vigilance"}}'
