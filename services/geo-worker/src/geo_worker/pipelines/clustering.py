@@ -151,6 +151,35 @@ def pending_detection_count(conn: psycopg.Connection[Any]) -> int:
     return 0 if row is None else int(row[0])
 
 
+def delete_algorithmic_events(conn: psycopg.Connection[Any]) -> int:
+    """Supprime les événements algorithmiques, jamais les décisions humaines.
+
+    Le prédicat est le seul endroit qui définit « algorithmique » : un événement
+    sans statut officiel, sans correction manuelle, ni masqué, ni issu du jeu de
+    démonstration. Le banc de calibration et le remplacement de corpus partagent
+    cette définition — dupliquée, elle divergerait un jour en silence, et l'un
+    des deux effacerait ce que l'autre protège.
+
+    **Ne valide pas.** L'appelant enchaîne l'opération suivante — regroupement
+    ou rechargement — et valide l'ensemble, de sorte qu'un remplacement est tout
+    ou rien. Une version antérieure du banc validait la suppression seule : un
+    processus tué pendant la passe suivante laissait le corpus sans aucun
+    événement, ses détections toutes orphelines. C'est arrivé.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            delete from fire.events
+            where algorithm_version <> 'demo-fixture'
+              and official_control_status is null
+              and verification_status in ('satellite_detection', 'probable_event')
+              and freshness_status <> 'hidden'
+              and manual_state = '{}'::jsonb
+            """
+        )
+        return cur.rowcount
+
+
 def _existing_events(
     conn: psycopg.Connection[Any], *, floor: datetime
 ) -> tuple[list[_Event], list[float], list[float], list[int]]:
@@ -566,6 +595,7 @@ __all__ = [
     "ClusteringParams",
     "ClusteringResult",
     "cluster_detections",
+    "delete_algorithmic_events",
     "pass_was_capped",
     "pending_detection_count",
     "spatial_window_m",

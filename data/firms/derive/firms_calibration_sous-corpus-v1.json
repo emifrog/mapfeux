@@ -1,0 +1,101 @@
+{
+  "version": "sous-corpus-v1",
+  "lignes": 16544,
+  "lignes_corpus": 337757,
+  "part_du_corpus_pct": 4.9,
+  "recouvrement_strates": 0,
+  "empreinte_contenu": "033d40568951e882",
+  "strates": {
+    "grand-feu-gironde-2022": {
+      "lignes": 7375,
+      "motif": "Grands feux de La Teste-de-Buch, Landiras et Saumos : le cas « grand feu avec multiples détections » de la recette (§24.8). Un réglage serré le fragmente, un réglage lâche y chaîne des foyers distincts — les deux fautes s'y mesurent.",
+      "bbox": [
+        -1.45,
+        44.1,
+        0.1,
+        45.65
+      ],
+      "periode": [
+        "2022-06-01",
+        "2022-10-01"
+      ]
+    },
+    "relief-var-2021": {
+      "lignes": 1242,
+      "motif": "Feu de Gonfaron (août 2021) : zone montagneuse et littorale de la recette. Le relief resserre les distances au sol que la fenêtre spatiale mesure à vol d'oiseau.",
+      "bbox": [
+        5.55,
+        42.9,
+        7.8,
+        44.45
+      ],
+      "periode": [
+        "2021-06-01",
+        "2021-10-01"
+      ]
+    },
+    "industriel-berre-2023": {
+      "lignes": 6659,
+      "motif": "Étang de Berre et Fos-sur-Mer sur une année pleine, très majoritairement type 2 : le faux positif industriel récurrent de la recette. Des torchères détectées toute l'année ne doivent pas être chaînées en événement de plusieurs semaines.",
+      "bbox": [
+        4.7,
+        43.3,
+        5.25,
+        43.6
+      ],
+      "periode": [
+        "2023-01-01",
+        "2024-01-01"
+      ]
+    },
+    "pilote-0683-2026": {
+      "lignes": 1114,
+      "motif": "Saison courante des territoires pilotes, dont l'événement de référence de Pontevès. Données NRT sans colonne type, comme le flux que l'ingestion lit toutes les dix minutes.",
+      "bbox": [
+        5.55,
+        42.9,
+        7.8,
+        44.45
+      ],
+      "periode": [
+        "2026-05-01",
+        "2026-08-03"
+      ]
+    },
+    "fond-epars-0683-2018": {
+      "lignes": 154,
+      "motif": "Été calme sur les mêmes territoires : la longue traîne des observations isolées, majoritaire en nombre d'événements. Un réglage ne doit pas la faire disparaître en l'absorbant.",
+      "bbox": [
+        5.55,
+        42.9,
+        7.8,
+        44.45
+      ],
+      "periode": [
+        "2018-06-01",
+        "2018-10-01"
+      ]
+    }
+  },
+  "synthese": {
+    "lignes": 16544,
+    "periode_debut": "2018-06-01T00:48:00+00:00",
+    "periode_fin": "2026-08-02T02:41:00+00:00",
+    "par_satellite_corpus": {
+      "N20/nrt": 354,
+      "N20/standard": 7860,
+      "N21/nrt": 380,
+      "SNPP/nrt": 380,
+      "SNPP/standard": 7570
+    },
+    "par_type": {
+      "0": 8896,
+      "2": 5994,
+      "absent": 1114,
+      "3": 540
+    },
+    "sources_statiques": 5994,
+    "sources_statiques_pct": 36.2,
+    "sans_type": 1114
+  }
+}

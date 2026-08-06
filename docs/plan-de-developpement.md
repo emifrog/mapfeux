@@ -2,7 +2,7 @@
 
 **Dernière mise à jour** : 6 août 2026, troisième passe — plan recalé sur la
 décision D-0 (option A), autorisation de cumul obtenue, API et routes
-renommées « events ».
+renommées « events », sous-corpus de calibration en service.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -111,9 +111,9 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 53 fichiers |
-| Worker | `mypy src` | ✅ strict, 24 fichiers |
-| Worker | `pytest` | ✅ 266 tests |
+| Worker | `ruff check` / `ruff format --check` | ✅ 57 fichiers (worker 41, scripts 16) |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 25 + 16 fichiers |
+| Worker | `pytest` | ✅ 276 tests |
 | Migrations | 23 migrations sur base vierge, en CI | ✅ |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
@@ -123,34 +123,34 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Décider de la taille du balayage croisé, une fois connu le coût d'un jeu.**
+**Dépouiller `croise-sous-corpus.csv` et retenir les finalistes à rejouer sur
+le corpus complet.**
 
-La base de calibration existe — projet Supabase `mapfeux-calibration`, région
-eu-west-2, schéma monté en 5 s par `scripts/setup-calibration-db.py`. Le corpus
-y est chargé : **337 757 détections en 133 s**, 176 partitions mensuelles, zéro
-rejet, et les 20 000 lignes de l'essai préalable reconnues sans doublon.
+La question de la taille du balayage est tranchée par la troisième issue de la
+version précédente de cette section : **calibrer sur un sous-corpus
+représentatif**, et ne rejouer que les finalistes sur quatorze saisons. Le
+sous-corpus est en service (voir §5) et la mesure du 6 août au soir a fixé le
+coût : **102 à 161 s par jeu** sur ses 16 544 détections — moyenne ~123 s,
+réseau dominant, comme toujours — contre plus de dix minutes sur le corpus
+complet (`data/calibration/axes-sous-corpus.csv`).
 
-Reste la question qui commande tout le reste. Le balayage croisé à 112 jeux a
-été dimensionné quand un jeu coûtait deux secondes sur 939 détections. Sur le
-corpus complet, **le jeu de référence a dépassé dix minutes** — donc les 112
-demanderaient une vingtaine d'heures au bas mot.
+Le balayage croisé à 112 jeux est **lancé** : tâche planifiée Windows
+`MapFeux-balayage-sous-corpus` du 6 août 23 h 22 — pas une tâche de fond de
+session, qui meurt avec elle —, environ quatre heures attendues, résultats
+dans `data/calibration/croise-sous-corpus.csv`, journal dans
+`data/calibration/balayage-sous-corpus.log`. La tâche se supprime elle-même en
+fin de course.
 
-Trois issues, à trancher sur la mesure des huit jeux de `--axes` :
+Au dépouillement :
 
-- le laisser tourner une nuit, en acceptant qu'une interruption perde tout ;
-- réduire la grille — le balayage précédent a montré que la croissance du rayon
-  est quasi inerte, ce qui divise déjà le produit cartésien ;
-- calibrer sur un sous-corpus représentatif, et ne rejouer le réglage retenu sur
-  quatorze saisons qu'une fois.
-
-```bash
-micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py --axes
-```
-
-Tout le reste est en place : le plafond de passe est levé — vérifié à l'échelle,
-`clustering.started pending=337757 truncated=false` —, l'importeur éprouvé, et
-les outils qui font tourner des paramètres expérimentaux refusent de démarrer
-sur la base que le site public lit.
+- retenir au plus une dizaine de finalistes — les indicateurs ne tranchent pas
+  seuls, l'inspection du plus gros événement décide, comme pour Pontevès ;
+- ⚠️ `≥2 capt` vaut 0 % sur tout le sous-corpus et n'y départage rien : le
+  corpus est VIIRS seul, et R2 normalise l'instrument — la colonne mesure les
+  capteurs, pas les satellites ;
+- donner au banc un moyen de rejouer une **liste** de jeux (les finalistes),
+  puis rebasculer la base sur le corpus complet
+  (`import-corpus.py --remplacer`) pour la passe de validation, une nuit.
 
 Côté [phase 0](strategie.md#3-phase-0--préalables-non-techniques) :
 **l'autorisation de cumul est accordée depuis le 6 août** — le point d'arrêt
@@ -366,8 +366,25 @@ sans provenance ni horodatage.
   le pooler, 176 partitions mensuelles, zéro rejet. L'idempotence tient à
   l'échelle — les 20 000 lignes de l'essai préalable ont été reconnues, aucune
   dupliquée
-- 🟡 Calibration fine sur plusieurs saisons — le balayage tourne ; reste à
-  trancher sa taille, voir §2
+- ✅ **Sous-corpus de calibration stratifié** — `sous-corpus-v1`, 16 544
+  détections (4,9 % du corpus), cinq strates éprouvées par 10 tests et
+  chacune rattachée à un cas de recette (§24.8) : grand feu de plaine
+  (Gironde 2022), grand feu en relief littoral (Gonfaron 2021), zone
+  industrielle sur une année (Berre 2023, 86 % type 2), saison pilote 06/83
+  2026 (Pontevès, flux NRT sans `type`), été épars (2018). Recouvrement nul,
+  empreinte de contenu `033d40568951e882`, compte rendu JSON versionné — le
+  Parquet, régénérable à l'identique, ne l'est pas (`.gitignore`). Règles dans
+  `geo_worker.subcorpus`, point d'entrée `scripts/build-subcorpus.py`
+- ✅ **Bascule de corpus transactionnelle** : `import-corpus.py --remplacer`
+  vide événements algorithmiques et détections orphelines **dans la
+  transaction du chargement** — tout ou rien, la leçon du 6 août. Le prédicat
+  « algorithmique » est factorisé (`delete_algorithmic_events`), partagé avec
+  le banc : une seule définition, les décisions humaines survivent partout.
+  Exercé en réel : 337 757 retirées, 16 544 insérées, zéro rejet, un commit
+- ✅ Le banc étiquette ses résultats (`--etiquette`) : un balayage sur le
+  sous-corpus n'écrase pas les mesures du corpus complet
+- 🟡 Calibration fine sur plusieurs saisons — le sous-corpus est en service
+  sur la base de calibration ; taille du balayage tranchée, voir §2
 
 #### Ce que le corpus dit avant même d'être calibré
 
@@ -889,7 +906,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service. ⚠️ Phrase d'attente à retirer le jour de la mise en service (J9) | J9 |
 | Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
-| Coût d'un jeu de calibration non borné | Le jeu de référence dépasse dix minutes sur le corpus complet, contre deux secondes sur 939 détections. Les 112 jeux du balayage croisé demanderaient une vingtaine d'heures : à mesurer sur `--axes` avant d'engager | Immédiat |
+| Coût d'un jeu de calibration | Borné par le sous-corpus (16 544 détections) : le classement des 112 jeux se fait dessus, le corpus complet ne sert plus qu'à rejouer les finalistes, une nuit au plus. Mesure du 6 août au §2 | Traité |
 | `cluster-detections.py` vise encore la production | Seul outil de regroupement resté sur `DATABASE_URL`. Le banc et l'inspection exigent la base de calibration ; celui-ci devrait recevoir la même bascule, ou au moins un `--calibration` | J2 |
 | N21 sans corpus retraité | 30 180 lignes — 8,9 % du corpus — de janvier 2024 à août 2026, servies en NRT faute d'archive publiée par FIRMS. Ni retraitement scientifique, ni `type` : les deux saisons les plus récentes sont partiellement non étiquetées | J2 |
 | La borne de R4 suppose le corpus standard dense | Un satellite indisponible en milieu de période retraitée verrait ses lignes NRT de la panne écartées à tort. FIRMS ne publie pas de calendrier de couverture. La borne employée est consignée dans le compte rendu du corpus | J2 |

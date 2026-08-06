@@ -4,6 +4,7 @@ Usage :
     micromamba run -n mapfeux-geo python scripts/import-corpus.py
     micromamba run -n mapfeux-geo python scripts/import-corpus.py --corpus <chemin.parquet>
     micromamba run -n mapfeux-geo python scripts/import-corpus.py --limite 5000
+    micromamba run -n mapfeux-geo python scripts/import-corpus.py --remplacer --corpus <chemin>
 
 Référence : cahier §16.3 et §16.7 ; stratégie §3.4.
 
@@ -20,6 +21,13 @@ peut être chargé sur une base où l'ingestion a déjà tourné.
 
 `--limite` charge les N premières lignes chronologiques : de quoi vérifier la
 chaîne en une minute avant d'engager les 337 757.
+
+`--remplacer` vide d'abord la base — événements algorithmiques puis détections
+que plus rien ne référence — **dans la transaction du chargement** : tout ou
+rien. C'est la bascule entre corpus complet et sous-corpus de calibration ;
+sans elle, l'idempotence ferait du chargement d'un sous-corpus un simple
+constat que tout est déjà connu. Les décisions humaines survivent, comme au
+banc : le prédicat est le même (`delete_algorithmic_events`).
 """
 
 from __future__ import annotations
@@ -36,6 +44,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
 from geo_worker.db import calibration_dsn, dsn_target
+from geo_worker.pipelines.clustering import delete_algorithmic_events
 from geo_worker.pipelines.corpus_import import (
     CorpusImportError,
     CorpusImportResult,
@@ -83,10 +92,36 @@ def load_corpus(path: pathlib.Path, limit: int | None) -> list[dict[str, Any]]:
     ]
 
 
+def replace_existing(conn: psycopg.Connection[Any]) -> tuple[int, int]:
+    """Vide le corpus en place, sans valider — tout ou rien avec le chargement.
+
+    Les événements algorithmiques d'abord — prédicat partagé avec le banc de
+    calibration, les décisions humaines survivent —, puis les détections que
+    plus aucun événement ne référence. Aucune validation ici : un processus tué
+    pendant le chargement laisse la base sur le corpus précédent, jamais vide.
+    """
+    events = delete_algorithmic_events(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            delete from fire.detections d
+            where not exists (
+              select 1
+              from fire.event_detections ed
+              where ed.detection_id = d.id
+                and ed.detection_acquired_at = d.acquired_at
+            )
+            """
+        )
+        detections = cur.rowcount
+    return events, detections
+
+
 def main(argv: list[str]) -> int:
     corpus_path = pathlib.Path(parse_option(argv, "--corpus") or DEFAULT_CORPUS)
     raw_limit = parse_option(argv, "--limite")
     limit = int(raw_limit) if raw_limit is not None else None
+    replace = "--remplacer" in argv
 
     try:
         dsn = calibration_dsn(ENV_FILE)
@@ -98,6 +133,8 @@ def main(argv: list[str]) -> int:
     print(f"cible   : {host}:{port}/{database}")
     if limit is not None:
         print(f"limite  : {limit} lignes")
+    if replace:
+        print("mode    : remplacement — la base est vidée dans la même transaction")
     print(flush=True)
 
     records = load_corpus(corpus_path, limit)
@@ -120,9 +157,17 @@ def main(argv: list[str]) -> int:
             flush=True,
         )
 
+    removed: tuple[int, int] | None = None
     with psycopg.connect(dsn, connect_timeout=30) as conn:
         try:
             with import_run(conn, source_key="firms", job_name="corpus:archive") as counters:
+                if replace:
+                    removed = replace_existing(conn)
+                    print(
+                        f"  retrait : {removed[0]} événement(s), {removed[1]} détection(s)"
+                        " — validé avec le chargement, tout ou rien\n",
+                        flush=True,
+                    )
                 result = import_corpus(conn, records, on_progress=report)
                 conn.commit()
 
@@ -135,6 +180,11 @@ def main(argv: list[str]) -> int:
                     "already_known": result.already_known,
                     "partitions": result.months,
                 }
+                if removed is not None:
+                    counters.metrics["remplacement"] = {
+                        "evenements_retires": removed[0],
+                        "detections_retirees": removed[1],
+                    }
         except CorpusImportError as exc:
             sys.exit(f"\nChargement impossible : {exc}")
         except ImportRunError as exc:

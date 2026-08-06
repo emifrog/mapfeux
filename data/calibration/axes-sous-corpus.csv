@@ -1,0 +1,9 @@
+version,rayon_m,croissance_m_h,fenetre_h,seuil,evenements,detections,singletons,singletons_pct,detections_etayees_pct,multi_capteurs_pct,plus_gros,diagonale_max_km,duree_mediane_h,secondes
+calib-reference,2500.0,500.0,24.0,0.35,701,16544,300,43,95,0,2069,14.7,0.9,102.1
+calib-rayon-1500,1500,500.0,24.0,0.35,848,16544,313,37,94,0,1526,13.2,0.9,150.0
+calib-rayon-4000,4000,500.0,24.0,0.35,638,16544,275,43,95,0,3527,24.0,0.9,111.6
+calib-croissance-250,2500.0,250,24.0,0.35,709,16544,301,42,95,0,1873,14.7,0.9,113.5
+calib-croissance-1000,2500.0,1000,24.0,0.35,690,16544,297,43,95,0,2135,21.2,0.9,110.8
+calib-fenetre-12h,2500.0,500.0,12,0.35,1546,16544,399,26,90,0,313,9.9,1.7,160.8
+calib-seuil-0.20,2500.0,500.0,24.0,0.2,654,16544,288,44,95,0,2106,21.2,0.9,109.3
+calib-seuil-0.50,2500.0,500.0,24.0,0.5,1035,16544,358,35,93,0,1733,13.2,1.7,127.2

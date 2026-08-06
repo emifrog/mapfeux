@@ -31,6 +31,10 @@ services/geo-worker/.env
 # Données brutes et artefacts d'import (jamais versionnés)
 data/raw/
 data/derived/
+# Sous-corpus de calibration : régénérable à l'identique depuis le corpus
+# complet (scripts/build-subcorpus.py) ; seul le compte rendu JSON est versionné
+data/firms/derive/firms_calibration_*.parquet
+data/calibration/*.log
 *.grib
 *.grib2
 *.nc

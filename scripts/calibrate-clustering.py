@@ -3,6 +3,11 @@
 Usage :
     micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py
     micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py --axes
+    micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py --etiquette sous-corpus
+
+`--etiquette` suffixe le fichier de résultats — `croise-<etiquette>.csv` — pour
+qu'un balayage sur le sous-corpus n'écrase pas les mesures du corpus complet.
+Le banc mesure ce que contient la base : le fichier doit dire sur quoi.
 
 Référence : cahier §17.2 et §24.8.
 
@@ -54,6 +59,7 @@ from geo_worker.db import calibration_dsn, dsn_target
 from geo_worker.pipelines.clustering import (
     ClusteringParams,
     cluster_detections,
+    delete_algorithmic_events,
     pending_detection_count,
 )
 
@@ -151,25 +157,13 @@ from e
 def clear(conn: psycopg.Connection[Any]) -> None:
     """Supprime les événements algorithmiques, jamais les décisions humaines.
 
-    **Ne valide pas.** L'appelant enchaîne un regroupement et valide l'ensemble,
-    de sorte qu'un jeu de paramètres est tout ou rien. Une version antérieure
-    validait ici : le corpus se retrouvait alors sans aucun événement pendant
-    toute la durée de la passe suivante, et un arrêt du processus dans cette
-    fenêtre — plusieurs minutes sur quatorze saisons — laissait la base vide,
-    ses détections toutes orphelines. C'est arrivé. Sans validation intermédiaire
-    le serveur défait la suppression, et la base reste sur le jeu précédent.
+    Le prédicat vit dans `delete_algorithmic_events`, partagé avec le
+    remplacement de corpus d'`import-corpus.py` : une seule définition de
+    « algorithmique », qui ne valide pas — l'appelant enchaîne un regroupement
+    et valide l'ensemble, de sorte qu'un jeu de paramètres est tout ou rien.
+    L'histoire de cette règle est dans la docstring de la fonction.
     """
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            delete from fire.events
-            where algorithm_version <> 'demo-fixture'
-              and official_control_status is null
-              and verification_status in ('satellite_detection', 'probable_event')
-              and freshness_status <> 'hidden'
-              and manual_state = '{}'::jsonb
-            """
-        )
+    delete_algorithmic_events(conn)
 
 
 def measure(conn: psycopg.Connection[Any], version: str) -> dict[str, Any]:
@@ -182,6 +176,17 @@ def measure(conn: psycopg.Connection[Any], version: str) -> dict[str, Any]:
 def percent(part: Any, whole: Any) -> int:
     total = int(whole or 0)
     return 0 if total == 0 else round(100 * int(part or 0) / total)
+
+
+def output_name(argv: list[str]) -> str:
+    """Nom du fichier de résultats, suffixé par l'étiquette éventuelle."""
+    base = "axes" if "--axes" in argv else "croise"
+    if "--etiquette" not in argv:
+        return f"{base}.csv"
+    index = argv.index("--etiquette")
+    if index + 1 >= len(argv):
+        raise SystemExit("--etiquette attend une valeur.")
+    return f"{base}-{argv[index + 1]}.csv"
 
 
 def main(argv: list[str]) -> int:
@@ -222,7 +227,7 @@ def main(argv: list[str]) -> int:
         return 1
 
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
-    destination = RESULT_DIR / ("axes.csv" if "--axes" in argv else "croise.csv")
+    destination = RESULT_DIR / output_name(argv)
     with destination.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
