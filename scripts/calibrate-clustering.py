@@ -29,7 +29,11 @@ lecture rapide.
 Aucun indicateur ne tranche seul. Le tableau sert à un arbitrage humain, il ne
 choisit pas à sa place.
 
-L'état final de la base est restauré avec les paramètres de référence.
+L'état final de la base est restauré avec les paramètres de référence. Cette
+restauration passe par un `finally`, qui couvre une erreur ou une interruption
+au clavier — pas la mort du processus. Tuée, la passe en cours est défaite par
+le serveur et la base reste sur le jeu précédent : jamais l'état de référence,
+mais jamais un corpus sans événements non plus.
 """
 
 from __future__ import annotations
@@ -145,7 +149,16 @@ from e
 
 
 def clear(conn: psycopg.Connection[Any]) -> None:
-    """Supprime les événements algorithmiques, jamais les décisions humaines."""
+    """Supprime les événements algorithmiques, jamais les décisions humaines.
+
+    **Ne valide pas.** L'appelant enchaîne un regroupement et valide l'ensemble,
+    de sorte qu'un jeu de paramètres est tout ou rien. Une version antérieure
+    validait ici : le corpus se retrouvait alors sans aucun événement pendant
+    toute la durée de la passe suivante, et un arrêt du processus dans cette
+    fenêtre — plusieurs minutes sur quatorze saisons — laissait la base vide,
+    ses détections toutes orphelines. C'est arrivé. Sans validation intermédiaire
+    le serveur défait la suppression, et la base reste sur le jeu précédent.
+    """
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -157,7 +170,6 @@ def clear(conn: psycopg.Connection[Any]) -> None:
               and manual_state = '{}'::jsonb
             """
         )
-    conn.commit()
 
 
 def measure(conn: psycopg.Connection[Any], version: str) -> dict[str, Any]:
