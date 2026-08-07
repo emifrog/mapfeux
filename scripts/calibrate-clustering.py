@@ -4,10 +4,18 @@ Usage :
     micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py
     micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py --axes
     micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py --etiquette sous-corpus
+    micromamba run -n mapfeux-geo python scripts/calibrate-clustering.py \
+        --jeux calib-r2500-w24-s0.35,calib-r2000-w24-s0.50 --etiquette finalistes
 
 `--etiquette` suffixe le fichier de résultats — `croise-<etiquette>.csv` — pour
 qu'un balayage sur le sous-corpus n'écrase pas les mesures du corpus complet.
 Le banc mesure ce que contient la base : le fichier doit dire sur quoi.
+
+`--jeux` rejoue une liste de jeux désignés par leur étiquette, telle qu'elle
+figure dans la colonne `version` du CSV : les finalistes du dépouillement se
+copient tels quels — retaper des paramètres, c'est se tromper. C'est la passe
+de validation : classement sur le sous-corpus, finalistes seuls sur le corpus
+complet, une nuit au plus.
 
 Référence : cahier §17.2 et §24.8.
 
@@ -45,6 +53,7 @@ from __future__ import annotations
 
 import csv
 import pathlib
+import re
 import sys
 import time
 from typing import Any
@@ -92,6 +101,52 @@ def crossed_grid() -> list[ClusteringParams]:
         for window in WINDOWS
         for threshold in THRESHOLDS
     ]
+
+
+#: Forme des étiquettes produites par `label()`. La croissance n'y figure pas :
+#: elle est figée hors de la surface de calibration (voir GROWTH_M_PER_HOUR).
+LABEL_PATTERN = re.compile(r"^calib-r(\d+)-w(\d+)-s(\d\.\d{2})$")
+
+
+def parse_set_label(raw: str) -> ClusteringParams:
+    """Reconstruit un jeu de paramètres depuis son étiquette.
+
+    `calib-reference` est accepté : le jeu de référence est un finaliste
+    légitime, et la passe de validation doit pouvoir l'inclure dans la même
+    mesure que ses concurrents.
+    """
+    if raw == "calib-reference":
+        return ClusteringParams(version="calib-reference")
+    match = LABEL_PATTERN.match(raw)
+    if match is None:
+        raise SystemExit(
+            f"Étiquette de jeu invalide : {raw}\n"
+            "Attendu calib-r<rayon>-w<fenêtre>-s<seuil> — la colonne version "
+            "du CSV — ou calib-reference."
+        )
+    return ClusteringParams(
+        version=raw,
+        base_radius_m=int(match.group(1)),
+        growth_m_per_hour=GROWTH_M_PER_HOUR,
+        attach_window_hours=int(match.group(2)),
+        min_score=float(match.group(3)),
+    )
+
+
+def finalist_grid(raw: str) -> list[ClusteringParams]:
+    """Liste de jeux depuis `--jeux`, refusée si une étiquette s'y répète.
+
+    Mesurer deux fois le même jeu coûterait dix minutes sur le corpus complet
+    pour produire une ligne en double — et un doublon dans la liste est
+    toujours une erreur de copie, jamais une intention.
+    """
+    labels = [part.strip() for part in raw.split(",") if part.strip()]
+    if not labels:
+        raise SystemExit("--jeux attend au moins une étiquette.")
+    duplicates = {name for name in labels if labels.count(name) > 1}
+    if duplicates:
+        raise SystemExit(f"Étiquette(s) en double dans --jeux : {', '.join(sorted(duplicates))}")
+    return [parse_set_label(name) for name in labels]
 
 
 def axis_grid() -> list[ClusteringParams]:
@@ -178,19 +233,38 @@ def percent(part: Any, whole: Any) -> int:
     return 0 if total == 0 else round(100 * int(part or 0) / total)
 
 
+def parse_option(argv: list[str], name: str) -> str | None:
+    if name not in argv:
+        return None
+    index = argv.index(name)
+    if index + 1 >= len(argv):
+        raise SystemExit(f"{name} attend une valeur.")
+    return argv[index + 1]
+
+
 def output_name(argv: list[str]) -> str:
     """Nom du fichier de résultats, suffixé par l'étiquette éventuelle."""
-    base = "axes" if "--axes" in argv else "croise"
-    if "--etiquette" not in argv:
-        return f"{base}.csv"
-    index = argv.index("--etiquette")
-    if index + 1 >= len(argv):
-        raise SystemExit("--etiquette attend une valeur.")
-    return f"{base}-{argv[index + 1]}.csv"
+    if "--axes" in argv:
+        base = "axes"
+    elif "--jeux" in argv:
+        base = "jeux"
+    else:
+        base = "croise"
+    etiquette = parse_option(argv, "--etiquette")
+    return f"{base}.csv" if etiquette is None else f"{base}-{etiquette}.csv"
 
 
 def main(argv: list[str]) -> int:
-    grid = axis_grid() if "--axes" in argv else crossed_grid()
+    if "--axes" in argv and "--jeux" in argv:
+        raise SystemExit("--axes et --jeux sont exclusifs : un mode de grille à la fois.")
+
+    finalists = parse_option(argv, "--jeux")
+    if finalists is not None:
+        grid = finalist_grid(finalists)
+    elif "--axes" in argv:
+        grid = axis_grid()
+    else:
+        grid = crossed_grid()
 
     # Base de calibration obligatoire : chaque jeu efface et réécrit les
     # événements, et sur le corpus complet le balayage dure des heures. Sur la

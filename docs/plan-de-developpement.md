@@ -148,9 +148,10 @@ Au dépouillement :
 - ⚠️ `≥2 capt` vaut 0 % sur tout le sous-corpus et n'y départage rien : le
   corpus est VIIRS seul, et R2 normalise l'instrument — la colonne mesure les
   capteurs, pas les satellites ;
-- donner au banc un moyen de rejouer une **liste** de jeux (les finalistes),
-  puis rebasculer la base sur le corpus complet
-  (`import-corpus.py --remplacer`) pour la passe de validation, une nuit.
+- la passe de validation est outillée : rebasculer la base sur le corpus
+  complet (`import-corpus.py --remplacer`), puis
+  `calibrate-clustering.py --jeux <étiquettes> --etiquette finalistes` — les
+  étiquettes se copient depuis la colonne `version` du CSV, une nuit au plus.
 
 Côté [phase 0](strategie.md#3-phase-0--préalables-non-techniques) :
 **l'autorisation de cumul est accordée depuis le 6 août** — le point d'arrêt
@@ -383,6 +384,13 @@ sans provenance ni horodatage.
   Exercé en réel : 337 757 retirées, 16 544 insérées, zéro rejet, un commit
 - ✅ Le banc étiquette ses résultats (`--etiquette`) : un balayage sur le
   sous-corpus n'écrase pas les mesures du corpus complet
+- 🟢 Le banc rejoue une liste de finalistes (`--jeux`), désignés par leur
+  étiquette copiée du CSV — retaper des paramètres, c'est se tromper. Doublons
+  refusés : dix minutes par jeu sur le corpus complet, une ligne en double
+  n'est jamais une intention. Non exercé : attend le dépouillement
+- ✅ `cluster-detections.py` reçoit la bascule `--calibration` et affiche sa
+  cible avant d'agir — c'était le dernier outil de regroupement resté sur
+  `DATABASE_URL` sans le dire
 - 🟡 Calibration fine sur plusieurs saisons — le sous-corpus est en service
   sur la base de calibration ; taille du balayage tranchée, voir §2
 
@@ -907,7 +915,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service. ⚠️ Phrase d'attente à retirer le jour de la mise en service (J9) | J9 |
 | Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
 | Coût d'un jeu de calibration | Borné par le sous-corpus (16 544 détections) : le classement des 112 jeux se fait dessus, le corpus complet ne sert plus qu'à rejouer les finalistes, une nuit au plus. Mesure du 6 août au §2 | Traité |
-| `cluster-detections.py` vise encore la production | Seul outil de regroupement resté sur `DATABASE_URL`. Le banc et l'inspection exigent la base de calibration ; celui-ci devrait recevoir la même bascule, ou au moins un `--calibration` | J2 |
+| `cluster-detections.py` vise encore la production | Traité le 6 août : bascule `--calibration` posée, cible affichée avant d'agir. L'usage production reste légitime — reprise manuelle aux paramètres de référence | Traité |
 | N21 sans corpus retraité | 30 180 lignes — 8,9 % du corpus — de janvier 2024 à août 2026, servies en NRT faute d'archive publiée par FIRMS. Ni retraitement scientifique, ni `type` : les deux saisons les plus récentes sont partiellement non étiquetées | J2 |
 | La borne de R4 suppose le corpus standard dense | Un satellite indisponible en milieu de période retraitée verrait ses lignes NRT de la panne écartées à tort. FIRMS ne publie pas de calendrier de couverture. La borne employée est consignée dans le compte rendu du corpus | J2 |
 | Corpus dérivé versionné | Le Parquet pèse 6,8 Mo et se régénère depuis les zips. Chaque régénération dépose un nouveau blob dans l'historique. À arbitrer : le compte rendu JSON suffit à prouver la provenance | J6 |

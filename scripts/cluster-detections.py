@@ -3,12 +3,19 @@
 Usage :
     micromamba run -n mapfeux-geo python scripts/cluster-detections.py
     micromamba run -n mapfeux-geo python scripts/cluster-detections.py --reset
+    micromamba run -n mapfeux-geo python scripts/cluster-detections.py --reset --calibration
 
 Référence : cahier §17.2.
 
 `--reset` détache et supprime les événements produits par l'algorithme, puis
 recommence. C'est l'outil de calibration et le test du critère de sortie du
 jalon : deux exécutions successives doivent donner le même résultat.
+
+`--calibration` vise la base de calibration — `CALIBRATION_DATABASE_URL`, avec
+le garde-fou qui refuse la production. Sans l'option, l'outil vise la base que
+le site public lit : c'est l'usage de reprise manuelle, aux paramètres de
+référence uniquement, et la cible est affichée avant d'agir. C'était le seul
+outil de regroupement resté sans bascule.
 
 Il refuse de toucher aux événements portant une correction manuelle, un statut
 officiel ou un masquage : ceux-là sont des décisions humaines, que la machine
@@ -26,7 +33,7 @@ import psycopg
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
-from geo_worker.db import dsn_from_env_file
+from geo_worker.db import DsnError, calibration_dsn, dsn_from_env_file, dsn_target
 from geo_worker.pipelines.clustering import (
     ClusteringParams,
     cluster_detections,
@@ -35,8 +42,13 @@ from geo_worker.pipelines.clustering import (
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
 
 
-def read_dsn() -> str:
-    return dsn_from_env_file(ENV_FILE)
+def read_dsn(argv: list[str]) -> str:
+    try:
+        if "--calibration" in argv:
+            return calibration_dsn(ENV_FILE)
+        return dsn_from_env_file(ENV_FILE)
+    except DsnError as exc:
+        sys.exit(str(exc))
 
 
 def reset(conn: psycopg.Connection[Any], version: str) -> int:
@@ -61,7 +73,12 @@ def reset(conn: psycopg.Connection[Any], version: str) -> int:
 def main(argv: list[str]) -> int:
     params = ClusteringParams()
 
-    with psycopg.connect(read_dsn(), connect_timeout=30) as conn:
+    dsn = read_dsn(argv)
+    host, port, database = dsn_target(dsn)
+    kind = "calibration" if "--calibration" in argv else "PRODUCTION"
+    print(f"cible : {host}:{port}/{database} ({kind})\n", flush=True)
+
+    with psycopg.connect(dsn, connect_timeout=30) as conn:
         if "--reset" in argv:
             deleted = reset(conn, params.version)
             print(f"{deleted} événement(s) supprimé(s) avant recalcul.\n")
