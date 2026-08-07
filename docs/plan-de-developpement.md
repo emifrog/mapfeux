@@ -253,9 +253,23 @@ historiques importé à la main.
 
 ### Reste ⬜
 
-- ⬜ Authentification administrateur — exige une session dédiée et des réglages
-  du tableau de bord Supabase (fournisseur d'e-mail, domaines autorisés) qui ne
-  se font pas depuis le dépôt
+- 🟢 Authentification administrateur — lien magique sans mot de passe (§14.4),
+  écrite le 7 août, portes vertes, **non exercée** faute des préalables du
+  tableau de bord. Le rôle vit dans `admin.profiles`, jamais dans le jeton
+  (doctrine de la migration du 27 juillet) ; le web le lit par
+  `api.admin_profile()` (migration `20260807200000`, validée sur la base de
+  calibration : grant à `authenticated` seul). Pièces : `proxy.ts`
+  (rafraîchissement de session, périmètre `/admin` seulement — les pages
+  publiques restent sans cookie donc cachables), `/admin/connexion`
+  (anti-énumération : même réponse que le compte existe ou non,
+  `shouldCreateUser: false`), `/auth/callback` (PKCE et `token_hash`),
+  layout de garde (profil **actif** exigé, impasse explicite sinon),
+  `scripts/grant-admin.py` — seul chemin d'entrée d'un administrateur.
+  Avant ✅, dans l'ordre : (1) tableau de bord Supabase → Authentication →
+  URL Configuration : Site URL `https://mapfeux.vercel.app` + Redirect URLs
+  `/auth/callback` en production et en local ; (2) appliquer la migration en
+  production ; (3) `grant-admin.py --email … --nom … --role data_admin` ;
+  (4) déployer puis se connecter réellement
 - ✅ Jeu historique réel en remplacement de la fixture — la production tourne
   sur données réelles depuis le 5 août (ingestion planifiée, 939 détections
   d'historique) ; la fixture ne vit plus qu'en `seed/dev/` pour le poste local,
@@ -946,6 +960,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | `api.fire_events` expose l'`id` interne | §15.1 demande des identifiants publics opaques. Non exploité par nos réponses, mais lisible via PostgREST | J6 |
 | Coût d'un pic non chiffré | Conditionne un point d'arrêt — dernier préalable de phase 0 encore ouvert | Phase 0 |
 | Réponse à la première erreur publique | Runbook éditorial absent | Avant J6 |
+| MFA super_admin non appliquée | La contrainte en base exige `mfa_required` pour `super_admin`, mais l'enrôlement TOTP n'existe pas (§14.4). D'ici J5, ne pas employer de compte super_admin au quotidien — `grant-admin.py` l'affiche | J5 |
 | `fires_in_bbox` sous son nom historique | L'API publique dit désormais `events` (cahier v2.1 §15.2) ; la fonction SQL interne garde son nom — la renommer passe par une migration, sans bénéfice public | Libre |
 
 ---
