@@ -1,8 +1,8 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 6 août 2026, troisième passe — plan recalé sur la
-décision D-0 (option A), autorisation de cumul obtenue, API et routes
-renommées « events », sous-corpus de calibration en service.
+**Dernière mise à jour** : 7 août 2026 — reliquats J1-J3 entamés : import
+national des communes lancé, « Autour de moi » posé, snapshots et fixture
+soldés ; balayage croisé relancé sur banc durci (écriture au fil de l'eau).
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -134,12 +134,17 @@ coût : **102 à 161 s par jeu** sur ses 16 544 détections — moyenne ~123 s,
 réseau dominant, comme toujours — contre plus de dix minutes sur le corpus
 complet (`data/calibration/axes-sous-corpus.csv`).
 
-Le balayage croisé à 112 jeux est **lancé** : tâche planifiée Windows
-`MapFeux-balayage-sous-corpus` du 6 août 23 h 22 — pas une tâche de fond de
-session, qui meurt avec elle —, environ quatre heures attendues, résultats
-dans `data/calibration/croise-sous-corpus.csv`, journal dans
-`data/calibration/balayage-sous-corpus.log`. La tâche se supprime elle-même en
-fin de course.
+Le balayage croisé à 112 jeux est **en cours** — deuxième tentative, relancée
+le 7 août à 18 h 10. La première, du 6 août 23 h 22, est morte à l'extinction
+du poste après un seul jeu : une tâche planifiée enregistrée sans identifiants
+meurt avec la session Windows, exactement comme une tâche de fond de session.
+Et le CSV s'écrivant à la fin, le jeu mesuré n'a laissé aucune trace — le banc
+écrit désormais **au fil de l'eau**, une ligne par jeu, si bien qu'une
+interruption conserve tout ce qui a été payé et que le fichier dit où en est
+la course. Résultats dans `data/calibration/croise-sous-corpus.csv`, journal
+dans `balayage-sous-corpus.log` ; **le poste doit rester allumé** (~4 à 6 h).
+La base de calibration reste en attendant sur le dernier jeu commité — jamais
+vide, par construction.
 
 Au dépouillement :
 
@@ -248,11 +253,17 @@ historiques importé à la main.
 
 ### Reste ⬜
 
-- ⬜ Authentification administrateur
-- ⬜ Jeu historique réel en remplacement de la fixture
-- ⬜ Déclencher le rafraîchissement du snapshot depuis les pipelines. Aujourd'hui
-  `scripts/refresh-snapshots.py` le fait à la main ; le branchement viendra avec
-  l'ingestion FIRMS.
+- ⬜ Authentification administrateur — exige une session dédiée et des réglages
+  du tableau de bord Supabase (fournisseur d'e-mail, domaines autorisés) qui ne
+  se font pas depuis le dépôt
+- ✅ Jeu historique réel en remplacement de la fixture — la production tourne
+  sur données réelles depuis le 5 août (ingestion planifiée, 939 détections
+  d'historique) ; la fixture ne vit plus qu'en `seed/dev/` pour le poste local,
+  exclue de la calibration comme de la production
+- ✅ Rafraîchissement du snapshot déclenché depuis les pipelines — en service
+  depuis le 5 août : `run-ingestion.py` reconstruit les seuls snapshots touchés
+  à chaque passe (première passe réelle : 6 reconstruits). La ligne était
+  restée ouverte alors que l'acquis était déjà consigné au J2
 - ⚠️ Aucune politique RLS de lecture pour les administrateurs : l'administration
   passera par des appels serveur privilégiés (§14.2). À confirmer en J5.
 
@@ -543,8 +554,21 @@ stables ; deux exécutions successives donnent le même résultat.
 - ⬜ Agrégation par département à l'échelle nationale (§21.3)
 - ⬜ Géométries des régions et départements : seuls les quatre territoires du
   seed existent, avec un centre mais sans emprise
-- ⬜ Import des 99 autres départements
-- ⬜ Bouton « Autour de moi » — l'endpoint existe, le bouton reste à poser
+- 🟡 Import des 94 autres départements métropolitains (2A/2B compris) — lancé
+  le 7 août au soir, un `import_run` et une transaction par département :
+  un arrêt ne perd rien, la reprise rejoue les départements manquants.
+  ~32 s et ~800 communes par département
+- 🟢 Bouton « Autour de moi » posé sur l'accueil (`components/near-me.tsx`) :
+  permission au clic seulement, position arrondie à ~100 m avant d'être
+  envoyée en corps de requête, aucune coordonnée en état ni en journal, refus
+  annoncé sans dégrader la recherche (FR-020 à FR-024, §22.2). Portes
+  passées ; à exercer sur un navigateur réel avant ✅
+- ✅ La page commune conditionne sa formulation à la donnée : « détections
+  importées » sur un territoire ouvert, « département pas encore ouvert »
+  ailleurs. L'import national allait rendre l'ancienne phrase fausse sur
+  ~34 000 pages ; la bascule est portée par la présence du territoire, pas
+  par le calendrier — le motif anti-« phrase d'attente » appliqué avant la
+  faute, pour une fois
 - ⬜ Sélecteur de territoire groupé par région (FR-012)
 - ⬜ Indicateurs de fraîcheur par couche
 - ⚠️ `source_version` enregistre le fournisseur et la date d'import, pas un

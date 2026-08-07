@@ -105,19 +105,41 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
           Le rattachement d'un événement à sa commune existe en base ; son
           affichage ici reste à écrire. D'ici là, la page dit ce qu'elle sait et
           renvoie où l'information se trouve.
+
+          Depuis l'import national des communes, cette page existe aussi hors
+          des territoires pilotes, où « les détections sont importées » serait
+          à son tour une affirmation fausse. La formulation est donc
+          conditionnée à la donnée — le département est-il un territoire
+          ouvert ? — et non au calendrier : elle bascule d'elle-même le jour où
+          le territoire ouvre, sans qu'il faille se souvenir de cette page.
         */}
-        <p className="text-(--text-2) mt-3 max-w-[68ch]">
-          Les détections thermiques sont importées et regroupées, mais leur affichage par commune
-          n’est pas encore en service. En attendant, la{' '}
-          <Link href="/carte" className="underline underline-offset-4">
-            carte
-          </Link>{' '}
-          montre les événements de la zone, et l’
-          <Link href="/statut" className="underline underline-offset-4">
-            état des données
-          </Link>{' '}
-          indique depuis quand la donnée date.
-        </p>
+        {municipality.departmentSlug !== null ? (
+          <p className="text-(--text-2) mt-3 max-w-[68ch]">
+            Les détections thermiques sont importées et regroupées sur ce territoire, mais leur
+            affichage par commune n’est pas encore en service. En attendant, la{' '}
+            <Link href="/carte" className="underline underline-offset-4">
+              carte
+            </Link>{' '}
+            montre les événements de la zone, et l’
+            <Link href="/statut" className="underline underline-offset-4">
+              état des données
+            </Link>{' '}
+            indique depuis quand la donnée date.
+          </p>
+        ) : (
+          <p className="text-(--text-2) mt-3 max-w-[68ch]">
+            Ce département n’est pas encore un territoire ouvert : les détections thermiques n’y
+            sont pas encore importées. Les territoires ouverts sont listés sur l’
+            <Link href="/" className="underline underline-offset-4">
+              accueil
+            </Link>
+            , et l’
+            <Link href="/statut" className="underline underline-offset-4">
+              état des données
+            </Link>{' '}
+            indique ce qui est en service.
+          </p>
+        )}
         <p className="text-small text-(--text-3) mt-3 max-w-[68ch]">
           L’absence d’événement affiché ici ne signifie pas qu’il ne s’en produit pas.
         </p>

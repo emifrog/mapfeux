@@ -2,6 +2,7 @@ import { MAP_DISCLAIMER } from '@mapfeux/domain';
 import Link from 'next/link';
 
 import { MunicipalitySearch } from '@/components/municipality-search';
+import { NearMe } from '@/components/near-me';
 import { fetchTerritories } from '@/lib/data/territories';
 
 /**
@@ -44,6 +45,10 @@ export default async function HomePage() {
         <Link href="/carte" className="font-semibold underline underline-offset-4">
           Ouvrir la carte
         </Link>
+        <span aria-hidden="true" className="text-(--border-strong) mx-3">
+          /
+        </span>
+        <NearMe />
       </p>
 
       {/*

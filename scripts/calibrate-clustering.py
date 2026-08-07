@@ -47,6 +47,12 @@ restauration passe par un `finally`, qui couvre une erreur ou une interruption
 au clavier — pas la mort du processus. Tuée, la passe en cours est défaite par
 le serveur et la base reste sur le jeu précédent : jamais l'état de référence,
 mais jamais un corpus sans événements non plus.
+
+Les résultats s'écrivent **au fil de l'eau**, une ligne par jeu mesuré. Une
+version antérieure écrivait le CSV à la fin : le balayage du 6 août au soir est
+mort à l'extinction du poste après un jeu sur cent douze, et ce jeu — mesuré,
+payé — n'a laissé aucune trace hors du journal. Un fichier qui grandit pendant
+la nuit dit aussi où en est la course, ce qu'un tampon en mémoire ne dit pas.
 """
 
 from __future__ import annotations
@@ -56,6 +62,7 @@ import pathlib
 import re
 import sys
 import time
+from collections.abc import Callable
 from typing import Any
 
 import psycopg
@@ -82,6 +89,26 @@ THRESHOLDS = (0.20, 0.35, 0.50, 0.65)
 # La croissance du rayon avec le temps s'était montrée quasi inerte sur ce
 # corpus : la faire varier ici quadruplerait le balayage sans rien révéler.
 GROWTH_M_PER_HOUR = 500
+
+#: Colonnes du CSV, figées : l'écriture au fil de l'eau pose l'en-tête avant la
+#: première mesure, elle ne peut plus le déduire de la première ligne.
+FIELDNAMES: tuple[str, ...] = (
+    "version",
+    "rayon_m",
+    "croissance_m_h",
+    "fenetre_h",
+    "seuil",
+    "evenements",
+    "detections",
+    "singletons",
+    "singletons_pct",
+    "detections_etayees_pct",
+    "multi_capteurs_pct",
+    "plus_gros",
+    "diagonale_max_km",
+    "duree_mediane_h",
+    "secondes",
+)
 
 
 def label(radius: int, window: int, threshold: float) -> str:
@@ -285,33 +312,57 @@ def main(argv: list[str]) -> int:
     print(header, flush=True)
     print("-" * len(header), flush=True)
 
-    rows: list[dict[str, Any]] = []
-
-    with psycopg.connect(dsn, connect_timeout=30) as conn:
-        try:
-            sweep(conn, grid, rows)
-        finally:
-            # Une interruption ne doit pas laisser la base sur un jeu
-            # expérimental : le site lit la même table, et servirait alors une
-            # carte produite par des paramètres qu'on ne publie pas.
-            restore(conn)
-
-    if not rows:
-        print("Aucun résultat à écrire.")
-        return 1
-
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
     destination = RESULT_DIR / output_name(argv)
+    measured = 0
+
     with destination.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(handle, fieldnames=list(FIELDNAMES))
         writer.writeheader()
-        writer.writerows(rows)
+        handle.flush()
+
+        def on_row(row: dict[str, Any]) -> None:
+            # Une ligne mesurée est une ligne sur disque : l'extinction du
+            # poste ne peut plus effacer une mesure déjà payée.
+            nonlocal measured
+            measured += 1
+            writer.writerow(row)
+            handle.flush()
+
+        failures: list[str] = []
+        with psycopg.connect(dsn, connect_timeout=30) as conn:
+            # Les agrégats d'un jeu serré — 2 500 événements à recalculer —
+            # dépassent le statement_timeout par défaut du projet Supabase :
+            # QueryCanceled a arrêté le balayage du 7 août au premier jeu.
+            # Réglage de session : la production garde le sien.
+            conn.execute("set statement_timeout = '10min'")
+            try:
+                failures = sweep(conn, grid, on_row)
+            finally:
+                # Une interruption ne doit pas laisser la base sur un jeu
+                # expérimental : le site lit la même table, et servirait alors
+                # une carte produite par des paramètres qu'on ne publie pas.
+                restore(conn)
+
     print(f"Résultats : {destination.relative_to(ROOT)}")
+    if measured == 0:
+        print("Aucun jeu mesuré : le fichier ne contient que l'en-tête.")
+        return 1
+    if failures:
+        # Un balayage partiel ne doit pas passer pour un succès : les lignes
+        # présentes se comparent entre elles, mais la grille est incomplète.
+        print(f"{len(failures)} jeu(x) en échec : {', '.join(failures)}")
+        return 1
 
     return 0
 
 
 def restore(conn: psycopg.Connection[Any]) -> None:
+    # La connexion peut arriver ici avec une transaction avortée : le `finally`
+    # s'exécute aussi sur exception. Sans rollback, la restauration échouait à
+    # son tour (`InFailedSqlTransaction`) et la base restait sur le jeu
+    # expérimental — c'est arrivé le 7 août.
+    conn.rollback()
     clear(conn)
     cluster_detections(conn, params=ClusteringParams(), limit=None)
     conn.commit()
@@ -321,8 +372,16 @@ def restore(conn: psycopg.Connection[Any]) -> None:
 def sweep(
     conn: psycopg.Connection[Any],
     grid: list[ClusteringParams],
-    rows: list[dict[str, Any]],
-) -> None:
+    on_row: Callable[[dict[str, Any]], None],
+) -> list[str]:
+    """Mesure chaque jeu ; retourne les étiquettes des jeux en échec.
+
+    Un incident de base sur un jeu — timeout, coupure réseau — ne condamne pas
+    la nuit entière : le jeu est annulé, annoncé, et la course continue. Le
+    balayage du 7 août s'était arrêté au premier jeu pour un QueryCanceled que
+    les cent onze suivants n'auraient jamais vu.
+    """
+    failures: list[str] = []
     for params in grid:
         clear(conn)
         started = time.monotonic()
@@ -330,8 +389,17 @@ def sweep(
         # entier. Une passe bornée en regrouperait la tête — les premières
         # semaines, l'ordre étant chronologique — et le tableau annoncerait ces
         # chiffres comme ceux du corpus.
-        cluster_detections(conn, params=params, limit=None)
-        conn.commit()
+        try:
+            cluster_detections(conn, params=params, limit=None)
+            conn.commit()
+        except psycopg.Error as exc:
+            # Tout ou rien : le rollback défait aussi le clear(), la base reste
+            # sur le jeu précédent, jamais vide.
+            conn.rollback()
+            reason = str(exc).splitlines()[0][:90] if str(exc) else type(exc).__name__
+            print(f"{params.version:<26} ÉCHEC — {reason}", flush=True)
+            failures.append(params.version)
+            continue
         elapsed = time.monotonic() - started
 
         # Le banc mesure ce qu'il a regroupé, pas ce qu'il croit avoir regroupé.
@@ -360,7 +428,7 @@ def sweep(
             flush=True,
         )
 
-        rows.append(
+        on_row(
             {
                 "version": params.version,
                 "rayon_m": params.base_radius_m,
@@ -379,6 +447,8 @@ def sweep(
                 "secondes": round(elapsed, 1),
             }
         )
+
+    return failures
 
 
 if __name__ == "__main__":
