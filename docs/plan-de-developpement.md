@@ -253,23 +253,25 @@ historiques importé à la main.
 
 ### Reste ⬜
 
-- 🟢 Authentification administrateur — lien magique sans mot de passe (§14.4),
-  écrite le 7 août, portes vertes, **non exercée** faute des préalables du
-  tableau de bord. Le rôle vit dans `admin.profiles`, jamais dans le jeton
-  (doctrine de la migration du 27 juillet) ; le web le lit par
-  `api.admin_profile()` (migration `20260807200000`, validée sur la base de
-  calibration : grant à `authenticated` seul). Pièces : `proxy.ts`
-  (rafraîchissement de session, périmètre `/admin` seulement — les pages
-  publiques restent sans cookie donc cachables), `/admin/connexion`
-  (anti-énumération : même réponse que le compte existe ou non,
-  `shouldCreateUser: false`), `/auth/callback` (PKCE et `token_hash`),
-  layout de garde (profil **actif** exigé, impasse explicite sinon),
-  `scripts/grant-admin.py` — seul chemin d'entrée d'un administrateur.
-  Avant ✅, dans l'ordre : (1) tableau de bord Supabase → Authentication →
-  URL Configuration : Site URL `https://mapfeux.vercel.app` + Redirect URLs
-  `/auth/callback` en production et en local ; (2) appliquer la migration en
-  production ; (3) `grant-admin.py --email … --nom … --role data_admin` ;
-  (4) déployer puis se connecter réellement
+- ✅ **Authentification administrateur, exercée en production le 7 août** —
+  lien magique sans mot de passe (§14.4). Le rôle vit dans `admin.profiles`,
+  jamais dans le jeton (doctrine de la migration du 27 juillet) ; le web le
+  lit par `api.admin_profile()` (migration `20260807200000`, grant à
+  `authenticated` seul). Pièces : `proxy.ts` (rafraîchissement de session,
+  périmètre `/admin` seulement — les pages publiques restent sans cookie donc
+  cachables), `/admin/connexion` (anti-énumération, `shouldCreateUser:
+  false`), `/auth/callback` (PKCE et `token_hash`), layout de garde (profil
+  **actif** exigé, impasse explicite sinon), `scripts/grant-admin.py` — seul
+  chemin d'entrée d'un administrateur. Cycle complet vérifié sur
+  mapfeux.vercel.app : envoi du lien et réception, session par `token_hash`,
+  profil et rôle affichés, session active renvoyée de la page de connexion
+  vers `/admin`, déconnexion, `/admin` sans session renvoyé à la connexion
+- ⚠️ **`PUBLIC_APP_URL` absente de l'environnement Vercel** : l'action de
+  connexion retombe sur sa valeur par défaut et les liens des e-mails
+  redirigent vers `http://localhost:3000`. Trouvé par le test réel — le lien
+  reçu était inutilisable en production. À poser dans Vercel
+  (`https://mapfeux.vercel.app`) puis redéployer ; c'est le dernier geste
+  avant que le parcours e-mail complet ne fonctionne
 - ✅ Jeu historique réel en remplacement de la fixture — la production tourne
   sur données réelles depuis le 5 août (ingestion planifiée, 939 détections
   d'historique) ; la fixture ne vit plus qu'en `seed/dev/` pour le poste local,
@@ -568,10 +570,14 @@ stables ; deux exécutions successives donnent le même résultat.
 - ⬜ Agrégation par département à l'échelle nationale (§21.3)
 - ⬜ Géométries des régions et départements : seuls les quatre territoires du
   seed existent, avec un centre mais sans emprise
-- 🟡 Import des 94 autres départements métropolitains (2A/2B compris) — lancé
-  le 7 août au soir, un `import_run` et une transaction par département :
-  un arrêt ne perd rien, la reprise rejoue les départements manquants.
-  ~32 s et ~800 communes par département
+- ✅ **Le référentiel communal est national** — import des 94 départements
+  restants le 7 août au soir : 34 430 communes créées, zéro rejet sur
+  l'ensemble, un `import_run` et une transaction par département. En base :
+  **34 746 communes actives sur 96 départements** (France métropolitaine et
+  Corse), contrôle Bordeaux 33063 concluant. La recherche et la résolution
+  de position couvrent désormais tout le territoire de la vague A ;
+  l'ingestion FIRMS, elle, reste sur l'emprise pilote — c'est le sélecteur
+  de territoires, pas le référentiel, qui dit ce qui est ouvert
 - 🟢 Bouton « Autour de moi » posé sur l'accueil (`components/near-me.tsx`) :
   permission au clic seulement, position arrondie à ~100 m avant d'être
   envoyée en corps de requête, aucune coordonnée en état ni en journal, refus
