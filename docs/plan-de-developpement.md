@@ -134,17 +134,19 @@ coût : **102 à 161 s par jeu** sur ses 16 544 détections — moyenne ~123 s,
 réseau dominant, comme toujours — contre plus de dix minutes sur le corpus
 complet (`data/calibration/axes-sous-corpus.csv`).
 
-Le balayage croisé à 112 jeux est **en cours** — deuxième tentative, relancée
-le 7 août à 18 h 10. La première, du 6 août 23 h 22, est morte à l'extinction
-du poste après un seul jeu : une tâche planifiée enregistrée sans identifiants
-meurt avec la session Windows, exactement comme une tâche de fond de session.
-Et le CSV s'écrivant à la fin, le jeu mesuré n'a laissé aucune trace — le banc
-écrit désormais **au fil de l'eau**, une ligne par jeu, si bien qu'une
-interruption conserve tout ce qui a été payé et que le fichier dit où en est
-la course. Résultats dans `data/calibration/croise-sous-corpus.csv`, journal
-dans `balayage-sous-corpus.log` ; **le poste doit rester allumé** (~4 à 6 h).
-La base de calibration reste en attendant sur le dernier jeu commité — jamais
-vide, par construction.
+Le balayage croisé à 112 jeux est **en cours** — troisième tentative, relancée
+le 7 août à 18 h 35 sur banc durci. La première (6 août 23 h 22) est morte à
+l'extinction du poste après un jeu ; la deuxième (7 août 18 h 10) sur un
+`statement_timeout` que le banc traitait mal. Depuis : CSV écrit **au fil de
+l'eau** (une interruption ne perd plus rien), timeout de session à 10 min,
+échec d'un jeu isolé au lieu de fatal, rollback avant restauration.
+
+⚠️ Le rythme réel est le double de la mesure `--axes` : les jeux serrés
+multiplient les événements et alourdissent nettoyage et mesures entre les
+passes — **~8 min par jeu constatés**, fin attendue le 8 août en matinée.
+**Laisser le poste allumé la nuit** (verrouillé, oui ; éteint, non). Résultats
+dans `data/calibration/croise-sous-corpus.csv` ; la base de calibration reste
+à tout instant sur le dernier jeu commité, jamais vide.
 
 Au dépouillement :
 
@@ -568,8 +570,14 @@ stables ; deux exécutions successives donnent le même résultat.
 - ✅ `GET /api/v1/events`, emprise obligatoire, rechargement au déplacement (FR-007)
 - ⬜ **Génération PMTiles**, sans GeoJSON national servi en direct
 - ⬜ Agrégation par département à l'échelle nationale (§21.3)
-- ⬜ Géométries des régions et départements : seuls les quatre territoires du
-  seed existent, avec un centre mais sans emprise
+- ✅ **Géométries des régions et départements** — import du 7 août
+  (`scripts/import-territories.py`, 71 s) : 94 départements et 12 régions
+  créés en `draft`, 06/83 et PACA complétés sans toucher à leur statut ni à
+  leur slug. Les contours sont **construits en base par union des communes**
+  (simplification ~100 m), jamais téléchargés : une seule source de vérité
+  géométrique. Hiérarchie complète (0 orphelin), la vue publique n'expose
+  toujours que les 4 territoires ouverts — vérifié sous le rôle `anon`.
+  Ouvrir un territoire = passer son statut à `pilot`/`active`, rien d'autre
 - ✅ **Le référentiel communal est national** — import des 94 départements
   restants le 7 août au soir : 34 430 communes créées, zéro rejet sur
   l'ensemble, un `import_run` et une transaction par département. En base :
@@ -968,6 +976,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Réponse à la première erreur publique | Runbook éditorial absent | Avant J6 |
 | MFA super_admin non appliquée | La contrainte en base exige `mfa_required` pour `super_admin`, mais l'enrôlement TOTP n'existe pas (§14.4). D'ici J5, ne pas employer de compte super_admin au quotidien — `grant-admin.py` l'affiche | J5 |
 | `fires_in_bbox` sous son nom historique | L'API publique dit désormais `events` (cahier v2.1 §15.2) ; la fonction SQL interne garde son nom — la renommer passe par une migration, sans bénéfice public | Libre |
+| Le banc ne reprend pas où il s'est arrêté | Une relance re-mesure depuis le premier jeu ; le CSV au fil de l'eau conserve l'acquis mais rien ne saute les jeux déjà mesurés. Supportable tant qu'un balayage tient dans une nuit ; à outiller si un troisième accident le réclame | Libre |
 
 ---
 

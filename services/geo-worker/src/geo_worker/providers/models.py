@@ -60,6 +60,22 @@ class ThermalDetection:
 
 
 @dataclass(frozen=True, slots=True)
+class AdministrativeUnit:
+    """Région ou département du découpage administratif, sans géométrie.
+
+    La géométrie n'est volontairement pas transportée : les contours des
+    territoires sont construits en base par union des communes déjà
+    importées — une seule source de vérité géométrique, pas deux tracés qui
+    divergent le long des mêmes frontières.
+    """
+
+    code: str
+    name: str
+    #: Code de la région d'appartenance — None pour une région elle-même.
+    region_code: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class MunicipalityBoundary:
     """Limite communale normalisée, prête pour `geo.municipalities`."""
 

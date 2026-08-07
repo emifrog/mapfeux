@@ -19,7 +19,7 @@ from typing import Any
 
 import httpx
 
-from geo_worker.providers.models import MunicipalityBoundary
+from geo_worker.providers.models import AdministrativeUnit, MunicipalityBoundary
 
 PROVIDER_KEY = "ign_admin_express"
 
@@ -29,6 +29,12 @@ BASE_URL = "https://geo.api.gouv.fr"
 _FIELDS = "nom,code,codesPostaux,centre,surface,codeDepartement"
 
 _INSEE_PATTERN = re.compile(r"^(?:\d{5}|2[AB]\d{3})$")
+
+# Départements métropolitains et Corse — la vague A. Les DROM ont trois
+# chiffres et arrivent en vague B, avec leurs fuseaux et leurs fonds.
+_DEPARTMENT_PATTERN = re.compile(r"^(?:\d{2}|2[AB])$")
+
+_REGION_PATTERN = re.compile(r"^\d{2}$")
 
 # La surface est publiée en hectares.
 _HECTARES_PER_KM2 = 100.0
@@ -161,6 +167,56 @@ def parse_feature_collection(
     return boundaries, rejections
 
 
+def parse_regions_payload(payload: Any) -> tuple[list[AdministrativeUnit], list[str]]:
+    """Normalise la liste des régions. Une entrée invalide est comptée, pas fatale."""
+    if not isinstance(payload, list):
+        raise BoundaryParseError("Réponse régions : liste attendue.")
+
+    units: list[AdministrativeUnit] = []
+    rejections: list[str] = []
+    for index, entry in enumerate(payload):
+        if not isinstance(entry, dict):
+            rejections.append(f"région {index} : format inattendu")
+            continue
+        code = str(entry.get("code", "")).strip()
+        name = str(entry.get("nom", "")).strip()
+        if _REGION_PATTERN.match(code) is None:
+            rejections.append(f"région {index} : code invalide {code!r}")
+            continue
+        if name == "":
+            rejections.append(f"région {code} : sans nom")
+            continue
+        units.append(AdministrativeUnit(code=code, name=name, region_code=None))
+    return units, rejections
+
+
+def parse_departments_payload(payload: Any) -> tuple[list[AdministrativeUnit], list[str]]:
+    """Normalise la liste des départements métropolitains."""
+    if not isinstance(payload, list):
+        raise BoundaryParseError("Réponse départements : liste attendue.")
+
+    units: list[AdministrativeUnit] = []
+    rejections: list[str] = []
+    for index, entry in enumerate(payload):
+        if not isinstance(entry, dict):
+            rejections.append(f"département {index} : format inattendu")
+            continue
+        code = str(entry.get("code", "")).strip().upper()
+        name = str(entry.get("nom", "")).strip()
+        region = str(entry.get("codeRegion", "")).strip()
+        if _DEPARTMENT_PATTERN.match(code) is None:
+            rejections.append(f"département {index} : code invalide {code!r}")
+            continue
+        if name == "":
+            rejections.append(f"département {code} : sans nom")
+            continue
+        if _REGION_PATTERN.match(region) is None:
+            rejections.append(f"département {code} : région invalide {region!r}")
+            continue
+        units.append(AdministrativeUnit(code=code, name=name, region_code=region))
+    return units, rejections
+
+
 class AdminBoundariesProvider:
     """Adaptateur HTTP. Cahier §30.1 : le métier ne connaît que les modèles."""
 
@@ -182,3 +238,23 @@ class AdminBoundariesProvider:
         response.raise_for_status()
 
         return parse_feature_collection(response.json(), version or source_version())
+
+    def fetch_regions(self) -> tuple[list[AdministrativeUnit], list[str]]:
+        """Liste des régions — codes et noms seulement, sans géométrie."""
+        response = self._client.get(
+            f"{self._base_url}/regions",
+            params={"fields": "nom,code"},
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        return parse_regions_payload(response.json())
+
+    def fetch_departments(self) -> tuple[list[AdministrativeUnit], list[str]]:
+        """Départements métropolitains et Corse, avec leur région (`zone=metro`)."""
+        response = self._client.get(
+            f"{self._base_url}/departements",
+            params={"fields": "nom,code,codeRegion", "zone": "metro"},
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        return parse_departments_payload(response.json())
