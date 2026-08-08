@@ -124,8 +124,35 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Dépouiller `croise-sous-corpus.csv` et retenir les finalistes à rejouer sur
-le corpus complet.**
+**Clore la calibration : la validation des finalistes tourne sur le corpus
+complet, le dépouillement est rendu.**
+
+Dépouillement du 8 août, sur les 112 jeux et l'inspection des quatre têtes de
+liste :
+
+- **La référence `grouping-v1` (r2500, w24, s0.35) gagne.** Trois cribles —
+  Landiras intact, pas de chaînage, part étayée — ne laissent que la famille
+  `w24 × s0.35-0.50` plus deux compensations extrêmes (`w48-s0.65`).
+  L'inspection tranche : la référence capture le plus de Landiras (2 069
+  détections, profil quotidien continu, 132 h) tout en tenant La Teste-de-Buch
+  **séparée** ; r1500 perd 543 détections du vrai feu sans rien gagner ;
+  l'intrus r4000-w48-s0.65 capture *moins* de Landiras que la référence — son
+  seuil rejette les bords faibles d'un feu réel. Dominé, éliminé.
+- **Aucun jeu ne résout Berre — et c'est la leçon.** Les quatre inspections
+  produisent le **même** pseudo-événement industriel : 622 détections,
+  **529 h (22 jours)**, diagonale 4,3 km, à 43.443/4.892 (Fos-sur-Mer). Une
+  torchère émet chaque jour au même endroit : toute fenêtre qui enjambe les
+  nuits d'un vrai feu la chaîne. Le remède n'est pas un paramètre, c'est le
+  **masque des sources statiques (J10)** — la strate industrielle du
+  sous-corpus a été construite pour prouver exactement cela, et l'événement
+  de Fos devient le **test d'acceptation du masque** : après J10, il doit
+  être classé source connue, pas servi comme événement.
+- La validation des trois finalistes (`r2500/r2000/r1500 × w24-s0.35`) sur
+  les quatorze saisons est **en cours** — corpus complet rebasculé
+  (`--remplacer`), résultats attendus dans
+  `data/calibration/jeux-finalistes.csv`. Si le classement du sous-corpus s'y
+  confirme, `grouping-v1` est **gelé** et la prochaine action devient le
+  registre spatial des sources statiques (J10).
 
 La question de la taille du balayage est tranchée par la troisième issue de la
 version précédente de cette section : **calibrer sur un sous-corpus
@@ -592,9 +619,8 @@ stables ; deux exécutions successives donnent le même résultat.
   l'archive publiée (alias → nom à empreinte), comptes posés en
   `feature-state`, lavis thermique translucide jusqu'au zoom 9, contour
   jusqu'au 12, clic vers `/territoires/[slug]` pour les seuls territoires
-  ouverts (FR-015). 🟢 et pas ✅ : la couche carto n'a pas encore été
-  **regardée** — le panneau de rendu était indisponible ; premier dézoom à
-  faire sur le serveur de dev resté lancé, ou après déploiement
+  ouverts (FR-015). ✅ le 8 août : couche **regardée et vérifiée** sur le
+  serveur de dev — lavis nationaux au dézoom, clic 06/83 vers leurs pages
 - ⚠️ L'agrégat a révélé une formulation publique fausse : l'accueil
   affirmait « les détections ne sont importées que sur ces départements »
   alors que **l'ingestion FIRMS est nationale depuis le 5 août** — 69
