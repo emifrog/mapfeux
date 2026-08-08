@@ -106,6 +106,12 @@ def _pending_detections(conn: psycopg.Connection[Any], limit: int | None) -> lis
               on ed.detection_id = d.id and ed.detection_acquired_at = d.acquired_at
             where ed.detection_id is null
               and d.is_public
+              -- Une détection classée source connue ne fonde ni ne rejoint un
+              -- événement : Fos-sur-Mer produisait un « événement » de 22
+              -- jours, invariant aux paramètres (dépouillement du 8 août).
+              -- Elle reste en base, publiable et classée — FR-036 : la
+              -- correspondance classe, elle ne supprime jamais.
+              and d.known_source_id is null
             order by d.acquired_at, d.provider_key
             limit %(limit)s
             """,
@@ -145,6 +151,7 @@ def pending_detection_count(conn: psycopg.Connection[Any]) -> int:
               on ed.detection_id = d.id and ed.detection_acquired_at = d.acquired_at
             where ed.detection_id is null
               and d.is_public
+              and d.known_source_id is null
             """
         )
         row = cur.fetchone()

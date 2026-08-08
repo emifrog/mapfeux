@@ -1,0 +1,14 @@
+{
+  "version": "sources-statiques-v1",
+  "detections_type2": 165629,
+  "zones_candidates": 52,
+  "sources_retenues": 45,
+  "detections_couvertes": 165576,
+  "couverture_pct": 100.0,
+  "empreinte": "d6da5446072dd50a",
+  "parametres": {
+    "grille_deg": 0.004,
+    "min_detections": 20,
+    "min_mois": 6
+  }
+}

@@ -770,14 +770,29 @@ confiance, et son remplacement conserve la version précédente.
 Phase 7 du cahier v2.1. Le corpus a déjà fourni la matière : 165 629
 détections `type = 2` sur quatorze ans.
 
-- ⬜ Registre spatial `fire.known_thermal_sources` dérivé du corpus —
-  agrégation des détections récurrentes — puis enrichi éditorialement
-  (§13.11, FR-035)
-- ⬜ Application par proximité au flux NRT : la colonne `type` n'existe pas en
-  temps réel ; la correspondance classe la détection, ne la supprime jamais
-  (FR-036)
-- ⬜ Mesure du changement d'empreinte de regroupement — après calibration,
-  jamais avant : l'ordre est acté au §5
+- ✅ **Registre spatial dérivé du corpus** (8 août) — règles versionnées
+  `sources-statiques-v1` dans `geo_worker.static_sources` (G1 grille ~400 m +
+  8-connexité, G2 récurrence ≥ 20 détections sur ≥ 6 mois, G3 rayon couvrant
+  borné, G4 clé déterministe pour rejeu, G5 catégorie `other` — la récurrence
+  se calcule, la nature du site se nomme éditorialement), 9 tests. Sur le
+  corpus réel : **45 sources couvrant 165 576 des 165 629 détections type 2**
+  (100 %), 468 cellules occupées en quatorze ans, toutes les zones sous 8 km
+  de diagonale — les deux géantes (70 797 et 56 053 détections) sont les
+  grands complexes industriels. Empreinte `d6da5446072dd50a`, compte rendu
+  versionné. Migration `20260808120000` : `source_key` unique, les entrées
+  éditoriales (clé nulle) restent intouchables par les rejeux, et un rejeu ne
+  réactive jamais une source désactivée par un administrateur
+- ✅ Application par proximité : `mark_known_thermal_sources` existait
+  (géographie, rayon par source) ; le chaînon manquant est posé — **le
+  regroupement ignore désormais les détections classées**
+  (`_pending_detections`), inerte tant que le registre est vide, donc
+  déployable sans à-coup. FR-036 tenu : classées, jamais supprimées ; leur
+  affichage brut (FR-034) viendra avec la couche z13+
+- 🟡 Mesure du changement d'empreinte : séquencée juste après la validation
+  des finalistes qui occupe la base de calibration — chargement du registre
+  (`build-known-sources.py --cible calibration`), reclassement rétroactif,
+  regroupement de référence, **test d'acceptation : l'événement de Fos
+  (622 détections, 22 jours) doit disparaître en tant qu'événement**
 - ⬜ Réconciliation trimestrielle NRT/standard : import de l'archive,
   rapprochement par clés spatiotemporelles, corrections enregistrées comme
   enrichissements, jamais comme réécritures (§16.3, FR-032)
