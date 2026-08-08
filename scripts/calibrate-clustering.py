@@ -17,6 +17,11 @@ copient tels quels — retaper des paramètres, c'est se tromper. C'est la passe
 de validation : classement sur le sous-corpus, finalistes seuls sur le corpus
 complet, une nuit au plus.
 
+`--reprendre` saute les jeux dont le CSV de destination porte déjà une ligne
+et complète le fichier au lieu de l'écraser. Trois balayages sont morts en
+deux jours — extinction du poste, timeout, mise en veille — et chaque relance
+re-payait les jeux acquis : la reprise rend l'interruption banale.
+
 Référence : cahier §17.2 et §24.8.
 
 Rejoue le regroupement complet du corpus pour chaque jeu de paramètres et
@@ -281,6 +286,14 @@ def output_name(argv: list[str]) -> str:
     return f"{base}.csv" if etiquette is None else f"{base}-{etiquette}.csv"
 
 
+def already_measured(destination: pathlib.Path) -> set[str]:
+    """Étiquettes déjà mesurées dans le CSV de destination, s'il existe."""
+    if not destination.exists():
+        return set()
+    with destination.open("r", encoding="utf-8", newline="") as handle:
+        return {row["version"] for row in csv.DictReader(handle) if row.get("version")}
+
+
 def main(argv: list[str]) -> int:
     if "--axes" in argv and "--jeux" in argv:
         raise SystemExit("--axes et --jeux sont exclusifs : un mode de grille à la fois.")
@@ -293,6 +306,16 @@ def main(argv: list[str]) -> int:
     else:
         grid = crossed_grid()
 
+    resume = "--reprendre" in argv
+    destination = RESULT_DIR / output_name(argv)
+    measured_before: set[str] = set()
+    if resume:
+        measured_before = already_measured(destination)
+        grid = [params for params in grid if params.version not in measured_before]
+        if not grid:
+            print(f"Rien à reprendre : {destination.relative_to(ROOT)} est complet.")
+            return 0
+
     # Base de calibration obligatoire : chaque jeu efface et réécrit les
     # événements, et sur le corpus complet le balayage dure des heures. Sur la
     # base de production, le site servirait pendant tout ce temps des
@@ -303,6 +326,8 @@ def main(argv: list[str]) -> int:
     # `flush` systématique : hors terminal, Python met la sortie en tampon par
     # blocs, et un balayage de plusieurs minutes ne montrerait rien avant la fin.
     print(f"base : {host}:{port}/{database}", flush=True)
+    if measured_before:
+        print(f"reprise : {len(measured_before)} jeu(x) déjà sur disque.", flush=True)
     print(f"{len(grid)} jeux de paramètres à comparer.\n", flush=True)
 
     header = (
@@ -313,13 +338,16 @@ def main(argv: list[str]) -> int:
     print("-" * len(header), flush=True)
 
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
-    destination = RESULT_DIR / output_name(argv)
     measured = 0
 
-    with destination.open("w", encoding="utf-8", newline="") as handle:
+    # En reprise sur un fichier déjà entamé, les lignes s'ajoutent à la suite ;
+    # dans tous les autres cas le fichier repart de l'en-tête.
+    append = bool(measured_before)
+    with destination.open("a" if append else "w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(FIELDNAMES))
-        writer.writeheader()
-        handle.flush()
+        if not append:
+            writer.writeheader()
+            handle.flush()
 
         def on_row(row: dict[str, Any]) -> None:
             # Une ligne mesurée est une ligne sur disque : l'extinction du

@@ -24,10 +24,13 @@ logger = get_logger(__name__)
 #: Compartiments connus, et ce qu'ils promettent.
 #:
 #: `cold` porte l'exception de rétention PR-1 : jamais purgé. `raw` est soumis à
-#: une rétention de trente jours, `derived` contient du régénérable.
+#: une rétention de trente jours, `derived` contient du régénérable. `tiles`
+#: est le seul compartiment **public** : il sert les tuiles vectorielles au
+#: navigateur, en lecture par requêtes de plage, sans jeton.
 BUCKET_RAW = "raw"
 BUCKET_DERIVED = "derived"
 BUCKET_COLD = "cold"
+BUCKET_TILES = "tiles"
 
 
 class StorageError(RuntimeError):
@@ -89,6 +92,7 @@ def upload_object(
     object_path: str,
     payload: bytes,
     content_type: str = "application/octet-stream",
+    cache_control: str | None = None,
     timeout: float = 180.0,
 ) -> str:
     """Dépose un objet et retourne son empreinte SHA-256.
@@ -100,19 +104,27 @@ def upload_object(
     `x-upsert` évite qu'un rejeu échoue sur un objet déjà présent : rejouer une
     passe doit être anodin, pas une erreur à diagnostiquer.
     """
+    headers = {
+        # Les clés `sb_secret_…` ne sont pas des JWT : Storage refuse de les
+        # analyser comme tel et répond « Invalid Compact JWS ». Elles se
+        # présentent en `apikey` ; l'en-tête `Authorization` reste envoyé
+        # pour les déploiements servant encore l'ancien format.
+        "apikey": secret_key,
+        "Authorization": f"Bearer {secret_key}",
+        "Content-Type": content_type,
+        "x-upsert": "true",
+    }
+    if cache_control is not None:
+        # Storage n'accepte que la forme stricte `max-age=N` — mesuré le
+        # 8 août : `public, max-age=…, immutable` est ignoré et l'objet ressort
+        # en `no-cache`, donc retéléchargé par chaque visiteur (§21.1). Le
+        # service ressert lui-même `public, max-age=N`.
+        headers["cache-control"] = cache_control
+
     response = client.post(
         f"{supabase_url.rstrip('/')}/storage/v1/object/{bucket}/{object_path}",
         content=payload,
-        headers={
-            # Les clés `sb_secret_…` ne sont pas des JWT : Storage refuse de les
-            # analyser comme tel et répond « Invalid Compact JWS ». Elles se
-            # présentent en `apikey` ; l'en-tête `Authorization` reste envoyé
-            # pour les déploiements servant encore l'ancien format.
-            "apikey": secret_key,
-            "Authorization": f"Bearer {secret_key}",
-            "Content-Type": content_type,
-            "x-upsert": "true",
-        },
+        headers=headers,
         timeout=timeout,
     )
 
@@ -131,6 +143,7 @@ __all__ = [
     "BUCKET_COLD",
     "BUCKET_DERIVED",
     "BUCKET_RAW",
+    "BUCKET_TILES",
     "ArchiveTarget",
     "StorageConfigError",
     "StorageError",

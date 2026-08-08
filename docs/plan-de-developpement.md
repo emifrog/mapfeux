@@ -1,8 +1,9 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 7 août 2026 — reliquats J1-J3 entamés : import
-national des communes lancé, « Autour de moi » posé, snapshots et fixture
-soldés ; balayage croisé relancé sur banc durci (écriture au fil de l'eau).
+**Dernière mise à jour** : 8 août 2026 — tuiles PMTiles générées, publiées et
+vérifiées (compartiment public, cache long, communes au zoom 11 — plafond du
+plan gratuit) ; le banc sait reprendre (`--reprendre`), balayage en reprise
+après sa troisième mort ; auth admin et territoires livrés la veille.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -134,19 +135,20 @@ coût : **102 à 161 s par jeu** sur ses 16 544 détections — moyenne ~123 s,
 réseau dominant, comme toujours — contre plus de dix minutes sur le corpus
 complet (`data/calibration/axes-sous-corpus.csv`).
 
-Le balayage croisé à 112 jeux est **en cours** — troisième tentative, relancée
-le 7 août à 18 h 35 sur banc durci. La première (6 août 23 h 22) est morte à
-l'extinction du poste après un jeu ; la deuxième (7 août 18 h 10) sur un
-`statement_timeout` que le banc traitait mal. Depuis : CSV écrit **au fil de
-l'eau** (une interruption ne perd plus rien), timeout de session à 10 min,
-échec d'un jeu isolé au lieu de fatal, rollback avant restauration.
+Le balayage croisé à 112 jeux est **en cours de reprise** — quatrième
+lancement, le 8 août à 10 h 12, après trois morts instructives : extinction du
+poste (6 août, un jeu perdu faute d'écriture au fil de l'eau), timeout mal
+traité (7 août 18 h 10), **mise en veille du poste** (7 août 20 h 56, 43 jeux
+acquis). Chaque mort a durci le banc : CSV au fil de l'eau, timeout de session,
+échec d'un jeu isolé, rollback avant restauration, et désormais
+**`--reprendre`** — les jeux déjà sur disque sont sautés, le fichier est
+complété au lieu d'être réécrit. L'interruption est devenue banale.
 
-⚠️ Le rythme réel est le double de la mesure `--axes` : les jeux serrés
-multiplient les événements et alourdissent nettoyage et mesures entre les
-passes — **~8 min par jeu constatés**, fin attendue le 8 août en matinée.
-**Laisser le poste allumé la nuit** (verrouillé, oui ; éteint, non). Résultats
-dans `data/calibration/croise-sous-corpus.csv` ; la base de calibration reste
-à tout instant sur le dernier jeu commité, jamais vide.
+Rythme réel mesuré : **~3,3 min par jeu** (43 jeux en 2 h 21 le 7 au soir).
+Reste 69 jeux ≈ 4 h — fin attendue le 8 août en début d'après-midi, **poste
+allumé et veille désactivée d'ici là**. Résultats dans
+`data/calibration/croise-sous-corpus.csv` ; la base de calibration reste à
+tout instant sur le dernier jeu commité, jamais vide.
 
 Au dépouillement :
 
@@ -568,7 +570,19 @@ stables ; deux exécutions successives donnent le même résultat.
 - ✅ Légende avec pastille **et** libellé, expliquant que la taille d'un marqueur
   suit le nombre d'observations et non la gravité (FR-049)
 - ✅ `GET /api/v1/events`, emprise obligatoire, rechargement au déplacement (FR-007)
-- ⬜ **Génération PMTiles**, sans GeoJSON national servi en direct
+- ✅ **Génération et publication PMTiles** (8 août) — trois couches issues de
+  la base (`regions` z4-6, `departements` z4-11, `communes` z10-11, statut
+  d'ouverture dans les attributs), découpées par PostGIS (`ST_AsMVT`, une
+  requête par zoom×bande×couche), assemblées par `geo_worker.tiles` +
+  `pipelines/admin_tiles` (12 tests), publiées dans le compartiment public
+  `tiles` (migration `20260807220000`) sous nom à empreinte + alias JSON
+  mutable — bascule atomique, archive avant alias. 4 569 tuiles, 41,6 Mo,
+  189 s de génération ; lecture par requêtes de plage vérifiée (206), cache
+  long vérifié en métadonnée (Storage n'accepte que la forme stricte
+  `max-age=N`). Les communes s'arrêtent au zoom 11 : plafond d'envoi de 50 Mo
+  du plan Supabase gratuit — le sur-zoom MapLibre couvre au-delà, et le
+  retour au z12 est une ligne documentée sur le `PLAN`. Aucun GeoJSON
+  national ne sera servi en direct : le front n'a plus d'excuse
 - ⬜ Agrégation par département à l'échelle nationale (§21.3)
 - ✅ **Géométries des régions et départements** — import du 7 août
   (`scripts/import-territories.py`, 71 s) : 94 départements et 12 régions
@@ -976,7 +990,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Réponse à la première erreur publique | Runbook éditorial absent | Avant J6 |
 | MFA super_admin non appliquée | La contrainte en base exige `mfa_required` pour `super_admin`, mais l'enrôlement TOTP n'existe pas (§14.4). D'ici J5, ne pas employer de compte super_admin au quotidien — `grant-admin.py` l'affiche | J5 |
 | `fires_in_bbox` sous son nom historique | L'API publique dit désormais `events` (cahier v2.1 §15.2) ; la fonction SQL interne garde son nom — la renommer passe par une migration, sans bénéfice public | Libre |
-| Le banc ne reprend pas où il s'est arrêté | Une relance re-mesure depuis le premier jeu ; le CSV au fil de l'eau conserve l'acquis mais rien ne saute les jeux déjà mesurés. Supportable tant qu'un balayage tient dans une nuit ; à outiller si un troisième accident le réclame | Libre |
+| Le banc ne reprend pas où il s'est arrêté | Traité le 8 août : le troisième accident (mise en veille) l'a réclamé, comme prévu. `--reprendre` saute les jeux déjà sur disque et complète le CSV | Traité |
 
 ---
 

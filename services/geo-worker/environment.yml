@@ -84,3 +84,7 @@ dependencies:
       - opentelemetry-api
       - opentelemetry-sdk
       - opentelemetry-exporter-otlp
+      # Écriture des archives de tuiles vectorielles (J3). Le découpage des
+      # géométries reste dans PostGIS (ST_AsMVT) ; cette bibliothèque ne fait
+      # qu'assembler le fichier au format PMTiles v3.
+      - pmtiles

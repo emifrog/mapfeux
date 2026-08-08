@@ -50,7 +50,16 @@ disallow_untyped_defs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["cfgrib.*", "rasterio.*", "geopandas.*", "shapely.*", "apscheduler.*", "scipy.*"]
+module = [
+  "cfgrib.*",
+  "rasterio.*",
+  "geopandas.*",
+  "shapely.*",
+  "apscheduler.*",
+  "scipy.*",
+  # Écrivain PMTiles : pas de stubs publiés.
+  "pmtiles.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
