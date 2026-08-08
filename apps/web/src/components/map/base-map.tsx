@@ -4,10 +4,73 @@ import { DEFAULT_VIEW, ignVectorStyleUrl } from '@mapfeux/map-style';
 import maplibregl from 'maplibre-gl';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
+import { Protocol } from 'pmtiles';
 
-import { addEventLayer, CLICKABLE_LAYER_IDS, updateEventLayer, type MapEvent } from './event-layer';
+import { publicEnv } from '@/lib/env';
+
+import {
+  addDepartmentLayer,
+  DEPARTMENTS_FILL_LAYER_ID,
+  setDepartmentAggregates,
+  type DepartmentAggregate,
+} from './department-layer';
+import {
+  addEventLayer,
+  CLICKABLE_LAYER_IDS,
+  EVENTS_CIRCLE_LAYER_ID,
+  EVENTS_HALO_LAYER_ID,
+  EVENTS_TAIL_LAYER_ID,
+  updateEventLayer,
+  type MapEvent,
+} from './event-layer';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
+
+// Le protocole `pmtiles://` s'enregistre une fois pour tout le module : c'est
+// un registre global de MapLibre, pas un état de composant.
+let pmtilesProtocolRegistered = false;
+
+function registerPmtilesProtocol(): void {
+  if (pmtilesProtocolRegistered) return;
+  maplibregl.addProtocol('pmtiles', new Protocol().tile);
+  pmtilesProtocolRegistered = true;
+}
+
+/**
+ * URL de l'archive de tuiles courante, résolue par l'alias publié à côté
+ * d'elle. L'archive porte son empreinte dans son nom et se met en cache un
+ * an ; l'alias, minuscule et à cache court, est le seul point mutable —
+ * c'est la bascule atomique du §21.1.
+ */
+async function resolveTilesUrl(): Promise<string | null> {
+  const base = `${publicEnv.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/tiles`;
+  try {
+    const response = await fetch(`${base}/limites-administratives.json`);
+    if (!response.ok) return null;
+    const alias = (await response.json()) as { objet?: string };
+    return typeof alias.objet === 'string' ? `${base}/${alias.objet}` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Agrégats départementaux des sept derniers jours. FR-003.
+ *
+ * Un échec laisse simplement les départements sans lavis : le fond, les
+ * contours et les événements restent — une couche indisponible ne condamne
+ * jamais la carte (§2.4).
+ */
+async function loadDepartmentAggregates(map: maplibregl.Map): Promise<void> {
+  try {
+    const response = await fetch('/api/v1/events/departments');
+    if (!response.ok) return;
+    const payload = (await response.json()) as { data: DepartmentAggregate[] };
+    setDepartmentAggregates(map, payload.data);
+  } catch {
+    // Silencieux : voir ci-dessus.
+  }
+}
 
 /**
  * Carte MapLibre.
@@ -114,6 +177,8 @@ export default function BaseMap({
     const container = containerRef.current;
     if (container === null || mapRef.current !== null) return;
 
+    registerPmtilesProtocol();
+
     // `exactOptionalPropertyTypes` interdit de passer `maxBounds: undefined` :
     // la propriété est ajoutée seulement lorsqu'elle a une valeur.
     const boundsOption = bounded
@@ -147,6 +212,45 @@ export default function BaseMap({
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
     map.on('load', () => {
+      // Les départements d'abord, les événements ensuite : les lavis
+      // d'agrégats restent sous les marqueurs.
+      void resolveTilesUrl().then((tilesUrl) => {
+        if (tilesUrl === null || mapRef.current === null) return;
+        addDepartmentLayer(map, tilesUrl);
+        // Sous les événements : chaque couche d'événements repasse au-dessus,
+        // dans son ordre d'origine — traîne, halo, disque.
+        for (const layerId of [
+          EVENTS_TAIL_LAYER_ID,
+          EVENTS_HALO_LAYER_ID,
+          EVENTS_CIRCLE_LAYER_ID,
+        ]) {
+          if (map.getLayer(layerId) !== undefined) {
+            map.moveLayer(layerId);
+          }
+        }
+        void loadDepartmentAggregates(map);
+
+        // Un clic sur un département ouvert mène à sa page ; un département
+        // « à venir » n'est pas cliquable — pas de page à promettre (FR-015).
+        map.on('click', DEPARTMENTS_FILL_LAYER_ID, (event) => {
+          if (map.getZoom() >= 9) return;
+          const properties = event.features?.[0]?.properties ?? {};
+          const statut = properties['statut'];
+          const slug = properties['slug'];
+          if ((statut === 'pilot' || statut === 'active') && typeof slug === 'string') {
+            router.push(`/territoires/${slug}`);
+          }
+        });
+        map.on('mousemove', DEPARTMENTS_FILL_LAYER_ID, (event) => {
+          if (map.getZoom() >= 9) return;
+          const statut = event.features?.[0]?.properties?.['statut'];
+          map.getCanvas().style.cursor = statut === 'pilot' || statut === 'active' ? 'pointer' : '';
+        });
+        map.on('mouseleave', DEPARTMENTS_FILL_LAYER_ID, () => {
+          map.getCanvas().style.cursor = '';
+        });
+      });
+
       addEventLayer(map, eventsRef.current);
 
       // Un clic ouvre la fiche : la carte oriente vers l'événement, elle ne

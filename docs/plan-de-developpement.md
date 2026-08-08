@@ -583,7 +583,26 @@ stables ; deux exécutions successives donnent le même résultat.
   du plan Supabase gratuit — le sur-zoom MapLibre couvre au-delà, et le
   retour au z12 est une ligne documentée sur le `PLAN`. Aucun GeoJSON
   national ne sera servi en direct : le front n'a plus d'excuse
-- ⬜ Agrégation par département à l'échelle nationale (§21.3)
+- 🟢 **Agrégation par département à l'échelle nationale** (8 août) —
+  `api.department_event_aggregates` compte depuis la **même vue** que la
+  carte (cohérence par construction), rattachement spatial aux territoires
+  avec repli sur le préfixe INSEE ; route `GET /api/v1/events/departments`
+  (fenêtre 7 jours par défaut) **exercée : 200 en ~200 ms, 69 départements**.
+  Côté carte : protocole `pmtiles://`, polygones départementaux depuis
+  l'archive publiée (alias → nom à empreinte), comptes posés en
+  `feature-state`, lavis thermique translucide jusqu'au zoom 9, contour
+  jusqu'au 12, clic vers `/territoires/[slug]` pour les seuls territoires
+  ouverts (FR-015). 🟢 et pas ✅ : la couche carto n'a pas encore été
+  **regardée** — le panneau de rendu était indisponible ; premier dézoom à
+  faire sur le serveur de dev resté lancé, ou après déploiement
+- ⚠️ L'agrégat a révélé une formulation publique fausse : l'accueil
+  affirmait « les détections ne sont importées que sur ces départements »
+  alors que **l'ingestion FIRMS est nationale depuis le 5 août** — 69
+  départements portaient des événements. Corrigé sur l'accueil et sur la
+  branche « non ouvert » de la page commune (écrite la veille sur la même
+  hypothèse erronée) : « ouvert » parle d'éditorial — page dédiée, liens
+  vérifiés — jamais de couverture des données. **Formulations à faire
+  valider métier.** Troisième cas du piège « phrase d'attente »
 - ✅ **Géométries des régions et départements** — import du 7 août
   (`scripts/import-territories.py`, 71 s) : 94 départements et 12 régions
   créés en `draft`, 06/83 et PACA complétés sans toucher à leur statut ni à

@@ -376,6 +376,55 @@ export interface BoundingBox {
   maxLat: number;
 }
 
+export interface DepartmentAggregateRow {
+  departmentCode: string;
+  departmentSlug: string;
+  departmentStatus: string;
+  events: number;
+  substantiated: number;
+  lastDetectedAt: Date;
+}
+
+/**
+ * Comptes d'événements visibles par département. FR-003 et §21.2.
+ *
+ * L'agrégat est calculé en base depuis la même vue que la carte : ce que la
+ * vue masque, l'agrégat l'ignore par construction. Un département absent du
+ * résultat n'a simplement aucun événement sur la période.
+ */
+export async function fetchDepartmentAggregates(since: Date): Promise<DepartmentAggregateRow[]> {
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase.rpc('department_event_aggregates', {
+    since: since.toISOString(),
+  });
+
+  if (error !== null) {
+    console.error('[events] agrégats départementaux indisponibles', {
+      code: error.code,
+      message: error.message,
+    });
+    return [];
+  }
+
+  type Row = {
+    department_code: string;
+    department_slug: string;
+    department_status: string;
+    events: number;
+    substantiated: number;
+    last_detected_at: string;
+  };
+
+  return ((data ?? []) as Row[]).map((row) => ({
+    departmentCode: row.department_code,
+    departmentSlug: row.department_slug,
+    departmentStatus: row.department_status,
+    events: row.events,
+    substantiated: row.substantiated,
+    lastDetectedAt: new Date(row.last_detected_at),
+  }));
+}
+
 /**
  * Événements d'une emprise. Cahier FR-007 et §15.4.
  *

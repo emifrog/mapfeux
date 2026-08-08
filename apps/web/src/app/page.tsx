@@ -82,9 +82,16 @@ export default async function HomePage() {
               </li>
             ))}
           </ul>
+          {/*
+            ⚠️ Formulation publique corrigée le 8 août sans validation métier
+            préalable : la phrase précédente — « les détections ne sont
+            importées que sur ces départements » — était fausse depuis la mise
+            en service du 5 août, l'ingestion FIRMS couvrant la France entière.
+            Les agrégats départementaux l'ont rendue visible. À faire relire.
+          */}
           <p className="text-small text-(--text-2) mt-4">
-            Les détections ne sont importées que sur ces départements. Ailleurs, l’absence
-            d’événement ne signifie rien.
+            Les détections satellitaires couvrent la France entière. Ces territoires pilotes
+            disposent en plus d’une page dédiée et de liens officiels vérifiés.
           </p>
         </section>
       )}

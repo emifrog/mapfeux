@@ -77,6 +77,8 @@ export const sourceStateSchema = z.object({
 export const responseMetaSchema = z.object({
   generatedAt: isoInstantSchema,
   lastKnownSnapshotAt: isoInstantSchema.nullable().optional(),
+  /** Début de la fenêtre couverte, pour les réponses agrégées sur une période. */
+  since: isoInstantSchema.optional(),
   sources: z.record(z.string(), sourceStateSchema),
   disclaimer: z.string().optional(),
 });

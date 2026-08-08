@@ -107,11 +107,17 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
           renvoie où l'information se trouve.
 
           Depuis l'import national des communes, cette page existe aussi hors
-          des territoires pilotes, où « les détections sont importées » serait
-          à son tour une affirmation fausse. La formulation est donc
-          conditionnée à la donnée — le département est-il un territoire
-          ouvert ? — et non au calendrier : elle bascule d'elle-même le jour où
-          le territoire ouvre, sans qu'il faille se souvenir de cette page.
+          des territoires pilotes. La formulation est conditionnée à la donnée
+          — le département est-il un territoire ouvert ? — et non au
+          calendrier : elle bascule d'elle-même le jour où le territoire
+          ouvre, sans qu'il faille se souvenir de cette page.
+
+          Corrigé le 8 août : la première version de la branche « non ouvert »
+          affirmait que les détections n'y étaient pas importées. C'était
+          faux — l'ingestion FIRMS est nationale depuis le 5 août, seule la
+          couche territoriale (page dédiée, liens officiels) est pilote. Les
+          agrégats départementaux l'ont rendu visible. Être « ouvert » parle
+          d'éditorial, jamais de couverture des données.
         */}
         {municipality.departmentSlug !== null ? (
           <p className="text-(--text-2) mt-3 max-w-[68ch]">
@@ -128,16 +134,17 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
           </p>
         ) : (
           <p className="text-(--text-2) mt-3 max-w-[68ch]">
-            Ce département n’est pas encore un territoire ouvert : les détections thermiques n’y
-            sont pas encore importées. Les territoires ouverts sont listés sur l’
-            <Link href="/" className="underline underline-offset-4">
-              accueil
-            </Link>
-            , et l’
+            Les détections thermiques sont importées sur la France entière, mais ce département
+            n’est pas encore un territoire ouvert : sa page dédiée et ses liens officiels vérifiés
+            restent à venir. La{' '}
+            <Link href="/carte" className="underline underline-offset-4">
+              carte
+            </Link>{' '}
+            montre les événements de la zone, et l’
             <Link href="/statut" className="underline underline-offset-4">
               état des données
             </Link>{' '}
-            indique ce qui est en service.
+            indique depuis quand la donnée date.
           </p>
         )}
         <p className="text-small text-(--text-3) mt-3 max-w-[68ch]">

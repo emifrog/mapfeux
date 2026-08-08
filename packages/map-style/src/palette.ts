@@ -95,6 +95,36 @@ export const FRESHNESS_COLOR_EXPRESSION = [
   PALETTE.thermal.archived,
 ] as const;
 
+/**
+ * Remplissage d'un département selon son nombre d'événements récents (FR-003).
+ *
+ * La rampe reste dans la famille thermique — un agrégat d'observations
+ * thermiques est une information thermique — mais en lavis translucide :
+ * l'aplat opaque appartient aux événements eux-mêmes. Zéro événement rend le
+ * département invisible : l'absence de signal n'est pas une information à
+ * peindre, et la valeur vient d'un `feature-state` posé après chargement —
+ * `coalesce` couvre l'état pas encore renseigné.
+ *
+ * Les teintes sont les rgba de PALETTE.thermal.recent et .new.
+ */
+export const DEPARTMENT_EVENTS_FILL_EXPRESSION = [
+  'interpolate',
+  ['linear'],
+  ['coalesce', ['feature-state', 'events'], 0],
+  0,
+  'rgba(238, 87, 24, 0)',
+  1,
+  'rgba(238, 87, 24, 0.16)',
+  10,
+  'rgba(238, 87, 24, 0.34)',
+  50,
+  'rgba(206, 37, 22, 0.5)',
+] as const;
+
+/** Contour départemental : neutre et discret, le fond IGN reste lisible. */
+export const DEPARTMENT_OUTLINE_COLOR = PALETTE.boundary;
+export const DEPARTMENT_OUTLINE_OPACITY = 0.6;
+
 /** Bucket d'âge d'une observation, pour la légende et la liste textuelle. */
 export function ageBucket(hours: number): 'new' | 'recent' | 'notRecent' | 'archived' {
   if (hours < AGE_BUCKETS_HOURS.new) return 'new';
