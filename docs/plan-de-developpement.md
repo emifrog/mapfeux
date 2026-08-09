@@ -124,8 +124,25 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Clore la calibration : la validation des finalistes tourne sur le corpus
-complet, le dépouillement est rendu.**
+**Appliquer le masque des sources statiques en production.**
+
+La calibration est **close** : `grouping-v1` gelé, masque mesuré, test de Fos
+réussi (voir J10). Le code du masque est déjà déployé et inerte — le registre
+de production est vide. L'appliquer tient en une commande :
+
+```
+micromamba run -n mapfeux-geo python scripts/build-known-sources.py --cible production
+```
+
+Conséquences publiques à assumer avant de lancer : les détections
+industrielles récurrentes sont classées (jamais supprimées), les
+pseudo-événements existants — dont « Fos-sur-Mer, 141 détections » visible au
+catalogue — cessent d'être alimentés et s'archivent en sept jours ; les
+nouveaux ne naissent plus. Retirer aussi `DEMO-2607A1` (dette « Immédiat »).
+
+---
+
+Dossier de la calibration close — dépouillement du 8-9 août :
 
 Dépouillement du 8 août, sur les 112 jeux et l'inspection des quatre têtes de
 liste :
@@ -823,11 +840,24 @@ détections `type = 2` sur quatorze ans.
   (`_pending_detections`), inerte tant que le registre est vide, donc
   déployable sans à-coup. FR-036 tenu : classées, jamais supprimées ; leur
   affichage brut (FR-034) viendra avec la couche z13+
-- 🟡 Mesure du changement d'empreinte : séquencée juste après la validation
-  des finalistes qui occupe la base de calibration — chargement du registre
-  (`build-known-sources.py --cible calibration`), reclassement rétroactif,
-  regroupement de référence, **test d'acceptation : l'événement de Fos
-  (622 détections, 22 jours) doit disparaître en tant qu'événement**
+- ✅ **Mesure du masque, test d'acceptation réussi** (9 août, sur le
+  sous-corpus) — 45 sources chargées, **6 890 détections classées** (41,6 %
+  du sous-corpus), regroupement de référence rejoué : **331 événements
+  contre 701**, arithmétique exacte (6 890 classées + 9 654 regroupées =
+  16 544, zéro fuite). Le pseudo-événement de Fos (622 détections, 22 jours)
+  **n'existe plus** : il ne reste autour du site que des résidus de 1 à 3
+  détections sur 2 h au plus, la traîne honnête. Landiras intact **au point
+  près** (2 069), La Teste séparée (1 000) : le masque n'a mangé aucun feu
+  réel. FR-036 tenu : les 6 890 classées restent toutes publiables.
+  L'empreinte de référence change par construction — ce dossier est la
+  nouvelle base de comparaison
+- ✅ **`grouping-v1` gelé.** Dossier : balayage croisé 112 jeux, inspections
+  des quatre têtes de liste, mesure du masque. La validation sur corpus
+  complet a été **abandonnée en connaissance de cause** : le premier jeu
+  comptait 11,2 h de CPU saturé sans terminer — deux tentatives, deux
+  interruptions de session, un constat. Le classement était déjà établi par
+  deux voies indépendantes ; payer trois fois dix heures n'aurait rien
+  départagé. Le chiffre nourrit la dette « regroupement encore lent » (§15)
 - ⬜ Réconciliation trimestrielle NRT/standard : import de l'archive,
   rapprochement par clés spatiotemporelles, corrections enregistrées comme
   enrichissements, jamais comme réécritures (§16.3, FR-032)
@@ -1074,7 +1104,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | `app.official_messages` inutilisable par une ingestion | La table exige un `created_by` humain et un `validated_by` : la vigilance a donc ses propres tables. La [décision §8.3](strategie.md#83-validation-humaine-des-informations-officielles) reste ouverte pour les sources en texte libre | J4 |
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service. ⚠️ Phrase d'attente à retirer le jour de la mise en service (J9) | J9 |
-| Regroupement encore lent | Le coût quadratique des agrégats est levé, mais il reste une requête de candidats par détection. À surveiller avant la montée en charge (§6.3) | J6 |
+| Regroupement encore lent | Chiffré le 9 août : **11,2 h de CPU saturé sans terminer un seul regroupement complet des quatorze saisons** (337 757 détections, recherche de candidats en mémoire). Les passes incrémentales de production restent rapides (orphelines seules), mais tout recalcul complet à l'échelle est impraticable — la structure de voisinage se paie par détection × événements. À traiter avant la montée en charge (§6.3) | J6 |
 | Coût d'un jeu de calibration | Borné par le sous-corpus (16 544 détections) : le classement des 112 jeux se fait dessus, le corpus complet ne sert plus qu'à rejouer les finalistes, une nuit au plus. Mesure du 6 août au §2 | Traité |
 | `cluster-detections.py` vise encore la production | Traité le 6 août : bascule `--calibration` posée, cible affichée avant d'agir. L'usage production reste légitime — reprise manuelle aux paramètres de référence | Traité |
 | N21 sans corpus retraité | 30 180 lignes — 8,9 % du corpus — de janvier 2024 à août 2026, servies en NRT faute d'archive publiée par FIRMS. Ni retraitement scientifique, ni `type` : les deux saisons les plus récentes sont partiellement non étiquetées | J2 |
