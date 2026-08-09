@@ -79,6 +79,8 @@ export const responseMetaSchema = z.object({
   lastKnownSnapshotAt: isoInstantSchema.nullable().optional(),
   /** Début de la fenêtre couverte, pour les réponses agrégées sur une période. */
   since: isoInstantSchema.optional(),
+  /** Curseur de la page suivante, opaque. Absent : dernière page. §15.1 */
+  nextCursor: z.string().optional(),
   sources: z.record(z.string(), sourceStateSchema),
   disclaimer: z.string().optional(),
 });

@@ -671,13 +671,22 @@ milieu de gamme ; la carte reste utilisable si FIRMS est indisponible.
 Premier des quatre jalons réintégrés par la décision D-0 (phase 4 du cahier
 v2.1, gate G4 Alpha) : ce qui transforme une fiche en expérience FeuScope.
 
-- ⬜ Catalogue national `/evenements` : carte et liste synchronisées, filtres
-  territoire, période, niveau de vérification, source, capteur, périmètre
-  disponible et information officielle, tris explicites (FR-050 à FR-052,
-  FR-055)
-- ⬜ Archives `/archives` avec pagination par curseur (FR-053)
-- ⬜ Vue textuelle complète du catalogue, utilisable sans interaction
-  cartographique (FR-054)
+- ✅ **Catalogue national `/evenements`** (9 août) — liste SSR nationale triée
+  par dernière observation (FR-052, aucun classement par « importance » —
+  FR-055), filtres période (fenêtres FR-005), département et niveau de
+  vérification, **pagination par jeu de clés** sur
+  (`last_detected_at`, `public_id`) — le curseur, opaque mais décodable, ne
+  transporte que des valeurs publiques, jamais l'identifiant interne. Fonction
+  `api.events_catalog` (migration rejouable), endpoint unique `GET
+  /api/v1/events` à deux régimes — avec `bbox` la carte, sans `bbox` le
+  catalogue (§15.2). Exercé sur serveur local contre la production : liste
+  nationale, filtre Moselle 24 h (23 évts), pagination aller-retour à 50 par
+  page, formulaire et curseur fonctionnels **sans JavaScript** (FR-054 tenue
+  par construction). Carte de page : les composants de /carte, agrégats
+  compris. Filtres source/capteur/périmètre/info officielle : quand les
+  objets existeront (J9, J4)
+- ⬜ Archives `/archives` (FR-053) — le curseur est prêt, la page dédiée aux
+  événements archivés reste à poser
 - ⬜ Slug éditorial facultatif `/evenements/[publicId]/[slug?]` (FR-042, FR-060)
 - ⬜ Relecture temporelle : curseur entre première observation et dernier état,
   lecture automatique, parcours clavier et alternative textuelle, données

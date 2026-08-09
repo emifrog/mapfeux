@@ -376,6 +376,119 @@ export interface BoundingBox {
   maxLat: number;
 }
 
+/**
+ * Curseur du catalogue : (dernière observation, identifiant public), encodé
+ * base64url. Opaque pour le consommateur, mais décodable — il ne transporte
+ * donc que des valeurs déjà publiques (§15.1), jamais l'identifiant interne.
+ */
+export interface CatalogCursor {
+  lastDetectedAt: Date;
+  publicId: string;
+}
+
+export function encodeCatalogCursor(cursor: CatalogCursor): string {
+  return Buffer.from(`${cursor.lastDetectedAt.toISOString()}|${cursor.publicId}`, 'utf8').toString(
+    'base64url',
+  );
+}
+
+const PUBLIC_ID_IN_CURSOR = /^[A-Z0-9-]{4,32}$/;
+
+/** Rend `null` si le curseur est illisible — l'appelant décide de la suite. */
+export function decodeCatalogCursor(raw: string): CatalogCursor | null {
+  try {
+    const decoded = Buffer.from(raw, 'base64url').toString('utf8');
+    const [iso, publicId] = decoded.split('|');
+    if (iso === undefined || publicId === undefined) return null;
+    const lastDetectedAt = new Date(iso);
+    if (Number.isNaN(lastDetectedAt.getTime())) return null;
+    if (!PUBLIC_ID_IN_CURSOR.test(publicId)) return null;
+    return { lastDetectedAt, publicId };
+  } catch {
+    return null;
+  }
+}
+
+export interface CatalogFilters {
+  since?: Date;
+  until?: Date;
+  department?: string;
+  verification?: string;
+  cursor?: CatalogCursor;
+  limit?: number;
+}
+
+/**
+ * Catalogue national, trié par dernière observation (FR-052), sans emprise :
+ * la borne est la pagination par jeu de clés, pas une bbox. FR-050 à FR-055.
+ */
+export async function fetchEventsCatalog(
+  filters: CatalogFilters = {},
+): Promise<{ events: EventSummary[]; nextCursor: string | null }> {
+  const supabase = createPublicReadClient();
+  const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100);
+
+  const { data, error } = await supabase.rpc('events_catalog', {
+    since: filters.since?.toISOString() ?? null,
+    until_at: filters.until?.toISOString() ?? null,
+    department: filters.department ?? null,
+    verification: filters.verification ?? null,
+    cursor_last: filters.cursor?.lastDetectedAt.toISOString() ?? null,
+    cursor_public: filters.cursor?.publicId ?? null,
+    max_results: limit,
+  });
+
+  if (error !== null) {
+    console.error('[events] catalogue indisponible', {
+      code: error.code,
+      message: error.message,
+    });
+    return { events: [], nextCursor: null };
+  }
+
+  type Row = {
+    public_id: string;
+    freshness_status: EventFreshness;
+    verification_status: VerificationStatus;
+    official_control_status: OfficialControlStatus | null;
+    first_detected_at: string;
+    last_detected_at: string;
+    longitude: number;
+    latitude: number;
+    detection_count: number;
+    confidence_level: ConfidenceLevel;
+    nearest_municipality_code: string | null;
+    nearest_municipality_name: string | null;
+  };
+
+  const events = ((data ?? []) as Row[]).map((row) => ({
+    publicId: row.public_id,
+    freshnessStatus: row.freshness_status,
+    verificationStatus: row.verification_status,
+    officialControlStatus: row.official_control_status,
+    firstDetectedAt: new Date(row.first_detected_at),
+    lastDetectedAt: new Date(row.last_detected_at),
+    location: { longitude: row.longitude, latitude: row.latitude },
+    detectionCount: row.detection_count,
+    confidenceLevel: row.confidence_level,
+    nearestMunicipality:
+      row.nearest_municipality_code === null || row.nearest_municipality_name === null
+        ? null
+        : { insee: row.nearest_municipality_code, name: row.nearest_municipality_name },
+  }));
+
+  const lastRow = events[events.length - 1];
+  const nextCursor =
+    events.length === limit && lastRow !== undefined
+      ? encodeCatalogCursor({
+          lastDetectedAt: lastRow.lastDetectedAt,
+          publicId: lastRow.publicId,
+        })
+      : null;
+
+  return { events, nextCursor };
+}
+
 export interface DepartmentAggregateRow {
   departmentCode: string;
   departmentSlug: string;

@@ -50,6 +50,7 @@ export const viewport: Viewport = {
 
 const NAV = [
   { href: '/carte', label: 'Carte' },
+  { href: '/evenements', label: 'Événements' },
   { href: '/statut', label: 'Statut' },
   { href: '/methodologie', label: 'Méthode' },
 ] as const;
