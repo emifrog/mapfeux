@@ -554,6 +554,17 @@ export default async function EventPage({ params }: PageParams) {
             className="h-full w-full"
           />
         </div>
+        <p className="text-small mt-3">
+          <Link
+            href={`/evenements/${event.publicId}/relecture`}
+            className="font-semibold underline underline-offset-4"
+          >
+            Relecture temporelle
+          </Link>{' '}
+          <span className="text-(--text-2)">
+            — rejouer les observations passage par passage, à instant partageable.
+          </span>
+        </p>
       </section>
 
       {/* Ce qui n'est pas affiché, et pourquoi. Une absence non expliquée se lit

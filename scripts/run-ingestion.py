@@ -250,9 +250,22 @@ def main(argv: list[str]) -> int:
             flush=True,
         )
 
+        # Cycle de vie de la fraîcheur (FR-048, cycle-de-vie-v1) : recalculé à
+        # chaque passe, car il dérive du temps qui passe, pas des imports. Les
+        # règles vivent dans `fire.refresh_freshness`, jamais recopiées ici ;
+        # la fonction rend les identifiants requalifiés pour que leur snapshot
+        # soit reconstruit — un snapshot qui annonce « récent » sur un
+        # événement archivé mentirait au mode dégradé.
+        with conn.cursor() as cur:
+            cur.execute("select fire.refresh_freshness()")
+            requalified = {str(row[0]) for row in cur.fetchall()}
+            conn.commit()
+        if requalified:
+            print(f"fraîcheur   : {len(requalified)} événement(s) requalifié(s)", flush=True)
+
         refreshed = 0
         with conn.cursor() as cur:
-            for event_id in sorted(result.touched_events):
+            for event_id in sorted(result.touched_events | requalified):
                 cur.execute("select fire.refresh_event_snapshot(%s)", (event_id,))
                 if cur.fetchone() is not None:
                     refreshed += 1

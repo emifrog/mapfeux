@@ -685,8 +685,34 @@ v2.1, gate G4 Alpha) : ce qui transforme une fiche en expérience FeuScope.
   par construction). Carte de page : les composants de /carte, agrégats
   compris. Filtres source/capteur/périmètre/info officielle : quand les
   objets existeront (J9, J4)
-- ⬜ Archives `/archives` (FR-053) — le curseur est prêt, la page dédiée aux
-  événements archivés reste à poser
+- ✅ **Cycle de vie de la fraîcheur** (9 août, préalable des archives) — il
+  n'existait pas : 932 événements sur 933 figés en « nouvel événement »
+  depuis leur création, la fiche disant « créé récemment » sur des événements
+  de quatre jours. Règles `cycle-de-vie-v1` dans `fire.refresh_freshness`
+  (migration `20260809140000`, source unique — la chaîne l'appelle, ne la
+  recopie jamais) : new < 24 h, recent < 48 h, not_recent ≥ 48 h, archived ≥
+  7 j (terminal), hidden intouchable. Requalification initiale : 786
+  événements, 933 snapshots reconstruits, second passage à zéro (idempotent).
+  Branchée dans `run-ingestion.py`, snapshots des requalifiés compris
+- ✅ **Archives `/archives`** (FR-048, FR-053) — même mécanique que le
+  catalogue (`freshness=archived`), filtre département, pagination par
+  curseur, sans JavaScript. 124 archives réelles dès l'ouverture — l'été
+  varois de l'import historique, Pontevès en tête. « L'archivage est un état
+  technique : il ne dit pas qu'un feu est éteint »
+- ✅ **Relecture temporelle, v1** (FR-080 à FR-087, §15.5) —
+  `/evenements/[publicId]/relecture?at=` reconstruit l'état **à la demande**
+  depuis les observations membres et la chronologie (FR-086, aucune table de
+  frames) : compteurs, capteurs, FRP max, carte des points colorés par l'âge
+  **à l'instant rejoué**, chronologie connue à cet instant. La navigation est
+  une liste de liens — passages satellitaires, précédent/suivant — donc
+  clavier et sans JavaScript par construction (FR-083), et `?at=` s'ouvre à
+  l'identique ailleurs (FR-085). API `GET …/state?at=` avec
+  `requestedAt`/`effectiveAt` distincts (FR-084 : rien n'est interpolé).
+  Vérifié sur Pontevès : à mi-feu, 312 observations sur 570, `effectiveAt`
+  ramené au passage réel. Le plafond de 2 000 observations est **parlant**
+  (bandeau « relecture partielle ») — la première passe tronquait à 500 en
+  silence. Reste pour la v2 : curseur glissant et lecture automatique
+  (FR-082), en amélioration progressive au-dessus des mêmes URL
 - ⬜ Slug éditorial facultatif `/evenements/[publicId]/[slug?]` (FR-042, FR-060)
 - ⬜ Relecture temporelle : curseur entre première observation et dernier état,
   lecture automatique, parcours clavier et alternative textuelle, données
@@ -1060,6 +1086,8 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | MFA super_admin non appliquée | La contrainte en base exige `mfa_required` pour `super_admin`, mais l'enrôlement TOTP n'existe pas (§14.4). D'ici J5, ne pas employer de compte super_admin au quotidien — `grant-admin.py` l'affiche | J5 |
 | `fires_in_bbox` sous son nom historique | L'API publique dit désormais `events` (cahier v2.1 §15.2) ; la fonction SQL interne garde son nom — la renommer passe par une migration, sans bénéfice public | Libre |
 | Migrations appliquées hors bande | Le chargement direct par script (calibration puis production) casse le `db push` suivant si la migration n'est pas rejouable — vécu le 8 août : 42701 sur `source_key`. Règle : toute migration appliquée hors CLI s'écrit idempotente (`if not exists`, `on conflict`, `create or replace`) | Continu |
+| Tableau des détections de la fiche plafonné en silence | `fire_event_detections` rend 500 lignes par défaut (2 000 au plus) ; la relecture annonce désormais son plafond, la fiche pas encore — un événement à 600 détections afficherait un tableau tronqué sans le dire | J7 |
+| Événement de démonstration en production | `DEMO-2607A1` (Lorgues) vit dans la base servie au public et apparaît aux archives. Le jeu de démo devait rester cantonné à `seed/dev` ; retrait à faire (événement + détections de démonstration), décision d'exploitation | Immédiat |
 | Le banc ne reprend pas où il s'est arrêté | Traité le 8 août : le troisième accident (mise en veille) l'a réclamé, comme prévu. `--reprendre` saute les jeux déjà sur disque et complète le CSV | Traité |
 
 ---

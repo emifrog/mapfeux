@@ -110,6 +110,13 @@ export default async function EventsCatalogPage({
           Tous les événements déduits des détections satellitaires, triés par dernière observation.
           Page établie le {generatedAt}.
         </p>
+        <p className="text-small text-(--text-2) mt-3">
+          Les événements sortis de la fenêtre courante sont dans les{' '}
+          <Link href="/archives" className="underline underline-offset-4">
+            archives
+          </Link>
+          .
+        </p>
       </div>
 
       <form method="get" action="/evenements" className="mt-8 flex flex-wrap items-end gap-4">

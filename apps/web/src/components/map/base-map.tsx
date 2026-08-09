@@ -94,6 +94,12 @@ export interface BaseMapProps {
   events?: MapEvent[];
   /** Recharge les événements lorsque l'emprise change. FR-007. */
   reloadOnMove?: boolean;
+  /**
+   * Instant de référence pour la couleur d'âge des marqueurs, ISO 8601.
+   * La relecture temporelle colore par l'âge **à l'instant rejoué** (FR-081) ;
+   * absent, l'âge se mesure contre maintenant, comme sur la carte vivante.
+   */
+  ageReference?: string;
 }
 
 function prefersReducedMotion(): boolean {
@@ -157,6 +163,7 @@ export default function BaseMap({
   className,
   events = [],
   reloadOnMove = false,
+  ageReference,
 }: BaseMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -251,7 +258,11 @@ export default function BaseMap({
         });
       });
 
-      addEventLayer(map, eventsRef.current);
+      addEventLayer(
+        map,
+        eventsRef.current,
+        ageReference === undefined ? undefined : new Date(ageReference),
+      );
 
       // Un clic ouvre la fiche : la carte oriente vers l'événement, elle ne
       // prétend pas le décrire. Toute l'information sourcée est sur la fiche.
@@ -294,9 +305,13 @@ export default function BaseMap({
     eventsRef.current = events;
     const map = mapRef.current;
     if (map !== null && map.isStyleLoaded()) {
-      updateEventLayer(map, events);
+      updateEventLayer(
+        map,
+        events,
+        ageReference === undefined ? undefined : new Date(ageReference),
+      );
     }
-  }, [events]);
+  }, [events, ageReference]);
 
   // Recadrage lorsque le territoire consulté change.
   useEffect(() => {

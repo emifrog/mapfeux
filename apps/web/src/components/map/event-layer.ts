@@ -67,12 +67,12 @@ export function toFeatureCollection(events: MapEvent[], now = new Date()): Featu
   };
 }
 
-export function addEventLayer(map: MapLibreMap, events: MapEvent[]): void {
+export function addEventLayer(map: MapLibreMap, events: MapEvent[], now = new Date()): void {
   if (map.getSource(EVENTS_SOURCE_ID) !== undefined) return;
 
   map.addSource(EVENTS_SOURCE_ID, {
     type: 'geojson',
-    data: toFeatureCollection(events),
+    data: toFeatureCollection(events, now),
   });
 
   // Halo blanc sous le marqueur : sans lui, un point sombre sur un fond IGN
@@ -127,7 +127,7 @@ export function addEventLayer(map: MapLibreMap, events: MapEvent[]): void {
 /** Couches cliquables : la traîne reste accessible au même titre. */
 export const CLICKABLE_LAYER_IDS = [EVENTS_CIRCLE_LAYER_ID, EVENTS_TAIL_LAYER_ID];
 
-export function updateEventLayer(map: MapLibreMap, events: MapEvent[]): void {
+export function updateEventLayer(map: MapLibreMap, events: MapEvent[], now = new Date()): void {
   const source = map.getSource(EVENTS_SOURCE_ID) as GeoJSONSource | undefined;
-  source?.setData(toFeatureCollection(events));
+  source?.setData(toFeatureCollection(events, now));
 }

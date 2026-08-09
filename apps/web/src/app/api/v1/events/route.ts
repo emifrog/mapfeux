@@ -25,6 +25,10 @@ const VERIFICATION_VALUES = new Set([
 
 const DEPARTMENT_PATTERN = /^(\d{2}|2[ab])$/i;
 
+// `hidden` n'y figure pas : la vue publique l'exclut déjà, l'accepter ici ne
+// serait qu'une promesse vide.
+const FRESHNESS_VALUES = new Set(['new', 'recent', 'not_recent', 'archived']);
+
 export async function GET(request: NextRequest): Promise<Response> {
   const requestId = newRequestId();
   const params = request.nextUrl.searchParams;
@@ -126,6 +130,11 @@ async function catalog(params: URLSearchParams, requestId: string): Promise<Resp
     return jsonError('VALIDATION_ERROR', 'Paramètre verification inconnu.', requestId);
   }
 
+  const rawFreshness = params.get('freshness');
+  if (rawFreshness !== null && !FRESHNESS_VALUES.has(rawFreshness)) {
+    return jsonError('VALIDATION_ERROR', 'Paramètre freshness inconnu.', requestId);
+  }
+
   const rawCursor = params.get('cursor');
   const cursor = rawCursor === null ? undefined : decodeCatalogCursor(rawCursor);
   if (rawCursor !== null && cursor === null) {
@@ -146,6 +155,7 @@ async function catalog(params: URLSearchParams, requestId: string): Promise<Resp
       ...(until === undefined ? {} : { until }),
       ...(rawDepartment === null ? {} : { department: rawDepartment.toUpperCase() }),
       ...(rawVerification === null ? {} : { verification: rawVerification }),
+      ...(rawFreshness === null ? {} : { freshness: rawFreshness }),
       ...(cursor == null ? {} : { cursor }),
       limit: Math.min(limit, 100),
     }),

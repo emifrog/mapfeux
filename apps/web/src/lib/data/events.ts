@@ -414,6 +414,8 @@ export interface CatalogFilters {
   until?: Date;
   department?: string;
   verification?: string;
+  /** Fraîcheur technique exacte — `archived` porte la page /archives (FR-053). */
+  freshness?: string;
   cursor?: CatalogCursor;
   limit?: number;
 }
@@ -433,6 +435,7 @@ export async function fetchEventsCatalog(
     until_at: filters.until?.toISOString() ?? null,
     department: filters.department ?? null,
     verification: filters.verification ?? null,
+    freshness: filters.freshness ?? null,
     cursor_last: filters.cursor?.lastDetectedAt.toISOString() ?? null,
     cursor_public: filters.cursor?.publicId ?? null,
     max_results: limit,

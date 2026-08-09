@@ -56,6 +56,7 @@ const NAV = [
 ] as const;
 
 const FOOTER_LINKS = [
+  { href: '/archives', label: 'Archives' },
   { href: '/sources', label: 'Sources et licences' },
   { href: '/methodologie', label: 'Méthodologie' },
   { href: '/statut', label: 'État des données' },
