@@ -56,7 +56,11 @@ as $$
   limit least(greatest(coalesce(max_results, 50), 1), 100);
 $$;
 
-comment on function api.events_catalog is
+-- Commentaire qualifié par la signature : au rejeu, une autre surcharge peut
+-- coexister le temps de la migration suivante, et un nom nu serait ambigu
+-- (42725) — vécu le 9 août au db push.
+comment on function
+  api.events_catalog(timestamptz, timestamptz, text, text, timestamptz, text, integer) is
   'Catalogue national trié par dernière observation, pagination par jeu de '
   'clés sur (last_detected_at, public_id). FR-050 à FR-055.';
 

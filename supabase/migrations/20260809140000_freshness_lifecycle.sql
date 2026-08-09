@@ -109,7 +109,8 @@ as $$
   limit least(greatest(coalesce(max_results, 50), 1), 100);
 $$;
 
-comment on function api.events_catalog is
+comment on function
+  api.events_catalog(timestamptz, timestamptz, text, text, text, timestamptz, text, integer) is
   'Catalogue national trié par dernière observation, pagination par jeu de '
   'clés sur (last_detected_at, public_id). FR-050 à FR-055.';
 
