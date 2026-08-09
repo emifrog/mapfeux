@@ -1050,6 +1050,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Réponse à la première erreur publique | Runbook éditorial absent | Avant J6 |
 | MFA super_admin non appliquée | La contrainte en base exige `mfa_required` pour `super_admin`, mais l'enrôlement TOTP n'existe pas (§14.4). D'ici J5, ne pas employer de compte super_admin au quotidien — `grant-admin.py` l'affiche | J5 |
 | `fires_in_bbox` sous son nom historique | L'API publique dit désormais `events` (cahier v2.1 §15.2) ; la fonction SQL interne garde son nom — la renommer passe par une migration, sans bénéfice public | Libre |
+| Migrations appliquées hors bande | Le chargement direct par script (calibration puis production) casse le `db push` suivant si la migration n'est pas rejouable — vécu le 8 août : 42701 sur `source_key`. Règle : toute migration appliquée hors CLI s'écrit idempotente (`if not exists`, `on conflict`, `create or replace`) | Continu |
 | Le banc ne reprend pas où il s'est arrêté | Traité le 8 août : le troisième accident (mise en veille) l'a réclamé, comme prévu. `--reprendre` saute les jeux déjà sur disque et complète le CSV | Traité |
 
 ---
