@@ -101,6 +101,9 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
       title: `${event.publicId} — ${place}`,
       description: EVENT_DISCLAIMER,
     },
+    // Sans ce type de carte, X ignore l'image générée par opengraph-image.tsx
+    // (FR-067) et retombe sur un lien nu.
+    twitter: { card: 'summary_large_image' },
   };
 }
 
@@ -547,14 +550,16 @@ export default async function EventPage({ params }: PageParams) {
             </>
           )}
         </p>
-        <div className="border-(--border-strong) mt-3 h-72 overflow-hidden rounded border">
+        {/* À l'impression, la position textuelle ci-dessus fait foi : un canevas
+            WebGL imprime au mieux une vignette illisible (FR-068). */}
+        <div className="border-(--border-strong) mt-3 h-72 overflow-hidden rounded border print:hidden">
           <MapView
             center={[event.location.longitude, event.location.latitude]}
             zoom={11}
             className="h-full w-full"
           />
         </div>
-        <p className="text-small mt-3">
+        <p className="text-small mt-3 print:hidden">
           <Link
             href={`/evenements/${event.publicId}/relecture`}
             className="font-semibold underline underline-offset-4"
@@ -613,7 +618,9 @@ export default async function EventPage({ params }: PageParams) {
             {canonicalUrl}
           </a>
         </p>
-        <p className="mt-3">
+        {/* L'URL permanente s'imprime — c'est la référence de la feuille — mais
+            un bouton de copie sur papier n'est qu'un dessin de bouton. */}
+        <p className="mt-3 print:hidden">
           <ShareLink url={canonicalUrl} />
         </p>
       </section>
@@ -645,7 +652,7 @@ export default async function EventPage({ params }: PageParams) {
           </time>
           .
         </p>
-        <p className="mt-2">
+        <p className="mt-2 print:hidden">
           <Link href="/methodologie" className="underline underline-offset-4">
             Méthodologie
           </Link>

@@ -33,6 +33,19 @@ const nextConfig: NextConfig = {
   // Les packages du monorepo sont publiés en TypeScript source.
   transpilePackages: ['@mapfeux/ui', '@mapfeux/domain', '@mapfeux/contracts', '@mapfeux/map-style'],
 
+  /**
+   * La carte de partage (FR-067) lit ses polices WOFF dans node_modules par
+   * `readFile`, hors de portée de l'analyse statique du traçage : sans cette
+   * inclusion, le bundle serveur déployé rendrait l'image sans police — ou pas
+   * d'image du tout.
+   */
+  outputFileTracingIncludes: {
+    '/evenements/[publicId]/opengraph-image': [
+      './node_modules/@fontsource/instrument-sans/files/instrument-sans-latin-*-normal.woff',
+      './node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-*-normal.woff',
+    ],
+  },
+
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

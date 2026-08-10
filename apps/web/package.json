@@ -11,6 +11,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/instrument-sans": "^5.3.0",
     "@mapfeux/contracts": "workspace:*",
     "@mapfeux/domain": "workspace:*",
     "@mapfeux/map-style": "workspace:*",

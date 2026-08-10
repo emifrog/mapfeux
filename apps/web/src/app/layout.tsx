@@ -91,8 +91,14 @@ export default function RootLayout({
           Aller au contenu principal
         </a>
 
+        {/*
+          `print:hidden` : la version imprimable garde les faits, pas la
+          navigation (FR-068). L'en-tête, ses liens et ses commandes n'ont pas
+          de sens sur papier ; la marque est reprise par le contenu de chaque
+          page — identifiant, horodatages, attribution.
+        */}
         <header
-          className="sticky top-0 z-20 border-b"
+          className="sticky top-0 z-20 border-b print:hidden"
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
           {/*
@@ -172,7 +178,9 @@ export default function RootLayout({
           style={{ borderColor: 'var(--border)', color: 'var(--text-2)' }}
         >
           <div className="shell">
-            <nav aria-label="Liens de bas de page">
+            {/* Sur papier, ces liens sont de la navigation morte ; l'attribution
+                des sources, elle, reste due (§9.5) et s'imprime. */}
+            <nav aria-label="Liens de bas de page" className="print:hidden">
               <ul className="flex flex-wrap gap-x-6 gap-y-2">
                 {FOOTER_LINKS.map((link) => (
                   <li key={link.href}>
