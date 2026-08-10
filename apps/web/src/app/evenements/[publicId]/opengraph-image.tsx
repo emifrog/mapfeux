@@ -60,54 +60,30 @@ const THERMAL_BY_FRESHNESS: Record<string, string> = {
 };
 
 /**
- * Polices du site en WOFF, seul format des paquets fontsource que le moteur
- * accepte (pas de woff2). Lues dans node_modules plutôt que recopiées dans le
- * dépôt : la licence et les mises à jour restent au gestionnaire de paquets.
- * `outputFileTracingIncludes` (next.config.ts) garantit leur présence dans le
- * bundle serveur déployé.
+ * Polices du site en WOFF v1, seul format des dérivés fontsource que le moteur
+ * accepte (pas de woff2), recopiées dans `assets/og-fonts/` avec leurs
+ * licences. Chaque lecture est un chemin **littéral** : c'est ce qui permet au
+ * traçage de fichiers du déploiement de les embarquer. La première version
+ * composait les chemins depuis un tableau et lisait node_modules — intraçable
+ * statiquement : parfaite en local, 500 en production.
  */
-const FONT_FILES = [
-  {
-    pkg: '@fontsource/instrument-sans',
-    file: 'instrument-sans-latin-400-normal.woff',
-    name: 'Instrument Sans',
-    weight: 400,
-  },
-  {
-    pkg: '@fontsource/instrument-sans',
-    file: 'instrument-sans-latin-600-normal.woff',
-    name: 'Instrument Sans',
-    weight: 600,
-  },
-  {
-    pkg: '@fontsource/instrument-sans',
-    file: 'instrument-sans-latin-700-normal.woff',
-    name: 'Instrument Sans',
-    weight: 700,
-  },
-  {
-    pkg: '@fontsource/ibm-plex-mono',
-    file: 'ibm-plex-mono-latin-400-normal.woff',
-    name: 'IBM Plex Mono',
-    weight: 400,
-  },
-  {
-    pkg: '@fontsource/ibm-plex-mono',
-    file: 'ibm-plex-mono-latin-600-normal.woff',
-    name: 'IBM Plex Mono',
-    weight: 600,
-  },
-] as const;
+const FONTS_DIR = join(process.cwd(), 'assets', 'og-fonts');
 
 async function loadFonts() {
-  return Promise.all(
-    FONT_FILES.map(async (font) => ({
-      name: font.name,
-      data: await readFile(join(process.cwd(), 'node_modules', font.pkg, 'files', font.file)),
-      weight: font.weight as 400 | 600 | 700,
-      style: 'normal' as const,
-    })),
-  );
+  const [sans400, sans600, sans700, mono400, mono600] = await Promise.all([
+    readFile(join(FONTS_DIR, 'instrument-sans-latin-400-normal.woff')),
+    readFile(join(FONTS_DIR, 'instrument-sans-latin-600-normal.woff')),
+    readFile(join(FONTS_DIR, 'instrument-sans-latin-700-normal.woff')),
+    readFile(join(FONTS_DIR, 'ibm-plex-mono-latin-400-normal.woff')),
+    readFile(join(FONTS_DIR, 'ibm-plex-mono-latin-600-normal.woff')),
+  ]);
+  return [
+    { name: 'Instrument Sans', data: sans400, weight: 400 as const, style: 'normal' as const },
+    { name: 'Instrument Sans', data: sans600, weight: 600 as const, style: 'normal' as const },
+    { name: 'Instrument Sans', data: sans700, weight: 700 as const, style: 'normal' as const },
+    { name: 'IBM Plex Mono', data: mono400, weight: 400 as const, style: 'normal' as const },
+    { name: 'IBM Plex Mono', data: mono600, weight: 600 as const, style: 'normal' as const },
+  ];
 }
 
 function formatInstant(value: Date, timeZone: string): string {
