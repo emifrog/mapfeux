@@ -696,12 +696,18 @@ v2.1, gate G4 Alpha) : ce qui transforme une fiche en expérience FeuScope.
   niveau de vérification, grandeurs mesurées en chasse fixe, pastille à
   l'échelle d'âge thermique, **deux horodatages** (dernière observation, état
   figé) et l'avertissement §22.5 — l'heure de service est volontairement
-  absente, une image en cache la transformerait en mensonge. Polices WOFF
-  lues dans node_modules (Satori ne lit ni woff2 ni variables CSS ; jetons
-  recopiés, dette §15), `outputFileTracingIncludes` posé pour le déploiement.
-  `twitter:card` ajouté aux métadonnées de la fiche. Exercé sur serveur local
-  contre la production : PNG 1200×630 rendu et regardé (La Brigue), balises
-  `og:image` complètes, 404 sur identifiant inconnu
+  absente, une image en cache la transformerait en mensonge. Satori ne lit ni
+  woff2 ni variables CSS : jetons recopiés (dette §15), polices WOFF **dans
+  `assets/og-fonts/`** avec leurs licences OFL. La première version les
+  lisait dans node_modules par chemins composés : parfaite en local — dev
+  **et** build de production —, **500 au premier déploiement** (ENOENT au
+  journal Vercel : intraçable statiquement, et les globs d'inclusion n'ont
+  pas compensé à travers les liens pnpm). Leçon : ce que `readFile` lit doit
+  être une ressource du projet à chemin littéral. `twitter:card` ajouté aux
+  métadonnées de la fiche. Vérifié de bout en bout : PNG 1200×630 rendu et
+  regardé (La Brigue), balises `og:image` complètes, 404 sur identifiant
+  inconnu, et **200 en production** après correctif — même image à l'octet
+  près qu'en local
 - ✅ **Version imprimable** (10 août, FR-068) — feuille de style d'impression
   sur la fiche elle-même, pas de page dupliquée : `print:hidden` masque
   l'en-tête, la navigation, la carte WebGL, le bouton de copie et les liens
