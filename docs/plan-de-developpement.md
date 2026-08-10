@@ -1,9 +1,9 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 8 août 2026 — tuiles PMTiles générées, publiées et
-vérifiées (compartiment public, cache long, communes au zoom 11 — plafond du
-plan gratuit) ; le banc sait reprendre (`--reprendre`), balayage en reprise
-après sa troisième mort ; auth admin et territoires livrés la veille.
+**Dernière mise à jour** : 10 août 2026 — le masque des sources statiques est
+**appliqué en production** (45 sources, 776 détections classées, Fos éteint),
+`DEMO-2607A1` retiré de la base publique, carte de partage Open Graph et
+version imprimable livrées (FR-067, FR-068), préfixe `MPF-` figé (ADR-021).
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -82,8 +82,10 @@ et cela lève le préalable de la calibration multi-saisons.
 **Une détection sur deux n'est pas de la végétation.** 165 629 lignes portent
 `type = 2` — source thermique statique : 49,0 % du corpus, sur quatorze ans.
 Ce n'est plus une intuition tirée d'une saison dans le Var, et c'est ce qui
-fonde le masque des sources statiques. La carte publique montre aujourd'hui
-cette moitié sans le dire.
+fonde le masque des sources statiques. **Le masque est appliqué en production
+depuis le 10 août** : les récurrences industrielles sont classées dès
+l'ingestion, les pseudo-événements existants ne sont plus alimentés et
+s'archiveront en sept jours (voir J10).
 
 **Le plan est recalé sur la décision D-0 — option A, périmètre intégral**
 (cahier v2.1 §26.1, confirmée le 5 août, répercutée ici le 6). La version
@@ -103,7 +105,7 @@ posées dans `next.config.ts` ; la fonction SQL `fires_in_bbox` garde son nom,
 interne. Portes repassées après renommage : format, lint, typecheck, tests,
 build — vertes.
 
-### Portes de qualité — dernier passage
+### Portes de qualité — dernier passage (10 août)
 
 | Chaîne | Commande | Résultat |
 |---|---|---|
@@ -112,9 +114,9 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 57 fichiers (worker 41, scripts 16) |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 25 + 16 fichiers |
-| Worker | `pytest` | ✅ 276 tests |
+| Worker | `ruff check` / `ruff format --check` | ✅ 68 fichiers (worker 48, scripts 20) |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 29 + 20 fichiers |
+| Worker | `pytest` | ✅ 305 tests |
 | Migrations | 23 migrations sur base vierge, en CI | ✅ |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
@@ -124,98 +126,44 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Appliquer le masque des sources statiques en production.**
+**Entamer J8 — météo et panache.**
 
-La calibration est **close** : `grouping-v1` gelé, masque mesuré, test de Fos
-réussi (voir J10). Le code du masque est déjà déployé et inerte — le registre
-de production est vide. L'appliquer tient en une commande :
+Les deux décisions d'exploitation du 10 août sont exécutées : le masque des
+sources statiques est appliqué en production et `DEMO-2607A1` retiré (voir
+J10 et §15). La fin de J7 est actée pour l'essentiel : catalogue, archives,
+relecture v1, carte de partage Open Graph et version imprimable sont en
+service, le préfixe `MPF-` est figé. Restent au jalon, sans bloquer l'entrée
+en J8 : le slug éditorial facultatif (FR-042), la relecture v2 (curseur et
+lecture automatique, FR-082), la page « Autour de moi », et le plafond parlant
+du tableau des détections de la fiche (dette §15).
 
-```
-micromamba run -n mapfeux-geo python scripts/build-known-sources.py --cible production
-```
+Première marche de J8 : les tables `meteo.model_runs`, `wind_samples`,
+`smoke_forecasts`, `smoke_steps` et `affected_municipalities` (cahier §13.12
+à §13.16), puis l'ingestion des runs AROME pour le calcul (§16.4) —
+l'archivage froid (PR-1) accumule le corpus depuis le 5 août, il ne manque
+que la lecture.
 
-Conséquences publiques à assumer avant de lancer : les détections
-industrielles récurrentes sont classées (jamais supprimées), les
-pseudo-événements existants — dont « Fos-sur-Mer, 141 détections » visible au
-catalogue — cessent d'être alimentés et s'archivent en sept jours ; les
-nouveaux ne naissent plus. Retirer aussi `DEMO-2607A1` (dette « Immédiat »).
+⚠️ Contrôle sous sept jours (au plus tard le 17 août) : les pseudo-événements
+industriels privés d'alimentation par le masque — Fos `MPF-V7NPXN72`,
+Dunkerque `MPF-GCWYFMCW` — doivent basculer `archived` d'eux-mêmes par le
+cycle de vie. S'ils ne le font pas, c'est `refresh_freshness` qui a un trou,
+pas le masque.
 
----
-
-Dossier de la calibration close — dépouillement du 8-9 août :
-
-Dépouillement du 8 août, sur les 112 jeux et l'inspection des quatre têtes de
-liste :
-
-- **La référence `grouping-v1` (r2500, w24, s0.35) gagne.** Trois cribles —
-  Landiras intact, pas de chaînage, part étayée — ne laissent que la famille
-  `w24 × s0.35-0.50` plus deux compensations extrêmes (`w48-s0.65`).
-  L'inspection tranche : la référence capture le plus de Landiras (2 069
-  détections, profil quotidien continu, 132 h) tout en tenant La Teste-de-Buch
-  **séparée** ; r1500 perd 543 détections du vrai feu sans rien gagner ;
-  l'intrus r4000-w48-s0.65 capture *moins* de Landiras que la référence — son
-  seuil rejette les bords faibles d'un feu réel. Dominé, éliminé.
-- **Aucun jeu ne résout Berre — et c'est la leçon.** Les quatre inspections
-  produisent le **même** pseudo-événement industriel : 622 détections,
-  **529 h (22 jours)**, diagonale 4,3 km, à 43.443/4.892 (Fos-sur-Mer). Une
-  torchère émet chaque jour au même endroit : toute fenêtre qui enjambe les
-  nuits d'un vrai feu la chaîne. Le remède n'est pas un paramètre, c'est le
-  **masque des sources statiques (J10)** — la strate industrielle du
-  sous-corpus a été construite pour prouver exactement cela, et l'événement
-  de Fos devient le **test d'acceptation du masque** : après J10, il doit
-  être classé source connue, pas servi comme événement.
-- La validation des trois finalistes (`r2500/r2000/r1500 × w24-s0.35`) sur
-  les quatorze saisons est **en cours** — corpus complet rebasculé
-  (`--remplacer`), résultats attendus dans
-  `data/calibration/jeux-finalistes.csv`. Si le classement du sous-corpus s'y
-  confirme, `grouping-v1` est **gelé** et la prochaine action devient le
-  registre spatial des sources statiques (J10).
-
-La question de la taille du balayage est tranchée par la troisième issue de la
-version précédente de cette section : **calibrer sur un sous-corpus
-représentatif**, et ne rejouer que les finalistes sur quatorze saisons. Le
-sous-corpus est en service (voir §5) et la mesure du 6 août au soir a fixé le
-coût : **102 à 161 s par jeu** sur ses 16 544 détections — moyenne ~123 s,
-réseau dominant, comme toujours — contre plus de dix minutes sur le corpus
-complet (`data/calibration/axes-sous-corpus.csv`).
-
-Le balayage croisé à 112 jeux est **en cours de reprise** — quatrième
-lancement, le 8 août à 10 h 12, après trois morts instructives : extinction du
-poste (6 août, un jeu perdu faute d'écriture au fil de l'eau), timeout mal
-traité (7 août 18 h 10), **mise en veille du poste** (7 août 20 h 56, 43 jeux
-acquis). Chaque mort a durci le banc : CSV au fil de l'eau, timeout de session,
-échec d'un jeu isolé, rollback avant restauration, et désormais
-**`--reprendre`** — les jeux déjà sur disque sont sautés, le fichier est
-complété au lieu d'être réécrit. L'interruption est devenue banale.
-
-Rythme réel mesuré : **~3,3 min par jeu** (43 jeux en 2 h 21 le 7 au soir).
-Reste 69 jeux ≈ 4 h — fin attendue le 8 août en début d'après-midi, **poste
-allumé et veille désactivée d'ici là**. Résultats dans
-`data/calibration/croise-sous-corpus.csv` ; la base de calibration reste à
-tout instant sur le dernier jeu commité, jamais vide.
-
-Au dépouillement :
-
-- retenir au plus une dizaine de finalistes — les indicateurs ne tranchent pas
-  seuls, l'inspection du plus gros événement décide, comme pour Pontevès ;
-- ⚠️ `≥2 capt` vaut 0 % sur tout le sous-corpus et n'y départage rien : le
-  corpus est VIIRS seul, et R2 normalise l'instrument — la colonne mesure les
-  capteurs, pas les satellites ;
-- la passe de validation est outillée : rebasculer la base sur le corpus
-  complet (`import-corpus.py --remplacer`), puis
-  `calibrate-clustering.py --jeux <étiquettes> --etiquette finalistes` — les
-  étiquettes se copient depuis la colonne `version` du CSV, une nuit au plus.
+Le dossier de la calibration close — balayage croisé, inspections, mesure du
+masque — est consigné en J10 ; l'historique du banc et ses trois morts, en J2.
 
 Côté [phase 0](strategie.md#3-phase-0--préalables-non-techniques) :
 **l'autorisation de cumul est accordée depuis le 6 août** — le point d'arrêt
 correspondant du [§7](strategie.md#7-conditions-darrêt) est levé — et le cadre
 juridique de l'édition est posé. L'estimation du coût d'un pic (§3.5) reste le
-dernier préalable non traité. Restent aussi, de votre côté, trois
+dernier préalable non traité. Restent aussi, de votre côté, deux
 [décisions ouvertes](strategie.md#8-décisions-ouvertes) : la validation
-humaine des informations officielles (§8.3), le préfixe d'identifiant public
-(§8.4, à figer avant la première URL durable) et la réponse à la première
-erreur publique (§8.5). L'ordonnancement (§8.1) et le calendrier (§8.2, tranché
-par D-0 : lancement hors pic saisonnier) ne sont plus ouverts.
+humaine des informations officielles (§8.3) et la réponse à la première
+erreur publique (§8.5). Le préfixe d'identifiant public est
+[tranché le 10 août](strategie.md#84-préfixe-didentifiant-public--tranché-le-10-août-2026) —
+`MPF-`, définitivement ([ADR-021](adr/021-prefixe-didentifiant-public.md)) ;
+l'ordonnancement (§8.1) et le calendrier (§8.2, tranché par D-0 : lancement
+hors pic saisonnier) ne sont plus ouverts.
 
 ---
 
@@ -314,12 +262,13 @@ historiques importé à la main.
   mapfeux.vercel.app : envoi du lien et réception, session par `token_hash`,
   profil et rôle affichés, session active renvoyée de la page de connexion
   vers `/admin`, déconnexion, `/admin` sans session renvoyé à la connexion
-- ⚠️ **`PUBLIC_APP_URL` absente de l'environnement Vercel** : l'action de
-  connexion retombe sur sa valeur par défaut et les liens des e-mails
-  redirigent vers `http://localhost:3000`. Trouvé par le test réel — le lien
-  reçu était inutilisable en production. À poser dans Vercel
-  (`https://mapfeux.vercel.app`) puis redéployer ; c'est le dernier geste
-  avant que le parcours e-mail complet ne fonctionne
+- ⚠️ **`PUBLIC_APP_URL` dans Vercel : posée, parcours e-mail à rejouer.**
+  L'absence de la variable envoyait les liens des e-mails de connexion vers
+  `http://localhost:3000`. Constat du 10 août : la fiche de production
+  affiche son URL permanente sans localhost — la variable est donc posée et
+  déployée. Le parcours e-mail complet (envoi, lien, session) n'a pas été
+  rejoué depuis ; ⚠️ maintenu tant qu'un lien reçu n'a pas été suivi avec
+  succès en production
 - ✅ Jeu historique réel en remplacement de la fixture — la production tourne
   sur données réelles depuis le 5 août (ingestion planifiée, 939 détections
   d'historique) ; la fixture ne vit plus qu'en `seed/dev/` pour le poste local,
@@ -466,8 +415,10 @@ sans provenance ni horodatage.
 - ✅ `cluster-detections.py` reçoit la bascule `--calibration` et affiche sa
   cible avant d'agir — c'était le dernier outil de regroupement resté sur
   `DATABASE_URL` sans le dire
-- 🟡 Calibration fine sur plusieurs saisons — le sous-corpus est en service
-  sur la base de calibration ; taille du balayage tranchée, voir §2
+- ✅ Calibration fine sur plusieurs saisons — **close le 9 août** :
+  `grouping-v1` gelé sur le dossier consigné en J10 (balayage croisé 112 jeux
+  sur le sous-corpus, inspections, mesure du masque ; validation corpus
+  complet abandonnée en connaissance de cause)
 
 #### Ce que le corpus dit avant même d'être calibré
 
@@ -739,14 +690,34 @@ v2.1, gate G4 Alpha) : ce qui transforme une fiche en expérience FeuScope.
   appareil (FR-085)
 - ⬜ États générés à la demande d'abord ; une table de frames pré-calculées
   n'est créée que si la performance l'exige (FR-086)
-- ⬜ Carte sociale Open Graph générée à partir du snapshot, avec avertissement
-  et horodatage (FR-067)
-- ⬜ Version imprimable : les faits sourcés, sans navigation inutile (FR-068)
+- ✅ **Carte sociale Open Graph** (10 août, FR-067) —
+  `opengraph-image.tsx` colocalisée sur la fiche, générée depuis le
+  **snapshot** (`fetchEventView`, même chemin que la page) : identifiant,
+  niveau de vérification, grandeurs mesurées en chasse fixe, pastille à
+  l'échelle d'âge thermique, **deux horodatages** (dernière observation, état
+  figé) et l'avertissement §22.5 — l'heure de service est volontairement
+  absente, une image en cache la transformerait en mensonge. Polices WOFF
+  lues dans node_modules (Satori ne lit ni woff2 ni variables CSS ; jetons
+  recopiés, dette §15), `outputFileTracingIncludes` posé pour le déploiement.
+  `twitter:card` ajouté aux métadonnées de la fiche. Exercé sur serveur local
+  contre la production : PNG 1200×630 rendu et regardé (La Brigue), balises
+  `og:image` complètes, 404 sur identifiant inconnu
+- ✅ **Version imprimable** (10 août, FR-068) — feuille de style d'impression
+  sur la fiche elle-même, pas de page dupliquée : `print:hidden` masque
+  l'en-tête, la navigation, la carte WebGL, le bouton de copie et les liens
+  morts ; restent les faits, leurs provenances, les trois horodatages, l'URL
+  permanente et l'attribution obligatoire (§9.5). Les jetons clairs sont
+  réimposés sous `@media print` — imprimer en thème sombre donnait des aplats
+  sombres. Vérifié sur styles calculés dans un navigateur réel, règles
+  `print` basculées en `all` : douze masquages effectifs, contenu intact,
+  fond blanc
 - ⬜ Bouton « Autour de moi » et page dédiée — l'endpoint de résolution existe
   depuis J3
-- ⚠️ Le préfixe d'identifiant public
-  ([décision §8.4](strategie.md#84-préfixe-didentifiant-public)) doit être figé
-  **avant** ce jalon : le catalogue multiplie les URL publiques durables.
+- ✅ Préfixe d'identifiant public **figé : `MPF-`**, le 10 août
+  ([ADR-021](adr/021-prefixe-didentifiant-public.md)). La fenêtre « avant la
+  première URL durable » s'était refermée avec le catalogue ; la décision
+  ratifie l'état servi plutôt que de payer un renommage cosmétique. FR-067
+  peut graver les URL dans les partages sociaux.
 
 **Critère de sortie** (G4) : page événement, chronologie et relecture
 fonctionnelles sur plusieurs cas du corpus historique ; une URL `?at=` ouvre le
@@ -858,6 +829,17 @@ détections `type = 2` sur quatorze ans.
   interruptions de session, un constat. Le classement était déjà établi par
   deux voies indépendantes ; payer trois fois dix heures n'aurait rien
   départagé. Le chiffre nourrit la dette « regroupement encore lent » (§15)
+- ✅ **Masque appliqué en production** (10 août, décision d'exploitation) —
+  `build-known-sources.py --cible production` : 45 sources posées (empreinte
+  `d6da5446072dd50a`, identique à la calibration — dérivation déterministe,
+  le compte rendu versionné n'a pas bougé au rejeu), **776 détections
+  classées** rétroactivement, toutes membres d'événements existants, zéro
+  orpheline. Vérifié en base : Fos est bien `MPF-V7NPXN72` (166 membres,
+  100 % classés, 43.440/4.892) ; l'autre géant `MPF-GCWYFMCW` (299 membres,
+  100 % classés) est le complexe industriel de Dunkerque — l'ingestion est
+  nationale. Les deux restent servis jusqu'à leur archivage par le cycle de
+  vie, sept jours sans observation — contrôle au §2. FR-036 tenu de bout en
+  bout : classées, jamais supprimées, toutes publiables
 - ⬜ Réconciliation trimestrielle NRT/standard : import de l'archive,
   rapprochement par clés spatiotemporelles, corrections enregistrées comme
   enrichissements, jamais comme réécritures (§16.3, FR-032)
@@ -1091,7 +1073,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 
 | Sujet | Nature | Échéance |
 |---|---|---|
-| Décisions ouvertes restantes | Validation humaine des informations officielles (§8.3), préfixe d'identifiant public (§8.4) et réponse à la première erreur publique (§8.5). Ordonnancement (§8.1) et calendrier (§8.2, tranché par D-0) ne sont plus ouverts | Préfixe avant J7 ; validation avant J4 |
+| Décisions ouvertes restantes | Validation humaine des informations officielles (§8.3) et réponse à la première erreur publique (§8.5). Préfixe (§8.4) tranché le 10 août — `MPF-`, [ADR-021](adr/021-prefixe-didentifiant-public.md) ; ordonnancement (§8.1) et calendrier (§8.2, D-0) tranchés antérieurement | Validation avant J4 ; réponse avant J6 |
 | Mesures faussées par le cache Vercel | `Cache-Control: no-cache` ne traverse pas le cache de bordure : on conclut sur un rendu vieux de plusieurs jours en croyant lire l'état courant. Lire `x-vercel-cache` et `age`, ou interroger la base. `/statut` répondait `STALE` le 6 août | Continu |
 | Affichage des détections par commune | `/communes/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
@@ -1105,7 +1087,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service. ⚠️ Phrase d'attente à retirer le jour de la mise en service (J9) | J9 |
 | Regroupement encore lent | Chiffré le 9 août : **11,2 h de CPU saturé sans terminer un seul regroupement complet des quatorze saisons** (337 757 détections, recherche de candidats en mémoire). Les passes incrémentales de production restent rapides (orphelines seules), mais tout recalcul complet à l'échelle est impraticable — la structure de voisinage se paie par détection × événements. À traiter avant la montée en charge (§6.3) | J6 |
-| Coût d'un jeu de calibration | Borné par le sous-corpus (16 544 détections) : le classement des 112 jeux se fait dessus, le corpus complet ne sert plus qu'à rejouer les finalistes, une nuit au plus. Mesure du 6 août au §2 | Traité |
+| Coût d'un jeu de calibration | Borné par le sous-corpus (16 544 détections) : 102 à 161 s par jeu (mesure du 6 août, `data/calibration/axes-sous-corpus.csv`). La calibration est close ; le banc reste prêt pour une v2 des règles | Traité |
 | `cluster-detections.py` vise encore la production | Traité le 6 août : bascule `--calibration` posée, cible affichée avant d'agir. L'usage production reste légitime — reprise manuelle aux paramètres de référence | Traité |
 | N21 sans corpus retraité | 30 180 lignes — 8,9 % du corpus — de janvier 2024 à août 2026, servies en NRT faute d'archive publiée par FIRMS. Ni retraitement scientifique, ni `type` : les deux saisons les plus récentes sont partiellement non étiquetées | J2 |
 | La borne de R4 suppose le corpus standard dense | Un satellite indisponible en milieu de période retraitée verrait ses lignes NRT de la panne écartées à tort. FIRMS ne publie pas de calendrier de couverture. La borne employée est consignée dans le compte rendu du corpus | J2 |
@@ -1117,8 +1099,10 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | `fires_in_bbox` sous son nom historique | L'API publique dit désormais `events` (cahier v2.1 §15.2) ; la fonction SQL interne garde son nom — la renommer passe par une migration, sans bénéfice public | Libre |
 | Migrations appliquées hors bande | Le chargement direct par script casse le `db push` suivant si la migration n'est pas rejouable — 42701 sur `source_key` le 8 août, puis 42725 sur `events_catalog` le 9 : pendant un rejeu, deux surcharges coexistent et un `comment on function` au nom nu devient ambigu. Règles : idempotence (`if not exists`, `on conflict`, `create or replace`) **et** toute référence de fonction qualifiée par sa signature complète dès qu'elle évolue | Continu |
 | Tableau des détections de la fiche plafonné en silence | `fire_event_detections` rend 500 lignes par défaut (2 000 au plus) ; la relecture annonce désormais son plafond, la fiche pas encore — un événement à 600 détections afficherait un tableau tronqué sans le dire | J7 |
-| Événement de démonstration en production | `DEMO-2607A1` (Lorgues) vit dans la base servie au public et apparaît aux archives. Le jeu de démo devait rester cantonné à `seed/dev` ; retrait à faire (événement + détections de démonstration), décision d'exploitation | Immédiat |
+| Événement de démonstration en production | Traité le 10 août : `DEMO-2607A1` et ses 7 détections `demo:%` supprimés selon la recette documentée par la fixture, entrée d'audit posée avant les suppressions (état avant + motif), dans la même transaction. Vérifié : zéro restant en base, `/archives` sans la démo (cache MISS), fiche en 404 | Traité |
 | Le banc ne reprend pas où il s'est arrêté | Traité le 8 août : le troisième accident (mise en veille) l'a réclamé, comme prévu. `--reprendre` saute les jeux déjà sur disque et complète le CSV | Traité |
+| Jetons du thème recopiés dans la carte OG | Satori (moteur d'`opengraph-image.tsx`) ne lit ni variables CSS ni feuilles de style : les jetons clairs y sont en dur, avec le commentaire qui l'assume. Une retouche de palette doit être répercutée à la main | Libre |
+| Pseudo-événements industriels encore servis | Fos et Dunkerque restent visibles au catalogue jusqu'à leur archivage par le cycle de vie (7 jours sans observation). Contrôle au plus tard le 17 août — voir §2 | 17 août |
 
 ---
 
