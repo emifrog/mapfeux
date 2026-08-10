@@ -327,10 +327,17 @@ Il faut trancher : soit une liste blanche de sources dont la republication
 **attribuée et non réécrite** est automatique, soit assumer le second valideur
 et l'identifier dès maintenant.
 
-### 8.4 Préfixe d'identifiant public
+### 8.4 Préfixe d'identifiant public — tranché le 10 août 2026
 
-`fire.generate_public_id` utilise aujourd'hui `MPF-` par défaut. Le préfixe doit
-être figé **avant la première URL publique** : après, il est permanent.
+**`MPF-`, définitivement** ([ADR-021](adr/021-prefixe-didentifiant-public.md)).
+
+La question demandait de figer le préfixe **avant la première URL publique** ;
+cette fenêtre s'est refermée le 9 août, le catalogue national servant depuis
+les URL des 933 événements réels, tous en `MPF-`. La décision ratifie l'état
+servi plutôt que de payer une migration de renommage pour un bénéfice
+cosmétique — l'identifiant est une référence stable, pas la marque, et doit
+survivre à tout changement de nom. `DEMO-` reste réservé au jeu de
+démonstration.
 
 ### 8.5 Réponse à la première erreur publique
 

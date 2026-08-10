@@ -30,7 +30,7 @@ Supabase doit être consignée ici et validée **avant** implémentation.
 | ADR-018 | Ordonnancement des tâches — réexamen d'ADR-016 | sans objet : ADR-016 confirmé, [décision tranchée](../strategie.md#81-ordonnancement--tranché-le-28-juillet-2026) |
 | ADR-019 | Tuiles vectorielles PMTiles, sans GeoJSON national en direct | réservé, à rédiger en J3 |
 | ADR-020 | Hébergement en région UE, front et base, sous-traitants documentés | réservé |
-| ADR-021 | Préfixe d'identifiant public, figé avant la première URL | réservé, [décision ouverte](../strategie.md#84-préfixe-didentifiant-public) |
+| [ADR-021](021-prefixe-didentifiant-public.md) | Préfixe d'identifiant public : `MPF-`, figé | accepté, [décision tranchée](../strategie.md#84-préfixe-didentifiant-public--tranché-le-10-août-2026) |
 | ADR-022 | Accessibilité : RGAA 4.1 niveau AA visé, déclaration publiée | réservé |
 | ADR-023 | Politique de republication des informations officielles | réservé, à rédiger en J4 |
 | [ADR-024](024-recherche-spatiale-en-memoire.md) | Recherche des candidats de regroupement en mémoire | accepté, à réexaminer à l'échelle nationale |
