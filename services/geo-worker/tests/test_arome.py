@@ -16,9 +16,11 @@ from geo_worker.providers.arome import (
     SPANS,
     AromeError,
     PackageRef,
+    PackageUnavailableError,
     latest_run,
     next_reachable_noon,
     noon_lead_time,
+    runs_reaching_noon,
     span_for_lead_time,
 )
 
@@ -140,3 +142,66 @@ class TestArchiveExtent:
         for lon, lat in ((6.08, 43.53), (7.26, 43.71)):  # Var, Alpes-Maritimes
             assert ARCHIVE_EXTENT.min_lon <= lon <= ARCHIVE_EXTENT.max_lon
             assert ARCHIVE_EXTENT.min_lat <= lat <= ARCHIVE_EXTENT.max_lat
+
+
+class TestRunsReachingNoon:
+    """Repli sur les runs précédents — leçon des 8 et 9 août 2026.
+
+    Le run le plus frais n'est pas toujours publié quand on le demande ; la
+    même mi-journée reste atteignable par les runs antérieurs, à échéance
+    croissante.
+    """
+
+    def test_du_plus_frais_au_plus_vieux(self) -> None:
+        noon = datetime(2026, 8, 10, 11, tzinfo=UTC)
+        runs = runs_reaching_noon(noon, latest=datetime(2026, 8, 10, 6, tzinfo=UTC))
+        assert runs == (
+            datetime(2026, 8, 10, 6, tzinfo=UTC),
+            datetime(2026, 8, 10, 3, tzinfo=UTC),
+            datetime(2026, 8, 10, 0, tzinfo=UTC),
+            datetime(2026, 8, 9, 21, tzinfo=UTC),
+        )
+
+    def test_ne_depasse_jamais_le_dernier_run_publiable(self) -> None:
+        # La grille seule permettrait 09 h (échéance 2 h), mais ce run n'est
+        # pas encore diffusé : le premier candidat est borné par `latest`.
+        noon = datetime(2026, 8, 10, 11, tzinfo=UTC)
+        runs = runs_reaching_noon(noon, latest=datetime(2026, 8, 10, 6, tzinfo=UTC), limit=1)
+        assert runs == (datetime(2026, 8, 10, 6, tzinfo=UTC),)
+
+    def test_commence_au_run_precedant_la_mi_journee(self) -> None:
+        # Pour un rattrapage d'un jour passé, `latest` est bien postérieur :
+        # le premier candidat est alors le run de 09 h du jour visé.
+        noon = datetime(2026, 8, 8, 11, tzinfo=UTC)
+        runs = runs_reaching_noon(noon, latest=datetime(2026, 8, 10, 6, tzinfo=UTC), limit=2)
+        assert runs == (
+            datetime(2026, 8, 8, 9, tzinfo=UTC),
+            datetime(2026, 8, 8, 6, tzinfo=UTC),
+        )
+
+    def test_s_arrete_a_la_portee_du_modele(self) -> None:
+        # Un run à plus de 48 h de la mi-journée ne la prévoit plus : la liste
+        # s'arrête avant la limite demandée.
+        noon = datetime(2026, 8, 10, 11, tzinfo=UTC)
+        runs = runs_reaching_noon(noon, latest=datetime(2026, 8, 8, 12, tzinfo=UTC), limit=10)
+        assert runs == (datetime(2026, 8, 8, 12, tzinfo=UTC),)
+
+    def test_vide_quand_la_mi_journee_est_hors_de_portee(self) -> None:
+        # Mi-journée dans trois jours : aucun run publiable ne l'atteint.
+        noon = datetime(2026, 8, 13, 11, tzinfo=UTC)
+        assert runs_reaching_noon(noon, latest=datetime(2026, 8, 10, 6, tzinfo=UTC)) == ()
+
+    def test_refuse_une_limite_nulle(self) -> None:
+        with pytest.raises(AromeError, match="Limite"):
+            runs_reaching_noon(
+                datetime(2026, 8, 10, 11, tzinfo=UTC),
+                latest=datetime(2026, 8, 10, 6, tzinfo=UTC),
+                limit=0,
+            )
+
+
+class TestPackageUnavailableError:
+    def test_est_une_erreur_arome(self) -> None:
+        # Le repli n'attrape que l'indisponibilité : elle doit rester une
+        # sous-classe pour que les autres erreurs traversent.
+        assert issubclass(PackageUnavailableError, AromeError)

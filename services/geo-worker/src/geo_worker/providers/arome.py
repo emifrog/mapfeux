@@ -76,6 +76,15 @@ class AromeError(RuntimeError):
     """Paquet absent, ou non exploitable."""
 
 
+class PackageUnavailableError(AromeError):
+    """Le dépôt répond 404 : paquet pas encore publié, ou déjà retiré.
+
+    Distinguée pour permettre le repli sur un run précédent — les autres
+    échecs (paquet corrompu, champs absents) ne se contournent pas en
+    changeant de run et doivent rester des erreurs franches.
+    """
+
+
 @dataclass(frozen=True)
 class PackageRef:
     """Désigne un fichier du dépôt."""
@@ -145,6 +154,42 @@ def noon_lead_time(run: datetime, target_day: datetime, noon_hour_utc: int = 11)
     return lead
 
 
+def runs_reaching_noon(noon: datetime, *, latest: datetime, limit: int = 4) -> tuple[datetime, ...]:
+    """Runs candidats pour atteindre une mi-journée, du plus frais au plus vieux.
+
+    Leçon des 8 et 9 août 2026 : le run le plus récent n'est pas toujours
+    publié quand on le demande — le délai de diffusion approche trois heures
+    et demie et fluctue, si bien qu'un déclenchement ponctuel tombe des deux
+    côtés de la limite selon l'humeur du planificateur. Or la même mi-journée
+    reste prévue par les runs précédents, à échéance croissante : plutôt que
+    d'échouer sur un 404, on recule de run en run.
+
+    La liste s'arrête quand l'échéance sort de la portée du modèle (48 h) ou
+    que `limit` candidats ont été produits. Elle peut être vide : une
+    mi-journée trop ancienne n'est plus atteignable par aucun run publiable.
+    """
+    if limit < 1:
+        raise AromeError(f"Limite de candidats invalide : {limit}")
+
+    moment = noon.astimezone(UTC)
+    # Dernier run de la grille qui précède ou égale la mi-journée : un run
+    # postérieur ne la prévoit plus, il l'a vécue.
+    hour = max(h for h in RUN_HOURS if h <= moment.hour)
+    candidate = min(
+        moment.replace(hour=hour, minute=0, second=0, microsecond=0),
+        latest.astimezone(UTC),
+    )
+
+    runs: list[datetime] = []
+    while len(runs) < limit:
+        lead = round((moment - candidate).total_seconds() / 3600)
+        if lead > 48:
+            break
+        runs.append(candidate)
+        candidate -= timedelta(hours=3)
+    return tuple(runs)
+
+
 def next_reachable_noon(run: datetime, noon_hour_utc: int = 11) -> datetime:
     """Prochaine mi-journée que ce run peut encore atteindre.
 
@@ -170,8 +215,10 @@ __all__ = [
     "SURFACE_PACKAGE",
     "AromeError",
     "PackageRef",
+    "PackageUnavailableError",
     "latest_run",
     "next_reachable_noon",
     "noon_lead_time",
+    "runs_reaching_noon",
     "span_for_lead_time",
 ]

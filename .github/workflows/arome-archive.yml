@@ -13,9 +13,12 @@
 # quotidienne.
 #
 # Horaire : le script vise la mi-journée atteignable depuis le dernier run
-# publié (next_reachable_noon). Un déclenchement à 10:00 UTC laisse le run du
-# matin se publier ; workflow_dispatch sert de relance manuelle si un jour
-# échoue.
+# publié (next_reachable_noon). Le cron à 10:00 UTC est mort deux fois — 8 et
+# 9 août — sur le délai de diffusion du run de 06:00, qui fluctue autour de
+# trois heures et demie : à 10:20 le paquet n'était pas là, à 10:40 (dérive du
+# cron, 7 août) il l'était. Décalé à 10:45, et le script replie désormais sur
+# les runs précédents si le plus frais manque encore ; workflow_dispatch et
+# `--jour` servent de relance manuelle si un jour échoue malgré tout.
 #
 # Secrets requis (dépôt) :
 #   INGESTION_DATABASE_URL  — déjà posé pour ingestion.yml (pooler session, 5432)
@@ -27,7 +30,7 @@ name: Archivage AROME
 
 on:
   schedule:
-    - cron: '0 10 * * *'
+    - cron: '45 10 * * *'
   workflow_dispatch:
 
 concurrency:

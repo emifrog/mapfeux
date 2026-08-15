@@ -23,7 +23,12 @@ import httpx
 import xarray as xr
 
 from geo_worker.logging import get_logger
-from geo_worker.providers.arome import FWI_FIELDS, AromeError, PackageRef
+from geo_worker.providers.arome import (
+    FWI_FIELDS,
+    AromeError,
+    PackageRef,
+    PackageUnavailableError,
+)
 from geo_worker.providers.models import BoundingBox
 from geo_worker.storage import upload_object
 
@@ -108,6 +113,10 @@ def archive_package(
         # elle, reste celle du fournisseur.
         grib = pathlib.Path(workspace) / reference.filename.replace(":", "")
         with http.stream("GET", reference.url, timeout=300) as response:
+            if response.status_code == 404:
+                # Pas encore publié, ou déjà retiré du dépôt : l'appelant peut
+                # replier sur un run précédent, les autres statuts non.
+                raise PackageUnavailableError(f"Paquet absent du dépôt : {reference.filename}")
             if response.status_code != 200:
                 raise AromeError(f"Paquet indisponible : HTTP {response.status_code}")
             with grib.open("wb") as handle:

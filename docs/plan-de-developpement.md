@@ -1,9 +1,11 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 10 août 2026 — le masque des sources statiques est
-**appliqué en production** (45 sources, 776 détections classées, Fos éteint),
-`DEMO-2607A1` retiré de la base publique, carte de partage Open Graph et
-version imprimable livrées (FR-067, FR-068), préfixe `MPF-` figé (ADR-021).
+**Dernière mise à jour** : 10 août 2026 — J8 entamé : les cinq tables météo
+(§13.12-16) en production, le registre des runs vivant (6 runs, amorçage
+compris) ; la fuite de l'archivage AROME colmatée — les 404 des 8-9 août
+compris et les **trois jours perdus récupérés**. Plus tôt le même jour :
+masque des sources statiques appliqué en production (Fos éteint),
+`DEMO-2607A1` retiré, FR-067/FR-068 livrés, préfixe `MPF-` figé (ADR-021).
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -126,22 +128,23 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Entamer J8 — météo et panache.**
+**J8, suite : l'extraction du vent autour des événements (`wind_samples`).**
 
-Les deux décisions d'exploitation du 10 août sont exécutées : le masque des
-sources statiques est appliqué en production et `DEMO-2607A1` retiré (voir
-J10 et §15). La fin de J7 est actée pour l'essentiel : catalogue, archives,
-relecture v1, carte de partage Open Graph et version imprimable sont en
-service, le préfixe `MPF-` est figé. Restent au jalon, sans bloquer l'entrée
-en J8 : le slug éditorial facultatif (FR-042), la relecture v2 (curseur et
-lecture automatique, FR-082), la page « Autour de moi », et le plafond parlant
-du tableau des détections de la fiche (dette §15).
+La première marche de J8 est posée : les cinq tables (§13.12-16) sont en
+production et le registre des runs est vivant — voir J8. La marche suivante
+est l'extraction : lire les extraits NetCDF du stockage froid, interpoler
+U/V au point représentatif d'un événement (bilinéaire ou plus proche voisin,
+selon validation — §16.4), normaliser les directions, garde-fous sur valeurs
+aberrantes, et consigner méthode et distance à la cellule dans
+`meteo.wind_samples`. C'est le dernier préalable du calcul de panache (§18).
 
-Première marche de J8 : les tables `meteo.model_runs`, `wind_samples`,
-`smoke_forecasts`, `smoke_steps` et `affected_municipalities` (cahier §13.12
-à §13.16), puis l'ingestion des runs AROME pour le calcul (§16.4) —
-l'archivage froid (PR-1) accumule le corpus depuis le 5 août, il ne manque
-que la lecture.
+La spécification de J8 est lue dans le cahier **v1.1**, dont les §13.12-16,
+§16.4 et §18 portent les mêmes numéros que le v2.1 cité par ce plan. ⚠️ À
+confirmer d'un coup d'œil sur le PDF v2.1 : si ces sections y ont bougé,
+l'écart passe par ADR.
+
+Restent aussi à J7, sans bloquer J8 : slug éditorial (FR-042), relecture v2
+(FR-082), page « Autour de moi », plafond parlant du tableau des détections.
 
 ⚠️ Contrôle sous sept jours (au plus tard le 17 août) : les pseudo-événements
 industriels privés d'alimentation par le masque — Fos `MPF-V7NPXN72`,
@@ -268,7 +271,12 @@ historiques importé à la main.
   affiche son URL permanente sans localhost — la variable est donc posée et
   déployée. Le parcours e-mail complet (envoi, lien, session) n'a pas été
   rejoué depuis ; ⚠️ maintenu tant qu'un lien reçu n'a pas été suivi avec
-  succès en production
+  succès en production.
+  **Le contrôle ne demande pas de jugement** : `select max(last_sign_in_at)
+  from auth.users`. Toute valeur postérieure au 10 août prouve qu'un lien a
+  été suivi depuis que la variable est posée, et lève l'avertissement. Relevé
+  du 15 août : **7 août 17:32 UTC**, donc aucune connexion depuis — l'anomalie
+  n'est pas levée, et cinq jours de silence ne l'ont pas rendue moins vraie
 - ✅ Jeu historique réel en remplacement de la fixture — la production tourne
   sur données réelles depuis le 5 août (ingestion planifiée, 939 détections
   d'historique) ; la fixture ne vit plus qu'en `seed/dev/` pour le poste local,
@@ -739,12 +747,33 @@ et d'exploitation, pas un retrait de périmètre
 ([stratégie §4](strategie.md#4-périmètre-du-mvp)).
 
 - ✅ Archivage froid AROME (PR-1) en service depuis le 5 août — voir le
-  chantier transverse. Le corpus de calibration du panache s'accumule déjà.
-- ⬜ Tables `meteo.model_runs`, `wind_samples`, `smoke_forecasts`,
-  `smoke_steps`, `affected_municipalities` (cahier §13.12 à §13.16)
-- ⬜ Ingestion des runs AROME pour le calcul, au-delà de l'archivage : index
-  des paramètres et échéances, extraction autour des événements, interpolation
-  validée, garde-fous sur valeurs aberrantes (§16.4)
+  chantier transverse, y compris la fuite des 8-9 août colmatée le 10. Le
+  corpus du panache s'accumule, **continu et sans trou** ; l'archive porte
+  bien `u10`/`v10`, le vent dont le §18 a besoin
+- ✅ **Les cinq tables météo, en production** (10 août) — migration
+  `20260810150000` : `model_runs`, `wind_samples`, `smoke_forecasts`,
+  `smoke_steps`, `affected_municipalities` (§13.12-16, lus dans le v1.1 à
+  numérotation identique). `st_isvalid` en **contrainte** (§18.5), une seule
+  prévision courante par événement (index partiel sur `is_current`),
+  `on delete restrict` du run porteur (§18.6 : une prévision sans provenance
+  est interdite), RLS partout, grants `mapfeux_ingest` limités au registre
+  des runs — un droit sans écrivain est une surface d'attaque sans bénéfice.
+  Appliquée **et rejouée** sur la production : l'idempotence est vérifiée,
+  pas promise
+- ✅ **Le registre des runs est vivant** (§13.12) — `meteo.model_runs` compte
+  6 runs continus du 5 au 10 août : `record_model_run` (fusion des échéances
+  en union, inventaire des fichiers par chemin, verrou de ligne) est branché
+  dans `archive-arome.py`, et `backfill-meteo-runs.py` a reporté les passes
+  antérieures depuis `ingest.import_runs` — 8 passes, 6 runs, les doublons
+  convergent vers la même ligne. Les échéances par tranche sont **vérifiées
+  sur les extraits réels** : `00H06H` porte 7 pas horaires (0-6), `19H24H`
+  en porte 6 (19-24) — l'extraction conserve toute la tranche, pas seulement
+  la mi-journée visée, ce qui donne déjà 6 à 7 heures de vent par jour au
+  panache
+- 🟡 Ingestion des runs pour le calcul (§16.4) : index des paramètres et
+  échéances ✅ (le registre) ; extraction autour des événements, interpolation
+  validée et garde-fous sur valeurs aberrantes ⬜ — c'est la prochaine action
+  (§2)
 - ⬜ Panache indicatif §18 : advection pas à pas, élargissement latéral,
   garde-fous — distance et surface maximales, `ST_IsValid` obligatoire,
   résultat vide si entrées insuffisantes, jamais de panache sur modèle expiré
@@ -907,8 +936,13 @@ sans réécriture.
 
 ## 12. J5 — Administration et exploitation ⬜
 
-- ⬜ Authentification par lien magique, MFA obligatoire pour `super_admin`
-- ⬜ `proxy.ts` pour le rafraîchissement de session
+- ✅ Authentification par lien magique — livrée en J1 le 7 août, pas ici. La
+  ligne est restée ⬜ huit jours après coup : un jalon ne garde pas la propriété
+  de ce qu'un autre a livré avant lui
+- ⬜ MFA obligatoire pour `super_admin` — seule moitié encore due. La contrainte
+  existe en base, l'enrôlement TOTP non (§14.4)
+- ✅ `proxy.ts` pour le rafraîchissement de session — livré en J1 le 7 août,
+  périmètre `/admin` seulement
 - ⬜ Tableau de bord de santé des sources
 - ⬜ Gestion des événements : masquer, fusionner, séparer, classer en source
   thermique connue, corriger
