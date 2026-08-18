@@ -1,13 +1,13 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 18 août 2026 — **le vent s'échantillonne aux
-points des événements** : `wind_samples` livré et exercé sur un feu réel
-(Saurat), validation bilinéaire/voisin mesurée, écriture idempotente ; la
-prochaine action est le calcul du panache (§18). Le même jour : contrôle du
-masque **concluant** (Fos et Dunkerque `archived` au septième jour, zéro
-naissance près d'une source), une semaine d'archivage AROME autonome
-constatée (repli exercé en réel le 15), spécification J8 vérifiée contre le
-PDF v2.1 (`fwi_archived` intégré).
+**Dernière mise à jour** : 18 août 2026 — **le panache se calcule** : advection
+§18.3 au vent du point courant, garde-fous §18.5, incertitude par facteurs,
+versionnement §18.6 complet, 7 communes rangées FR-072 sur l'exercice réel de
+Saurat, rejeu identique (G5) — et rien de publié (`is_current` faux, §22.5 en
+attente). Le même jour : `wind_samples` livré (validation bilinéaire/voisin
+mesurée), contrôle du masque **concluant** (Fos et Dunkerque `archived`, zéro
+naissance près d'une source), semaine d'archivage AROME autonome constatée,
+spécification vérifiée contre le PDF v2.1.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -118,10 +118,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 74 fichiers |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 31 + 22 fichiers |
-| Worker | `pytest` | ✅ 335 tests |
-| Migrations | 25 migrations sur base vierge, en CI | ✅ CI du 18 août (b8c6d4d) |
+| Worker | `ruff check` / `ruff format --check` | ✅ 77 fichiers |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 32 + 23 fichiers |
+| Worker | `pytest` | ✅ 349 tests |
+| Migrations | 25 migrations sur base vierge, en CI | ✅ CI du 18 août (6186fcf) |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -130,24 +130,25 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J8, suite : le calcul du panache (§18).**
+**J8, suite : couvrir l'horizon réel — l'ingestion à la demande des
+tranches.**
 
-Les préalables sont en place : tables, registre des runs, et depuis le 18
-août l'extraction du vent (`wind_samples`, voir J8) — exercée sur un
-événement réel, validation bilinéaire/voisin mesurée. La marche suivante est
-l'algorithme du §18.3 : advection pas à pas depuis les échantillons de vent,
-élargissement latéral, garde-fous du §18.5 en code comme ils sont déjà en
-contraintes, versionnement §18.6, écriture dans `smoke_forecasts`,
-`smoke_steps` et `affected_municipalities`. **Rien n'est publié** tant que la
-formulation §22.5 n'est pas validée métier : le calcul s'exerce d'abord sur
-les cas du corpus (Gironde 2022, §24.8), pas sur la fiche.
+Le panache se calcule depuis le 18 août (voir J8) et son premier exercice
+réel a montré la limite exactement où elle était attendue : sur Saurat, le
+vent s'épuise à 12 h et la prévision s'arrête à 2 h 45 sur les 6 h demandées
+— tronquée et drapeautée, comme il se doit, mais tronquée. L'archive
+quotidienne ne porte que la tranche 0-6 h autour de la mi-journée ; couvrir
+l'horizon d'un événement réel exige d'aller chercher **à la demande** les
+tranches manquantes du run (`07H12H`, `13H18H`…) — la machinerie existe
+(`PackageRef`, tranches, registre qui fusionne les échéances), il manque le
+déclencheur : « quelles tranches faut-il pour cet événement, lesquelles
+manquent, va les chercher » (§16.4, « recalcul des panaches concernés »).
 
-⚠️ Couverture du vent : l'archive quotidienne ne porte que les échéances 0-6
-autour de la mi-journée. Un panache sur l'horizon réel d'un événement (6-12 h
-à partir de sa dernière observation) exigera l'ingestion **à la demande** des
-tranches manquantes du run — la machinerie (registre, tranches, `--jour`) est
-prête, le déclencheur viendra avec le calcul (§16.4, « recalcul des panaches
-concernés »).
+Restent ensuite à J8, avant toute publication : la désactivation immédiate
+(FR-106, FR-155), la formulation publique §22.5 **validée métier**,
+l'affichage de l'incertitude (FR-101 à FR-103), et la calibration — qui,
+pour Gironde 2022, exigera une source de vent historique (voir J8, ADR à
+venir).
 
 La spécification de J8 est **vérifiée contre le PDF v2.1** (67 pages, fourni
 le 10 août) : les §13.12-16, §16.4 et §18 y sont identiques au v1.1, à une
@@ -811,21 +812,41 @@ et d'exploitation, pas un retrait de périmètre
 - 🟡 Ingestion des runs pour le calcul (§16.4) : index ✅, extraction et
   interpolation validée ✅ ; reste l'ingestion **à la demande** des tranches
   couvrant l'horizon réel d'un événement — voir §2
-- ⬜ Panache indicatif §18 : advection pas à pas, élargissement latéral,
-  garde-fous — distance et surface maximales, `ST_IsValid` obligatoire,
-  résultat vide si entrées insuffisantes, jamais de panache sur modèle expiré
+- ✅ **Le panache se calcule** (18 août, §18.3) —
+  `pipelines/smoke_forecast.py` : advection pas à pas (15 min) avec le vent
+  relu **au point courant** — bilinéaire en espace, linéaire en temps entre
+  les échéances —, géométrie en projection azimutale équidistante centrée
+  sur l'événement (les mètres y sont des mètres), élargissement en cône.
+  Garde-fous §18.5 en code comme en contraintes : distance et surface
+  maximales (troncature dite, jamais silencieuse), aberrations en erreur
+  franche, **résultat vide si les entrées manquent**, horizon partiellement
+  couvert → prévision tronquée et drapeautée. Incertitude §18.4 par facteurs
+  mesurés (modèle ancien, vent faible, direction instable, cellule éloignée,
+  observation ancienne) ; `relief_non_evalue` et `coefficients_non_calibres`
+  sont des **drapeaux permanents** de la v1. Exercé sur `MPF-8FHDJQ1G`
+  (Saurat) : 11 pas, vent de vallée faible et tournant (232°→353°),
+  confiance `low` par trois facteurs, enveloppe 12,42 km², **7 communes
+  ariégeoises** rangées par heure d'arrivée puis exposition (FR-072,
+  Arignac 45 % de sa surface), **rejeu identique** — le critère G5 « mêmes
+  entrées, même sortie » est tenu. 14 tests sur vent synthétique.
+  `is_current` est faux partout : rien ne se publie avant §22.5
 - ⬜ Incertitude affichée et croissante ; modèle, run, échéance, résolution et
   période de validité visibles (FR-101 à FR-103)
-- ⬜ Versionnement complet : algorithme, commit du worker, run météo,
-  paramètres, checksum des entrées (§18.6)
+- ✅ Versionnement complet (§18.6) : `plume-v1`, commit du worker, run météo
+  (id, horodatage, chemin, empreinte), paramètres, détections sources,
+  empreinte des entrées — tout vit dans `parameters`, vérifié en base
 - ⬜ Désactivation globale ou par territoire, immédiate, sans déploiement
   (FR-106, FR-155)
-- ⬜ Communes potentiellement concernées : intersection géospatiale, libellé
-  « potentiellement concernée » obligatoire, fenêtre temporelle seulement si
-  calculable (FR-110 à FR-114)
+- 🟡 Communes potentiellement concernées (FR-110 à FR-114) : intersection
+  géospatiale par pas ✅ — fenêtre temporelle réelle (première et dernière
+  intersection), surface et part de recouvrement, rang FR-072 ; le libellé
+  « potentiellement concernée » obligatoire viendra avec l'affichage, qui
+  attend §22.5
 - ⬜ Formulation publique obligatoire du panache (§22.5), validée métier avant
   toute mise en ligne
-- ⬜ Calibration sur cas connus du corpus — Gironde 2022 — avant publication
+- ⬜ Calibration sur cas connus du corpus — Gironde 2022 — avant publication.
+  ⚠️ L'archive de vent ne commence qu'au 5 août 2026 : calibrer sur 2022
+  exigera une source historique (ERA5 ou réanalyse AROME), à choisir par ADR
 
 **Critère de sortie** (G5) : panache reproductible — mêmes entrées, même
 sortie — et désactivable en une action ; communes concernées reproductibles
