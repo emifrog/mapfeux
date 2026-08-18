@@ -139,6 +139,52 @@ def upload_object(
     return checksum
 
 
+def download_object(
+    client: httpx.Client,
+    *,
+    supabase_url: str,
+    secret_key: str,
+    bucket: str,
+    object_path: str,
+    expected_checksum: str | None = None,
+    timeout: float = 180.0,
+) -> bytes:
+    """Récupère un objet, et vérifie son empreinte quand elle est connue.
+
+    Le registre des runs consigne l'empreinte SHA-256 de chaque extrait au
+    dépôt ; la lecture qui alimente un calcul doit prouver qu'elle lit bien
+    ce qui a été déposé — un fichier tronqué ou remplacé produirait un vent
+    faux sans erreur visible, le pire des résultats puisqu'il est plausible.
+    """
+    headers = {
+        # Même leçon que le dépôt : les clés `sb_secret_…` ne sont pas des
+        # JWT, elles se présentent en `apikey`.
+        "apikey": secret_key,
+        "Authorization": f"Bearer {secret_key}",
+    }
+
+    response = client.get(
+        f"{supabase_url.rstrip('/')}/storage/v1/object/{bucket}/{object_path}",
+        headers=headers,
+        timeout=timeout,
+    )
+
+    if response.status_code != 200:
+        raise StorageError(f"Lecture refusée ({response.status_code}) : {response.text[:200]}")
+
+    payload = response.content
+    if expected_checksum is not None:
+        actual = hashlib.sha256(payload).hexdigest()
+        if actual != expected_checksum:
+            raise StorageError(
+                f"Empreinte inattendue pour {bucket}/{object_path} : "
+                f"{actual[:12]}… au lieu de {expected_checksum[:12]}…"
+            )
+
+    logger.info("storage.downloaded", bucket=bucket, object_path=object_path, bytes=len(payload))
+    return payload
+
+
 __all__ = [
     "BUCKET_COLD",
     "BUCKET_DERIVED",
@@ -148,5 +194,6 @@ __all__ = [
     "StorageConfigError",
     "StorageError",
     "archive_target",
+    "download_object",
     "upload_object",
 ]
