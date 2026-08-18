@@ -1,12 +1,13 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 18 août 2026 — le colmatage AROME a tenu une
-semaine : archivage quotidien continu (14 runs au registre, 5 → 17 août sans
-trou), **repli exercé en réel le 15** — l'ancien cron meurt à 10 h 10, le
-correctif poussé à 10 h 12 replie sur le run de 03 h dès 10 h 18. Contrôle
-du masque **concluant** : Fos et Dunkerque `archived` au septième jour, zéro
-naissance près d'une source. Spécification J8 vérifiée contre le PDF v2.1,
-l'indicateur `fwi_archived` intégré (§13.12).
+**Dernière mise à jour** : 18 août 2026 — **le vent s'échantillonne aux
+points des événements** : `wind_samples` livré et exercé sur un feu réel
+(Saurat), validation bilinéaire/voisin mesurée, écriture idempotente ; la
+prochaine action est le calcul du panache (§18). Le même jour : contrôle du
+masque **concluant** (Fos et Dunkerque `archived` au septième jour, zéro
+naissance près d'une source), une semaine d'archivage AROME autonome
+constatée (repli exercé en réel le 15), spécification J8 vérifiée contre le
+PDF v2.1 (`fwi_archived` intégré).
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -117,10 +118,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 71 fichiers (worker 50, scripts 21) |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 30 + 21 fichiers |
-| Worker | `pytest` | ✅ 322 tests |
-| Migrations | 24 migrations sur base vierge, en CI | ✅ CI du 15 août (0e007b7) |
+| Worker | `ruff check` / `ruff format --check` | ✅ 74 fichiers |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 31 + 22 fichiers |
+| Worker | `pytest` | ✅ 335 tests |
+| Migrations | 25 migrations sur base vierge, en CI | ✅ CI du 18 août (b8c6d4d) |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -129,15 +130,24 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J8, suite : l'extraction du vent autour des événements (`wind_samples`).**
+**J8, suite : le calcul du panache (§18).**
 
-La première marche de J8 est posée : les cinq tables (§13.12-16) sont en
-production et le registre des runs est vivant — voir J8. La marche suivante
-est l'extraction : lire les extraits NetCDF du stockage froid, interpoler
-U/V au point représentatif d'un événement (bilinéaire ou plus proche voisin,
-selon validation — §16.4), normaliser les directions, garde-fous sur valeurs
-aberrantes, et consigner méthode et distance à la cellule dans
-`meteo.wind_samples`. C'est le dernier préalable du calcul de panache (§18).
+Les préalables sont en place : tables, registre des runs, et depuis le 18
+août l'extraction du vent (`wind_samples`, voir J8) — exercée sur un
+événement réel, validation bilinéaire/voisin mesurée. La marche suivante est
+l'algorithme du §18.3 : advection pas à pas depuis les échantillons de vent,
+élargissement latéral, garde-fous du §18.5 en code comme ils sont déjà en
+contraintes, versionnement §18.6, écriture dans `smoke_forecasts`,
+`smoke_steps` et `affected_municipalities`. **Rien n'est publié** tant que la
+formulation §22.5 n'est pas validée métier : le calcul s'exerce d'abord sur
+les cas du corpus (Gironde 2022, §24.8), pas sur la fiche.
+
+⚠️ Couverture du vent : l'archive quotidienne ne porte que les échéances 0-6
+autour de la mi-journée. Un panache sur l'horizon réel d'un événement (6-12 h
+à partir de sa dernière observation) exigera l'ingestion **à la demande** des
+tranches manquantes du run — la machinerie (registre, tranches, `--jour`) est
+prête, le déclencheur viendra avec le calcul (§16.4, « recalcul des panaches
+concernés »).
 
 La spécification de J8 est **vérifiée contre le PDF v2.1** (67 pages, fourni
 le 10 août) : les §13.12-16, §16.4 et §18 y sont identiques au v1.1, à une
@@ -783,10 +793,24 @@ et d'exploitation, pas un retrait de périmètre
   en porte 6 (19-24) — l'extraction conserve toute la tranche, pas seulement
   la mi-journée visée, ce qui donne déjà 6 à 7 heures de vent par jour au
   panache
-- 🟡 Ingestion des runs pour le calcul (§16.4) : index des paramètres et
-  échéances ✅ (le registre) ; extraction autour des événements, interpolation
-  validée et garde-fous sur valeurs aberrantes ⬜ — c'est la prochaine action
-  (§2)
+- ✅ **Extraction du vent aux points des événements** (18 août, §13.13 et
+  §16.4) — `pipelines/wind_samples.py` : extrait relu du froid avec
+  **empreinte vérifiée** contre le registre (`download_object`), interpolation
+  bilinéaire ou plus proche voisin, direction météorologique normalisée
+  (`270 − atan2`, testée aux quatre cardinales), garde-fous sur composantes
+  aberrantes **et** sur la distance à la cellule — le voisin le plus proche
+  se rabattrait en silence sur un nœud de bord. Écriture idempotente
+  (clé d'upsert, migration `20260818100000`, appliquée et rejouée en
+  production ; rejeu réel : 7 lignes avant, 7 après). Exercé sur
+  `MPF-8FHDJQ1G` (Saurat, Ariège) contre le run du 17/08 06 h : 7
+  échantillons, vent faible et tournant de vallée (1 à 2,7 m/s, 220-320°) —
+  le cas même que le §18.4 fera peser sur la confiance. **Validation §16.4
+  mesurée** : bilinéaire vs voisin, Δvitesse ≤ 0,32 m/s, Δdirection 22° par
+  vent faible mais 2,5° au pas le plus venté — la bilinéaire est retenue,
+  13 tests dont la grille à latitudes décroissantes
+- 🟡 Ingestion des runs pour le calcul (§16.4) : index ✅, extraction et
+  interpolation validée ✅ ; reste l'ingestion **à la demande** des tranches
+  couvrant l'horizon réel d'un événement — voir §2
 - ⬜ Panache indicatif §18 : advection pas à pas, élargissement latéral,
   garde-fous — distance et surface maximales, `ST_IsValid` obligatoire,
   résultat vide si entrées insuffisantes, jamais de panache sur modèle expiré
