@@ -1,11 +1,12 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 10 août 2026 — J8 entamé : les cinq tables météo
-(§13.12-16) en production, le registre des runs vivant (6 runs, amorçage
-compris) ; la fuite de l'archivage AROME colmatée — les 404 des 8-9 août
-compris et les **trois jours perdus récupérés**. Plus tôt le même jour :
-masque des sources statiques appliqué en production (Fos éteint),
-`DEMO-2607A1` retiré, FR-067/FR-068 livrés, préfixe `MPF-` figé (ADR-021).
+**Dernière mise à jour** : 18 août 2026 — le colmatage AROME a tenu une
+semaine : archivage quotidien continu (14 runs au registre, 5 → 17 août sans
+trou), **repli exercé en réel le 15** — l'ancien cron meurt à 10 h 10, le
+correctif poussé à 10 h 12 replie sur le run de 03 h dès 10 h 18. Contrôle
+du masque **concluant** : Fos et Dunkerque `archived` au septième jour, zéro
+naissance près d'une source. Spécification J8 vérifiée contre le PDF v2.1,
+l'indicateur `fwi_archived` intégré (§13.12).
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -116,10 +117,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 68 fichiers (worker 48, scripts 20) |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 29 + 20 fichiers |
-| Worker | `pytest` | ✅ 305 tests |
-| Migrations | 23 migrations sur base vierge, en CI | ✅ |
+| Worker | `ruff check` / `ruff format --check` | ✅ 71 fichiers (worker 50, scripts 21) |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 30 + 21 fichiers |
+| Worker | `pytest` | ✅ 322 tests |
+| Migrations | 24 migrations sur base vierge, en CI | ✅ CI du 15 août (0e007b7) |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -138,19 +139,24 @@ selon validation — §16.4), normaliser les directions, garde-fous sur valeurs
 aberrantes, et consigner méthode et distance à la cellule dans
 `meteo.wind_samples`. C'est le dernier préalable du calcul de panache (§18).
 
-La spécification de J8 est lue dans le cahier **v1.1**, dont les §13.12-16,
-§16.4 et §18 portent les mêmes numéros que le v2.1 cité par ce plan. ⚠️ À
-confirmer d'un coup d'œil sur le PDF v2.1 : si ces sections y ont bougé,
-l'écart passe par ADR.
+La spécification de J8 est **vérifiée contre le PDF v2.1** (67 pages, fourni
+le 10 août) : les §13.12-16, §16.4 et §18 y sont identiques au v1.1, à une
+addition près — l'indicateur d'archivage froid des extraits FWI au §13.12 —
+intégrée à la migration avant son commit (`fwi_archived`, posé par le
+registre). Le §16.4 v2.1 **entérine** au passage le dépôt des champs FWI en
+stockage froid (PR-1), la pratique en service depuis le 5 août. Seul écart
+restant, antérieur à J8 : le GRIB2 brut n'est pas conservé (ADR-025, motivé
+dans `providers/arome.py`).
 
 Restent aussi à J7, sans bloquer J8 : slug éditorial (FR-042), relecture v2
 (FR-082), page « Autour de moi », plafond parlant du tableau des détections.
 
-⚠️ Contrôle sous sept jours (au plus tard le 17 août) : les pseudo-événements
-industriels privés d'alimentation par le masque — Fos `MPF-V7NPXN72`,
-Dunkerque `MPF-GCWYFMCW` — doivent basculer `archived` d'eux-mêmes par le
-cycle de vie. S'ils ne le font pas, c'est `refresh_freshness` qui a un trou,
-pas le masque.
+✅ **Contrôle du 17 août : concluant, sur les trois volets** (vérifié le 18).
+Fos `MPF-V7NPXN72` et Dunkerque `MPF-GCWYFMCW` sont `archived` — le cycle de
+vie a basculé les pseudo-événements au septième jour sans observation ; 802
+détections classées à l'ingestion sur les 10 404 importées depuis le 10 ;
+**zéro événement né près d'une source active**. « Les nouveaux ne naissent
+plus » est un fait mesuré, plus une promesse.
 
 Le dossier de la calibration close — balayage croisé, inspections, mesure du
 masque — est consigné en J10 ; l'historique du banc et ses trois morts, en J2.
@@ -749,11 +755,18 @@ et d'exploitation, pas un retrait de périmètre
 - ✅ Archivage froid AROME (PR-1) en service depuis le 5 août — voir le
   chantier transverse, y compris la fuite des 8-9 août colmatée le 10. Le
   corpus du panache s'accumule, **continu et sans trou** ; l'archive porte
-  bien `u10`/`v10`, le vent dont le §18 a besoin
+  bien `u10`/`v10`, le vent dont le §18 a besoin. Le colmatage a été
+  **éprouvé par une semaine autonome** (11-17 août, 14 runs au registre) et
+  par le 15 août en particulier, au journal des passes : l'ancien cron meurt
+  à 10 h 10 sur le 404 connu, le correctif est poussé à 10 h 12, la passe
+  manuelle de 10 h 18 **replie sur le run de 03 h** — le 06 h n'est pas
+  encore publié, la mi-journée est sauvée par le mécanisme construit pour
+  ça — et le cron neuf capte le 06 h à 11 h 01
 - ✅ **Les cinq tables météo, en production** (10 août) — migration
   `20260810150000` : `model_runs`, `wind_samples`, `smoke_forecasts`,
-  `smoke_steps`, `affected_municipalities` (§13.12-16, lus dans le v1.1 à
-  numérotation identique). `st_isvalid` en **contrainte** (§18.5), une seule
+  `smoke_steps`, `affected_municipalities` (§13.12-16, vérifiés contre le
+  PDF v2.1 — identiques au v1.1, plus l'indicateur `fwi_archived` du §13.12,
+  intégré). `st_isvalid` en **contrainte** (§18.5), une seule
   prévision courante par événement (index partiel sur `is_current`),
   `on delete restrict` du run porteur (§18.6 : une prévision sans provenance
   est interdite), RLS partout, grants `mapfeux_ingest` limités au registre
@@ -1142,7 +1155,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Événement de démonstration en production | Traité le 10 août : `DEMO-2607A1` et ses 7 détections `demo:%` supprimés selon la recette documentée par la fixture, entrée d'audit posée avant les suppressions (état avant + motif), dans la même transaction. Vérifié : zéro restant en base, `/archives` sans la démo (cache MISS), fiche en 404 | Traité |
 | Le banc ne reprend pas où il s'est arrêté | Traité le 8 août : le troisième accident (mise en veille) l'a réclamé, comme prévu. `--reprendre` saute les jeux déjà sur disque et complète le CSV | Traité |
 | Jetons du thème recopiés dans la carte OG | Satori (moteur d'`opengraph-image.tsx`) ne lit ni variables CSS ni feuilles de style : les jetons clairs y sont en dur, avec le commentaire qui l'assume. Une retouche de palette doit être répercutée à la main | Libre |
-| Pseudo-événements industriels encore servis | Fos et Dunkerque restent visibles au catalogue jusqu'à leur archivage par le cycle de vie (7 jours sans observation). Contrôle au plus tard le 17 août — voir §2 | 17 août |
+| Pseudo-événements industriels encore servis | Traité : archivés par le cycle de vie au septième jour, contrôle du 18 août concluant (Fos et Dunkerque `archived`, zéro naissance près d'une source depuis le 10, 802 détections classées à l'ingestion) — voir §2 | Traité |
 
 ---
 
