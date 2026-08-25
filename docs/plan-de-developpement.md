@@ -209,18 +209,19 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J3 | Carte et territoires | 3 | 6 sem. | **2 sem.** | 🟡 pilote livré |
 | J7 | Expérience FeuScope complète : catalogue, archives, relecture, partage | 4 — gate G4 Alpha | 10 sem. | **1 sem.** | 🟡 critère de sortie atteint |
 | J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
-| J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **7 sem.** | 🟡 entamé |
+| J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **4 sem.** | 🟡 périmètres complets, CAMS importé |
 | J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | 2 sem. | ⬜ |
 | J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | 6 sem. | ⬜ vigilance déjà en service |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
 | J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
-| | | | 66 sem. | **≈ 38 sem.** | |
+| | | | 66 sem. | **≈ 34 sem.** | |
 
-Il reste **environ 38 semaines** — sous la fourchette 40-50 de la D-0. Le
-recalage du 6 août avait ajouté 30 semaines au total d'alors (21) : c'est le
-prix, connu et accepté, du périmètre intégral ; J8 en a rendu quatre le
-25 août, et J7 neuf le même jour — les dix semaines du jalon FeuScope se sont
-faites en dix-sept jours calendaires, la saison creuse d'août aidant. L'option C (renfort ou partenariat,
+Il reste **environ 34 semaines** — nettement sous la fourchette 40-50 de la
+D-0. Le recalage du 6 août avait ajouté 30 semaines au total d'alors (21) :
+c'est le prix, connu et accepté, du périmètre intégral ; le 25 août en a
+rendu seize d'un coup — J7 neuf, J8 quatre, J9 trois — les dix semaines du
+jalon FeuScope s'étant faites en dix-sept jours calendaires, la saison creuse
+d'août aidant. L'option C (renfort ou partenariat,
 24-30 semaines en équipe) reste ouverte à tout moment et resserre le
 calendrier sans toucher au périmètre.
 
