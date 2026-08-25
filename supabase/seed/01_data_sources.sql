@@ -89,9 +89,10 @@ values
     'cams',
     'Copernicus CAMS — qualité de l''air Europe',
     'Copernicus / ECMWF',
-    -- Aucun connecteur écrit : reportée en v2 avec le panache. Déclarée pour
-    -- que le registre reste le reflet du cahier, arrêtée pour que /statut le
-    -- dise sans annoncer une panne.
+    -- Connecteur et rasters en service depuis le 25 août 2026 ; reste
+    -- « disabled » tant que le cron quotidien n'a pas ses premières passes
+    -- planifiées (secret GitHub à poser) — /statut dit « à venir » sans
+    -- annoncer une panne. Passer à 'active' est le geste de mise en service.
     'disabled',
     interval '24 hours',
     interval '48 hours',
@@ -99,7 +100,8 @@ values
     'Copernicus Licence',
     'Généré avec les services Copernicus Atmosphere Monitoring Service',
     'NetCDF bruts 30 jours ; tuiles courantes',
-    jsonb_build_object('pollutants', jsonb_build_array('pm2p5', 'pm10'), 'resolution_deg', 0.1)
+    -- Clés de polluants : celles du registre air.grid_assets et du code.
+    jsonb_build_object('pollutants', jsonb_build_array('pm2_5', 'pm10'), 'resolution_deg', 0.1)
   ),
   (
     'radar',

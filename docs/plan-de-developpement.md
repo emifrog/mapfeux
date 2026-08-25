@@ -1,15 +1,15 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 25 août 2026 — **G4 et G5 atteints, et J9
-entamé, le même jour**. J7 soldé (slug éditorial exercé sur Pontevès,
-relecture v2 au-dessus des mêmes URL, « Autour de moi », plafond parlant) ;
-J8 : désactivation exercée dans les deux portées, horizon réel couvert ;
-J9 : tables `air`/`radar` en production, **premier run CAMS importé et
-publié** (cron écrit, secret GitHub à poser), et **les périmètres complets
-de bout en bout** — deux versions EFFIS réelles sur Pontevès, affichées sur
-la fiche et rejouées dans la relecture aux trois époques, le tireté FR-093
-gravé dans la structure des couches. Veille concurrentielle en
-[stratégie](strategie.md) v1.2. Total restant ≈ 38 semaines.
+**Dernière mise à jour** : 25 août 2026 (soir) — **la stratégie raster est
+en service de bout en bout**. Les NetCDF CAMS deviennent, par échéance, COG
+d'archive et archives PMTiles de tuiles PNG colorées par la palette
+versionnée `aq-atmo-v1`, publiés sous alias atomiques (§19.1) ; la fiche
+commune échantillonne le COG côté serveur et affiche les huit champs du
+§19.2 — exercé sur Le Plan-de-la-Tour, valeurs recoupées contre le NetCDF
+source à la même cellule. Restent à J9 : le radar (à sa clé), la couche
+air sur la carte, FR-125. Acquis du matin inchangés : G4 et G5 atteints,
+périmètres complets, premier run CAMS importé. Veille concurrentielle en
+[stratégie](strategie.md) v1.2. Total restant ≈ 33 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -111,19 +111,19 @@ posées dans `next.config.ts` ; la fonction SQL `fires_in_bbox` garde son nom,
 interne. Portes repassées après renommage : format, lint, typecheck, tests,
 build — vertes.
 
-### Portes de qualité — dernier passage (10 août)
+### Portes de qualité — dernier passage (25 août, soir)
 
 | Chaîne | Commande | Résultat |
 |---|---|---|
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 58 tests |
+| Web | `pnpm test` | ✅ 68 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 88 fichiers |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 37 + 26 fichiers |
-| Worker | `pytest` | ✅ 381 tests |
-| Migrations | 30 migrations sur base vierge, en CI | ✅ CI du 25 août (d80909f) |
+| Worker | `ruff check` / `ruff format --check` | ✅ 93 fichiers (66 worker + 27 scripts) |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 39 + 27 fichiers |
+| Worker | `pytest` | ✅ 408 tests |
+| Migrations | 37 migrations sur base vierge, en CI | ✅ CI du 25 août (d80909f) pour les 36 d'alors ; la 37ᵉ (`api_air_assets`) appliquée **et rejouée** en production, passage base vierge au prochain push |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -132,16 +132,17 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J9, suite : la stratégie raster (§19.1).**
+**J9, suite : la couche air sur la carte, puis le radar.**
 
-Les périmètres sont complets — machinerie, versions réelles et affichage
-jusqu'à la relecture (voir J9). La marche suivante transforme les NetCDF
-CAMS déjà importés : COG d'archive et de calcul, tuiles raster web, palette
-et légende **versionnées**, métadonnées légères ; puis l'échantillonnage
-ponctuel serveur pour la fiche commune (§19.2), dont l'avertissement
-`MODELLED_VALUE_NOTICE` attend depuis J1. Le JSON brut vers le navigateur
-reste interdit (§19.1). Suivront le radar (à sa clé) et, pour solder J9, la
-vérification FR-125 sur les nouvelles sources.
+La stratégie raster est en service (voir J9) : COG et tuiles publiés sous
+alias, fiche commune échantillonnée. La marche suivante affiche la couche
+raster sur la carte : source PMTiles depuis l'alias `cams-{polluant}.json`,
+légende lue de l'alias — jamais recopiée, c'est la palette versionnée qui a
+coloré les tuiles —, résolution, unité, heure et nature modélisée visibles
+(FR-121), et le choix d'échéance par l'heure courante. Suivront le radar
+(dès sa clé) et, pour solder J9, la vérification FR-125 exercée : couper
+CAMS ne doit toucher ni la carte ni les fiches — le code le promet, une
+coupure réelle doit le montrer.
 
 Deux actions d'exploitation en parallèle, côté auteur : poser
 `COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
@@ -209,17 +210,17 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J3 | Carte et territoires | 3 | 6 sem. | **2 sem.** | 🟡 pilote livré |
 | J7 | Expérience FeuScope complète : catalogue, archives, relecture, partage | 4 — gate G4 Alpha | 10 sem. | **1 sem.** | 🟡 critère de sortie atteint |
 | J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
-| J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **4 sem.** | 🟡 périmètres complets, CAMS importé |
+| J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **3 sem.** | 🟡 rasters en service, radar à sa clé |
 | J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | 2 sem. | ⬜ |
 | J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | 6 sem. | ⬜ vigilance déjà en service |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
 | J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
-| | | | 66 sem. | **≈ 34 sem.** | |
+| | | | 66 sem. | **≈ 33 sem.** | |
 
-Il reste **environ 34 semaines** — nettement sous la fourchette 40-50 de la
+Il reste **environ 33 semaines** — nettement sous la fourchette 40-50 de la
 D-0. Le recalage du 6 août avait ajouté 30 semaines au total d'alors (21) :
 c'est le prix, connu et accepté, du périmètre intégral ; le 25 août en a
-rendu seize d'un coup — J7 neuf, J8 quatre, J9 trois — les dix semaines du
+rendu dix-sept — J7 neuf, J8 quatre, J9 quatre — les dix semaines du
 jalon FeuScope s'étant faites en dix-sept jours calendaires, la saison creuse
 d'août aidant. L'option C (renfort ou partenariat,
 24-30 semaines en équipe) reste ouverte à tout moment et resserre le
@@ -936,9 +937,40 @@ l'origine, se remplissent ici.
   `COPERNICUS_KEY` — action d'exploitation, et la source ne se dira « en
   service » qu'après ses premières passes planifiées (phrase d'attente,
   dette §15)
-- ⬜ Stratégie raster (§19.1) : COG d'archive, tuiles web, palette et légende
-  versionnées, échantillonnage ponctuel serveur pour la fiche commune
-  (§19.2, `MODELLED_VALUE_NOTICE` attend depuis J1)
+- ✅ **Stratégie raster (§19.1), en service** (25 août soir) —
+  `pipelines/cams_rasters.py` : le NetCDF relu de `raw` avec empreinte
+  vérifiée devient, **par échéance**, un COG EPSG:4326 aux valeurs intactes
+  et une archive PMTiles de tuiles PNG (z0-6 — au-delà, la grille de 0,1°
+  n'a plus d'information, MapLibre sur-zoome). Palette **versionnée**
+  `aq-atmo-v1` (seuils ATMO, borne supérieure incluse ; la carte et la
+  fiche classent par le même chemin, testé `digitize` contre `band_for`) ;
+  légende dans l'alias JSON `cams-{polluant}.json` — les métadonnées
+  légères du §19.1, le front la lira au lieu de recopier des seuils.
+  Publication ordonnée : objets à empreinte (cache éternel), registre
+  `air.grid_assets` (une ligne par échéance), **alias en dernier** — un
+  échec à mi-chemin laisse la version précédente entière (§16.5). Deux
+  pièges du produit réel couverts par les 27 tests : longitudes 0-360
+  **enroulées au méridien**, bords de grille à déduire des centres float32.
+  Exercé sur le run réel : 100 objets, 3,99 Mo, 30 s ; rejeu à registre
+  inchangé. Le cron quotidien enchaîne la dérivation après l'import
+  (`requirements-raster.txt`, roues PyPI)
+- ✅ **Échantillonnage ponctuel serveur (§19.2), sur la fiche commune**
+  (25 août soir) — `api.air_grid_assets()` (migration `20260825230000`,
+  appliquée, rejouée, exercée sous `anon` : 50 actifs) désigne les COG du
+  run le plus récent qui en possède ; le serveur web relit le COG public
+  par son URL à empreinte (cache définitif, **empreinte vérifiée à la
+  lecture**) et échantillonne la **cellule la plus proche** — jamais de
+  rabattement de bord (le piège du §16.4), jamais de grille vers le
+  navigateur. Les huit champs du §19.2 affichés : valeur en chasse fixe,
+  unité, polluant, heure de validité, résolution, méthode, source,
+  `MODELLED_VALUE_NOTICE` — posé en J1, servi aujourd'hui. Au-delà de douze
+  heures d'écart, la section dit « aucune valeur récente » — phrase
+  conditionnée à la donnée, pas au calendrier. Exercé sur Le
+  Plan-de-la-Tour : PM10 12,1 et PM2,5 6,1 µg/m³ à 18 h UTC, **recoupés
+  contre le NetCDF source à la même cellule** (12,12 / 6,14), console
+  vide. 10 tests purs, dont le `-0` du bord nord
+- ⬜ Couche raster air sur la carte : source PMTiles depuis l'alias,
+  légende lue de l'alias, choix d'échéance par l'heure courante (FR-121)
 - ⬜ Radar : connecteur, frames, conversion contrôlée, timeline, animation de
   12 à 24 frames avec lecture/pause et respect de la réduction des animations,
   expiration automatique (§16.6, §19.3, FR-123 à FR-124)
@@ -1279,6 +1311,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Affichage des détections par commune | `/communes/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
+| Rétention des rasters CAMS | ~100 objets et 4 Mo par run quotidien dans le compartiment public `tiles` (préfixe `cams/`), aucune purge. Garder le run courant et le précédent suffit (§16.5) ; tout se régénère depuis `raw` par `build-cams-rasters.py --date`. À traiter avec la purge de `raw` | J5 |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
