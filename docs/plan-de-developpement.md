@@ -1,14 +1,14 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 25 août 2026 — **le panache couvre l'horizon
-réel** : le run se choisit sur la grille du fournisseur, les tranches
-manquantes se récupèrent à la demande (§16.4 complet), la lecture coud les
-fichiers du run — exercé sur un feu de la nuit, 19 pas à travers la couture,
-garde-fou de distance tiré en réel. La veille concurrentielle du 25 est
-consignée dans la [stratégie](strategie.md) v1.2 (GISFire, Climate Innov —
-la thèse tient, J4 prend de la valeur). Le 18 : panache calculé, borné,
-drapeauté ; `wind_samples` ; contrôle du masque concluant. Rien de publié :
-`is_current` faux partout, §22.5 en attente.
+**Dernière mise à jour** : 25 août 2026 — **le critère G5 est atteint** :
+panache reproductible et **désactivable en une action** (FR-106/FR-155,
+interrupteurs exercés en production dans les deux portées, quatre bascules
+au journal d'audit) ; plus tôt le même jour, l'horizon réel couvert par
+l'ingestion à la demande des tranches (§16.4 complet, couture exercée sur un
+feu de la nuit) et la veille concurrentielle consignée dans la
+[stratégie](strategie.md) v1.2. Ce qui reste à J8 est suspendu à des
+décisions (§22.5, ADR vent historique) ; la prochaine action solde J7. Rien
+de publié : `is_current` faux partout.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -119,10 +119,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 79 fichiers |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 33 + 23 fichiers |
+| Worker | `ruff check` / `ruff format --check` | ✅ 81 fichiers |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 34 + 24 fichiers |
 | Worker | `pytest` | ✅ 363 tests |
-| Migrations | 25 migrations sur base vierge, en CI | ✅ CI du 25 août (52dbc4b) |
+| Migrations | 26 migrations sur base vierge, en CI | ✅ CI du 25 août (53afb60) |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -131,26 +131,25 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J8, suite : la désactivation immédiate (FR-106, FR-155).**
+**Solder J7 — les quatre restes.**
 
-L'horizon réel est couvert depuis le 25 août : le run se choisit sur la
-grille du fournisseur, les tranches manquantes se récupèrent à la demande et
-enrichissent registre et corpus (voir J8). Avant toute publication, le
-panache doit pouvoir s'éteindre **en une action, sans déploiement** :
-globalement et par territoire. La marche est petite et nette — un état en
-base (schéma `app`, lu par le calcul comme par le futur affichage), le
-calcul qui refuse de produire quand l'interrupteur est ouvert, et le geste
-d'exploitation documenté. C'est le dernier verrou technique du §18.5 ;
-resteront alors la formulation §22.5 **validée métier**, l'affichage de
-l'incertitude (FR-101 à FR-103), et la calibration — qui, pour Gironde 2022,
-exigera une source de vent historique (ADR à venir).
+J8 a atteint son critère G5 le 25 août : panache reproductible **et**
+désactivable en une action, exercé en production dans les deux portées
+(voir J8). Ce qui y demeure est suspendu à des décisions, pas à du code : la
+formulation publique §22.5 à valider métier, l'ADR de la source de vent
+historique pour calibrer sur Gironde 2022, puis l'affichage de l'incertitude
+(FR-101 à FR-103) qui en découle. Pour ce futur affichage, deux faits
+d'exercice sont à garder : le garde-fou de distance tire vite par vent
+établi (57,7 km en 4 h 45 le 25 — les 60 km par défaut sont une borne de
+sécurité, pas une calibration), et un événement frontalier produit un
+panache **sans commune française** — juste, mais à formuler.
 
-Deux faits d'exercice à garder en tête pour l'affichage : le garde-fou de
-distance tire vite par vent établi (57,7 km en 4 h 45 sur l'exercice du 25 —
-les 60 km par défaut sont une borne de sécurité, pas une calibration), et un
-événement frontalier produit un panache **sans commune française** — juste,
-mais à formuler (l'exercice du 25 : ArcelorMittal Gand, rattaché à
-Condé-sur-l'Escaut par le tampon frontalier, panache sur la Flandre).
+L'ordre du tableau reprend donc à J7, dont les quatre restes : le slug
+éditorial facultatif (FR-042, FR-060), la relecture v2 — curseur glissant et
+lecture automatique, en amélioration progressive au-dessus des mêmes URL
+(FR-082) —, la page « Autour de moi » (l'endpoint de résolution existe
+depuis J3), et le plafond **parlant** du tableau des détections de la fiche
+(dette §15 : la relecture annonce le sien, la fiche pas encore).
 
 La spécification de J8 est **vérifiée contre le PDF v2.1** (67 pages, fourni
 le 10 août) : les §13.12-16, §16.4 et §18 y sont identiques au v1.1, à une
@@ -206,18 +205,18 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J2 | Ingestion FIRMS et regroupement réel | 2-3 | 6 sem. | **2 sem.** | 🟡 critère de sortie atteint, calibration close |
 | J3 | Carte et territoires | 3 | 6 sem. | **2 sem.** | 🟡 pilote livré |
 | J7 | Expérience FeuScope complète : catalogue, archives, relecture, partage | 4 — gate G4 Alpha | 10 sem. | 10 sem. | ⬜ |
-| J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | 6 sem. | ⬜ |
+| J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
 | J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | 8 sem. | ⬜ |
 | J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | 2 sem. | ⬜ |
 | J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | 6 sem. | ⬜ vigilance déjà en service |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
 | J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
-| | | | 66 sem. | **≈ 51 sem.** | |
+| | | | 66 sem. | **≈ 47 sem.** | |
 
-Il reste **environ 51 semaines** — le haut de la fourchette 40-50 que la D-0
+Il reste **environ 47 semaines** — dans la fourchette 40-50 que la D-0
 annonce pour un développement principalement solo depuis l'état de départ. Le
-recalage du 6 août ajoute 30 semaines au total précédent (21) : c'est le prix,
-connu et accepté, du périmètre intégral. L'option C (renfort ou partenariat,
+recalage du 6 août avait ajouté 30 semaines au total d'alors (21) : c'est le
+prix, connu et accepté, du périmètre intégral ; J8 en a rendu quatre. L'option C (renfort ou partenariat,
 24-30 semaines en équipe) reste ouverte à tout moment et resserre le
 calendrier sans toucher au périmètre.
 
@@ -847,8 +846,18 @@ et d'exploitation, pas un retrait de périmètre
 - ✅ Versionnement complet (§18.6) : `plume-v1`, commit du worker, run météo
   (id, horodatage, chemin, empreinte), paramètres, détections sources,
   empreinte des entrées — tout vit dans `parameters`, vérifié en base
-- ⬜ Désactivation globale ou par territoire, immédiate, sans déploiement
-  (FR-106, FR-155)
+- ✅ **Désactivation immédiate, sans déploiement** (25 août, FR-106 et
+  FR-155) — registre générique `app.feature_switches` (migration
+  `20260825120000`, appliquée et rejouée) : l'absence de ligne vaut actif,
+  l'interrupteur est un frein ; portée globale ou par territoire, résolution
+  par `app.is_feature_enabled` — **source unique** pour le calcul
+  d'aujourd'hui, l'affichage et l'API de demain, le mode dégradé de J5
+  ensuite. Motif obligatoire, chaque bascule au journal d'audit avant
+  application, même transaction ; geste d'exploitation :
+  `scripts/toggle-feature.py`. Le calcul consulte l'interrupteur **avant
+  tout travail** — couper coupe le téléchargement et l'écriture. Exercé en
+  production : coupure globale → refus motivé ; coupure du seul Var → le
+  Nord calcule, le Var non ; quatre bascules au journal
 - 🟡 Communes potentiellement concernées (FR-110 à FR-114) : intersection
   géospatiale par pas ✅ — fenêtre temporelle réelle (première et dernière
   intersection), surface et part de recouvrement, rang FR-072 ; le libellé
@@ -860,9 +869,12 @@ et d'exploitation, pas un retrait de périmètre
   ⚠️ L'archive de vent ne commence qu'au 5 août 2026 : calibrer sur 2022
   exigera une source historique (ERA5 ou réanalyse AROME), à choisir par ADR
 
-**Critère de sortie** (G5) : panache reproductible — mêmes entrées, même
-sortie — et désactivable en une action ; communes concernées reproductibles
-pour une même version d'entrée.
+**Critère de sortie** (G5) : ✅ **atteint le 25 août**, par exécution :
+panache reproductible — le rejeu de Saurat est identique, communes comprises
+— et désactivable en une action, exercé en production dans les deux portées.
+Le jalon ne se ferme pas pour autant : l'affichage de l'incertitude, la
+formulation §22.5 validée métier et la calibration (source de vent
+historique, ADR à venir) restent dus avant toute publication.
 
 ---
 
