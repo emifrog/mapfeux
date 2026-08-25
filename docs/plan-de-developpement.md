@@ -1,14 +1,13 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 25 août 2026 — **le critère G5 est atteint** :
-panache reproductible et **désactivable en une action** (FR-106/FR-155,
-interrupteurs exercés en production dans les deux portées, quatre bascules
-au journal d'audit) ; plus tôt le même jour, l'horizon réel couvert par
-l'ingestion à la demande des tranches (§16.4 complet, couture exercée sur un
-feu de la nuit) et la veille concurrentielle consignée dans la
-[stratégie](strategie.md) v1.2. Ce qui reste à J8 est suspendu à des
-décisions (§22.5, ADR vent historique) ; la prochaine action solde J7. Rien
-de publié : `is_current` faux partout.
+**Dernière mise à jour** : 25 août 2026 — **G4 et G5 atteints le même jour**.
+J7 soldé par ses quatre restes : slug éditorial (posé et exercé sur
+Pontevès), relecture v2 (curseur et lecture automatique **au-dessus des
+mêmes URL**, observée 0 → 30 en six secondes), page « Autour de moi »,
+plafond parlant du tableau. J8 : désactivation en une action exercée dans
+les deux portées, horizon réel couvert, veille concurrentielle en
+[stratégie](strategie.md) v1.2. Restent des décisions (§22.5, ADR vent,
+§8.3, §8.5) ; la prochaine action entame J9. Total restant ≈ 38 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -122,7 +121,7 @@ build — vertes.
 | Worker | `ruff check` / `ruff format --check` | ✅ 81 fichiers |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 34 + 24 fichiers |
 | Worker | `pytest` | ✅ 363 tests |
-| Migrations | 26 migrations sur base vierge, en CI | ✅ CI du 25 août (53afb60) |
+| Migrations | 27 migrations sur base vierge, en CI | ✅ CI du 25 août (748549c) |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -131,25 +130,26 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Solder J7 — les quatre restes.**
+**Entamer J9 — CAMS, radar et périmètres.**
 
-J8 a atteint son critère G5 le 25 août : panache reproductible **et**
-désactivable en une action, exercé en production dans les deux portées
-(voir J8). Ce qui y demeure est suspendu à des décisions, pas à du code : la
-formulation publique §22.5 à valider métier, l'ADR de la source de vent
-historique pour calibrer sur Gironde 2022, puis l'affichage de l'incertitude
-(FR-101 à FR-103) qui en découle. Pour ce futur affichage, deux faits
-d'exercice sont à garder : le garde-fou de distance tire vite par vent
-établi (57,7 km en 4 h 45 le 25 — les 60 km par défaut sont une borne de
-sécurité, pas une calibration), et un événement frontalier produit un
-panache **sans commune française** — juste, mais à formuler.
+J7 et J8 ont atteint leurs critères de sortie le même jour, le 25 août :
+G4 par les quatre derniers restes (slug éditorial, lecture automatique,
+« Autour de moi », plafond parlant), G5 par la désactivation. Ce qui demeure
+aux deux jalons est suspendu à des décisions, pas à du code : la formulation
+publique du panache (§22.5) à valider métier, l'ADR de la source de vent
+historique pour calibrer Gironde 2022, l'affichage de l'incertitude qui en
+découle (FR-101 à FR-103) — et, plus anciennes, la validation humaine des
+informations officielles (§8.3) et la réponse à la première erreur publique
+(§8.5). Pour le futur affichage du panache, deux faits d'exercice restent à
+formuler : le garde-fou de distance tire vite par vent établi, et un
+événement frontalier produit un panache sans commune française.
 
-L'ordre du tableau reprend donc à J7, dont les quatre restes : le slug
-éditorial facultatif (FR-042, FR-060), la relecture v2 — curseur glissant et
-lecture automatique, en amélioration progressive au-dessus des mêmes URL
-(FR-082) —, la page « Autour de moi » (l'endpoint de résolution existe
-depuis J3), et le plafond **parlant** du tableau des détections de la fiche
-(dette §15 : la relecture annonce le sien, la fiche pas encore).
+L'ordre du tableau donne donc J9. Première marche proposée : les tables des
+schémas `air` et `radar` (§13.17-18) et le **connecteur CAMS** (§16.5) —
+import par run, PM2,5 et PM10, publication atomique avec conservation de la
+version précédente, panne sans effet sur la carte (FR-125). Le registre des
+runs de J8 et ses motifs (fusion d'échéances, empreintes, couverture à la
+demande) sont faits pour être réemployés là.
 
 La spécification de J8 est **vérifiée contre le PDF v2.1** (67 pages, fourni
 le 10 août) : les §13.12-16, §16.4 et §18 y sont identiques au v1.1, à une
@@ -204,19 +204,20 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J1 | Fondations et fiche événement sur données figées | 1-4 (socle) | 8 sem. | **1 sem.** | 🟡 critère de sortie atteint |
 | J2 | Ingestion FIRMS et regroupement réel | 2-3 | 6 sem. | **2 sem.** | 🟡 critère de sortie atteint, calibration close |
 | J3 | Carte et territoires | 3 | 6 sem. | **2 sem.** | 🟡 pilote livré |
-| J7 | Expérience FeuScope complète : catalogue, archives, relecture, partage | 4 — gate G4 Alpha | 10 sem. | 10 sem. | ⬜ |
+| J7 | Expérience FeuScope complète : catalogue, archives, relecture, partage | 4 — gate G4 Alpha | 10 sem. | **1 sem.** | 🟡 critère de sortie atteint |
 | J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
 | J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | 8 sem. | ⬜ |
 | J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | 2 sem. | ⬜ |
 | J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | 6 sem. | ⬜ vigilance déjà en service |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
 | J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
-| | | | 66 sem. | **≈ 47 sem.** | |
+| | | | 66 sem. | **≈ 38 sem.** | |
 
-Il reste **environ 47 semaines** — dans la fourchette 40-50 que la D-0
-annonce pour un développement principalement solo depuis l'état de départ. Le
+Il reste **environ 38 semaines** — sous la fourchette 40-50 de la D-0. Le
 recalage du 6 août avait ajouté 30 semaines au total d'alors (21) : c'est le
-prix, connu et accepté, du périmètre intégral ; J8 en a rendu quatre. L'option C (renfort ou partenariat,
+prix, connu et accepté, du périmètre intégral ; J8 en a rendu quatre le
+25 août, et J7 neuf le même jour — les dix semaines du jalon FeuScope se sont
+faites en dix-sept jours calendaires, la saison creuse d'août aidant. L'option C (renfort ou partenariat,
 24-30 semaines en équipe) reste ouverte à tout moment et resserre le
 calendrier sans toucher au périmètre.
 
@@ -707,15 +708,33 @@ v2.1, gate G4 Alpha) : ce qui transforme une fiche en expérience FeuScope.
   (bandeau « relecture partielle ») — la première passe tronquait à 500 en
   silence. Reste pour la v2 : curseur glissant et lecture automatique
   (FR-082), en amélioration progressive au-dessus des mêmes URL
-- ⬜ Slug éditorial facultatif `/evenements/[publicId]/[slug?]` (FR-042, FR-060)
-- ⬜ Relecture temporelle : curseur entre première observation et dernier état,
-  lecture automatique, parcours clavier et alternative textuelle, données
-  absentes signalées et jamais interpolées sans mention (FR-080 à FR-084,
-  FR-087)
-- ⬜ URL d'instant `?at=` : le même instant logique s'ouvre sur un autre
-  appareil (FR-085)
-- ⬜ États générés à la demande d'abord ; une table de frames pré-calculées
-  n'est créée que si la performance l'exige (FR-086)
+- ✅ **Slug éditorial facultatif** (25 août, FR-042 et FR-060) — colonne
+  `fire.events.editorial_slug`, **posée par un humain, jamais générée** : un
+  slug porte des mots, et les mots suivent le §2.4. Contrainte de format
+  (kebab, 80 max, segments réservés `relecture` et `opengraph-image` exclus
+  — le routeur fait primer le statique), `api.fire_event` recréée (le type
+  de retour change : drop puis create, signature qualifiée) et snapshot
+  enrichi — **vérifié ligne à ligne contre l'original**, ce qui a évité un
+  `delete` inventé et une colonne inexistante que plpgsql n'aurait révélée
+  qu'en production. Route `[publicId]/[slug]` : même fiche, mauvais slug
+  redirigé en **307** — un slug éditorial se corrige, un 308 le graverait ;
+  l'URL nue reste servie quoi qu'il arrive, la canonique départage.
+  Exercé : `ponteves-juillet-2026` posé sur `MPF-5JP8XS99` (lieu et date,
+  aucun mot qui affirme), audité, quatre trajets HTTP vérifiés
+- ✅ **Relecture v2 : curseur et lecture automatique** (25 août, FR-080 et
+  FR-082) — composant client posé **au-dessus des mêmes URL `?at=`** : les
+  liens restent le parcours sans JavaScript et l'alternative textuelle
+  (FR-083), rien n'existe que l'adresse ne porte. Le pas est celui des
+  passages (la donnée n'existe qu'à ces instants, FR-084), la vitesse par
+  défaut s'adapte au nombre de passages, la lecture replanifie un pas à la
+  fois **après** chaque navigation — le rythme absorbe l'aller-retour
+  serveur — et `prefers-reduced-motion` éteint la lecture automatique
+  (`useSyncExternalStore`). Observé sur Pontevès : 0 → 30 en six secondes,
+  l'URL suivant chaque pas
+- ✅ URL d'instant `?at=` (FR-085) : exercée depuis la v1, et rejouée par la
+  lecture automatique — chaque pas est une adresse
+- ✅ États générés à la demande (FR-086) : tenu depuis la v1, aucune table de
+  frames — la performance ne l'a pas exigé
 - ✅ **Carte sociale Open Graph** (10 août, FR-067) —
   `opengraph-image.tsx` colocalisée sur la fiche, générée depuis le
   **snapshot** (`fetchEventView`, même chemin que la page) : identifiant,
@@ -743,17 +762,22 @@ v2.1, gate G4 Alpha) : ce qui transforme une fiche en expérience FeuScope.
   sombres. Vérifié sur styles calculés dans un navigateur réel, règles
   `print` basculées en `all` : douze masquages effectifs, contenu intact,
   fond blanc
-- ⬜ Bouton « Autour de moi » et page dédiée — l'endpoint de résolution existe
-  depuis J3
+- ✅ **Page « Autour de moi »** (25 août, FR-020 à FR-024) — `/autour-de-moi`
+  donne une adresse au bouton de J3 et énonce le contrat **avant** le geste :
+  les garanties sont le contenu de la page, pas des mentions après coup.
+  Sans JavaScript, la page reste entière et renvoie vers la recherche par
+  nom ; lien posé au pied de page. Le clic géolocalisé réel reste à exercer
+  (le 🟢 de J3 tient)
 - ✅ Préfixe d'identifiant public **figé : `MPF-`**, le 10 août
   ([ADR-021](adr/021-prefixe-didentifiant-public.md)). La fenêtre « avant la
   première URL durable » s'était refermée avec le catalogue ; la décision
   ratifie l'état servi plutôt que de payer un renommage cosmétique. FR-067
   peut graver les URL dans les partages sociaux.
 
-**Critère de sortie** (G4) : page événement, chronologie et relecture
-fonctionnelles sur plusieurs cas du corpus historique ; une URL `?at=` ouvre le
-même instant logique sur un autre appareil.
+**Critère de sortie** (G4) : ✅ **atteint le 25 août** — page événement,
+chronologie et relecture exercées sur les cas du corpus (Pontevès en tête,
+570 détections, 57 passages), et l'URL `?at=` porte l'instant logique à elle
+seule : la lecture automatique elle-même ne navigue que par adresses.
 
 ---
 
@@ -1220,7 +1244,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | MFA super_admin non appliquée | La contrainte en base exige `mfa_required` pour `super_admin`, mais l'enrôlement TOTP n'existe pas (§14.4). D'ici J5, ne pas employer de compte super_admin au quotidien — `grant-admin.py` l'affiche | J5 |
 | `fires_in_bbox` sous son nom historique | L'API publique dit désormais `events` (cahier v2.1 §15.2) ; la fonction SQL interne garde son nom — la renommer passe par une migration, sans bénéfice public | Libre |
 | Migrations appliquées hors bande | Le chargement direct par script casse le `db push` suivant si la migration n'est pas rejouable — 42701 sur `source_key` le 8 août, puis 42725 sur `events_catalog` le 9 : pendant un rejeu, deux surcharges coexistent et un `comment on function` au nom nu devient ambigu. Règles : idempotence (`if not exists`, `on conflict`, `create or replace`) **et** toute référence de fonction qualifiée par sa signature complète dès qu'elle évolue | Continu |
-| Tableau des détections de la fiche plafonné en silence | `fire_event_detections` rend 500 lignes par défaut (2 000 au plus) ; la relecture annonce désormais son plafond, la fiche pas encore — un événement à 600 détections afficherait un tableau tronqué sans le dire | J7 |
+| Tableau des détections de la fiche plafonné en silence | Traité le 25 août : le plafond est nommé (`DETECTION_TABLE_LIMIT`) et annoncé — « Tableau partiel : les 500 observations les plus récentes, sur 570 » vérifié sur Pontevès, avec renvoi vers la relecture qui rejoue tout | Traité |
 | Événement de démonstration en production | Traité le 10 août : `DEMO-2607A1` et ses 7 détections `demo:%` supprimés selon la recette documentée par la fixture, entrée d'audit posée avant les suppressions (état avant + motif), dans la même transaction. Vérifié : zéro restant en base, `/archives` sans la démo (cache MISS), fiche en 404 | Traité |
 | Le banc ne reprend pas où il s'est arrêté | Traité le 8 août : le troisième accident (mise en veille) l'a réclamé, comme prévu. `--reprendre` saute les jeux déjà sur disque et complète le CSV | Traité |
 | Jetons du thème recopiés dans la carte OG | Satori (moteur d'`opengraph-image.tsx`) ne lit ni variables CSS ni feuilles de style : les jetons clairs y sont en dur, avec le commentaire qui l'assume. Une retouche de palette doit être répercutée à la main | Libre |
