@@ -1,0 +1,12 @@
+# Dépendances de l'import radar — cahier §16.6, plan J9.
+#
+# La mosaïque arrive en HDF5 ODIM et repart en PNG Web Mercator : h5py la
+# lit (le driver HDF5 manque aux roues rasterio), pillow encode l'image.
+# pyproj, numpy, httpx, psycopg et structlog viennent de
+# requirements-ingestion.txt : ce fichier s'y ajoute, il ne le remplace pas.
+#
+# Bornes par majeure, pour la même raison que là-bas : une tâche planifiée
+# ne doit pas changer de comportement pendant la nuit.
+
+h5py>=3.10,<4.0
+pillow>=11.0,<13.0

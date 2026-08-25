@@ -1,0 +1,64 @@
+# =============================================================================
+# Import radar — cahier v2.1 §16.6 et §19.3, plan J9.
+#
+# La mosaïque lame d'eau paraît toutes les cinq minutes et n'a pas
+# d'historique : chaque production manquée est perdue. Le cron colle donc à
+# la fréquence du produit ; GitHub Actions retarde parfois ses
+# déclenchements, et une passe qui trouve une frame déjà servie sort en
+# quelques secondes sans rien retélécharger.
+#
+# Même principe que cams-import.yml : roues PyPI, pas de conda —
+# requirements-radar.txt ajoute h5py (l'ODIM est du HDF5) et pillow aux
+# roues d'ingestion. La timeline (alias JSON) n'est réécrite qu'en tout
+# dernier : un lecteur d'alias ne voit jamais un objet absent.
+#
+# Secrets requis (dépôt) :
+#   INGESTION_DATABASE_URL, SUPABASE_URL, SUPABASE_SECRET_KEY — déjà posés
+#   METEOFRANCE_RADAR_API_KEY — clé de l'application « Données Publiques
+#   Radar » du portail (une clé PAR application : celle de la vigilance
+#   produirait un 403 sans motif)
+# =============================================================================
+
+name: Import radar
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: radar-import
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    name: Mosaïque lame d'eau vers la timeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            services/geo-worker/requirements-ingestion.txt
+            services/geo-worker/requirements-radar.txt
+
+      - name: Dépendances
+        run: |
+          pip install -r services/geo-worker/requirements-ingestion.txt
+          pip install -r services/geo-worker/requirements-radar.txt
+
+      - name: Import radar
+        env:
+          DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          METEOFRANCE_RADAR_API_KEY: ${{ secrets.METEOFRANCE_RADAR_API_KEY }}
+        run: python scripts/import-radar.py

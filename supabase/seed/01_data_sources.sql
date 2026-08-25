@@ -107,15 +107,18 @@ values
     'radar',
     'Météo-France — radar de précipitations',
     'Météo-France',
-    -- Idem CAMS : schéma `radar` créé, vide, sans connecteur.
+    -- Connecteur en service depuis le 25 août 2026 (mosaïque lame d'eau
+    -- 500 m, HDF5 ODIM via DPRadar) ; reste « disabled » tant que le cron
+    -- n'a pas ses premières passes planifiées — passer à 'active' est le
+    -- geste de mise en service.
     'disabled',
     interval '5 minutes',
     interval '1 hour',
-    'https://donneespubliques.meteofrance.fr/',
+    'https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesRadar',
     'Licence Ouverte / Etalab',
     'Données radar Météo-France',
-    'Frames conservées 6 à 24 heures',
-    jsonb_build_object('frame_retention_hours', 24, 'max_client_frames', 24)
+    'Frames : brut archivé, image web expirée à 2 h',
+    jsonb_build_object('frame_retention_hours', 2, 'max_client_frames', 24)
   ),
   (
     'ign_admin_express',

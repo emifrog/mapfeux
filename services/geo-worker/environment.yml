@@ -37,6 +37,9 @@ dependencies:
   - netcdf4
   - rasterio
   - rioxarray
+  # Mosaïques radar ODIM (HDF5) — le driver HDF5 manque aux roues rasterio,
+  # h5py les lit partout, roues PyPI comprises.
+  - h5py
 
   # Géométries et référentiels
   - geopandas
