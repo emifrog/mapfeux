@@ -1,0 +1,65 @@
+# =============================================================================
+# Import CAMS quotidien — cahier v2.1 §16.5, plan J9.
+#
+# Un run par jour à 00 UTC, publié par l'ADS en cours de matinée. Le
+# déclenchement à 08:45 UTC laisse la publication arriver ; avant huit
+# heures, le script servirait la veille (default_run_at), et l'ADS est une
+# file de traitement — la passe entière tient en une à deux minutes hors
+# heures de pointe.
+#
+# Même principe qu'ingestion.yml : GitHub Actions déclenche, la base
+# journalise. La chaîne CAMS lit du NetCDF sans l'ouvrir : les six roues de
+# requirements-ingestion.txt suffisent, pas d'environnement conda.
+#
+# Publication atomique : le run ne bascule `is_current` que s'il est complet
+# (PM2,5 et PM10) ; à moitié importé, le run précédent continue de servir.
+#
+# Secrets requis (dépôt) :
+#   INGESTION_DATABASE_URL — déjà posé (pooler session, 5432)
+#   SUPABASE_URL, SUPABASE_SECRET_KEY — déjà posés
+#   COPERNICUS_KEY — jeton personnel ADS, licence du jeu acceptée sur sa page
+# =============================================================================
+
+name: Import CAMS
+
+on:
+  schedule:
+    - cron: '45 8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: cams-import
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    name: PM2,5 et PM10 vers le stockage brut
+    runs-on: ubuntu-latest
+    # L'ADS peut faire attendre sa file : le script borne lui-même chaque job
+    # à quinze minutes, le workflow laisse la marge de deux polluants.
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/geo-worker/requirements-ingestion.txt
+
+      - name: Dépendances
+        run: pip install -r services/geo-worker/requirements-ingestion.txt
+
+      - name: Import CAMS
+        env:
+          DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          COPERNICUS_KEY: ${{ secrets.COPERNICUS_KEY }}
+          COPERNICUS_URL: https://ads.atmosphere.copernicus.eu/api
+          SUPABASE_STORAGE_BUCKET_RAW: raw
+        run: python scripts/import-cams.py

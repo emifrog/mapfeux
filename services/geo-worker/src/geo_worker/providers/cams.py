@@ -185,9 +185,12 @@ def retrieve(
     if href is None:
         raise CamsError(f"Résultat sans lien de téléchargement : {str(body)[:200]}")
 
-    download = http.get(href, headers=_headers(token), timeout=300, follow_redirects=True)
+    # Le lien de résultat est pré-signé côté stockage objet : y joindre nos
+    # en-têtes d'authentification invalide la signature — 400 mesuré au
+    # premier import réel, le 25 août. Il se télécharge nu.
+    download = http.get(href, timeout=300, follow_redirects=True)
     if download.status_code != 200:
-        raise CamsError(f"Téléchargement refusé ({download.status_code}).")
+        raise CamsError(f"Téléchargement refusé ({download.status_code}) : {download.text[:200]}")
     return download.content
 
 

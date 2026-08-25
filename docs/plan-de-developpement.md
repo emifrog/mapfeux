@@ -4,8 +4,9 @@
 entamé, le même jour**. J7 soldé (slug éditorial exercé sur Pontevès,
 relecture v2 au-dessus des mêmes URL, « Autour de moi », plafond parlant) ;
 J8 : désactivation exercée dans les deux portées, horizon réel couvert ;
-J9 : tables `air`/`radar` en production et connecteur CAMS **prêt-à-clé** —
-l'action qui débloque est le jeton ADS (§2). Veille concurrentielle en
+J9 : tables `air`/`radar` en production et **premier run CAMS importé et
+publié** — jeton posé, contenu vérifié, cron quotidien écrit (le secret
+GitHub reste à poser, §2). Veille concurrentielle en
 [stratégie](strategie.md) v1.2. Total restant ≈ 38 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
@@ -129,23 +130,23 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Exercer l'import CAMS — la clé d'abord, l'ADS ensuite.**
+**J9, suite : la stratégie raster (§19.1) — la donnée est là.**
 
-La première marche de J9 est posée (tables `air`/`radar`, connecteur CAMS
-prêt-à-clé — voir J9). L'action qui débloque est un provisionnement, pas du
-code : créer le compte ADS, **accepter la licence du jeu** sur sa page,
-poser `COPERNICUS_KEY` dans `services/geo-worker/.env` — le script
-`import-cams.py` imprime le mode d'emploi complet. Le premier import réel
-validera le dialecte de l'API Processes, remplira `air.model_runs` et fera
-basculer la première publication ; le connecteur passera alors de 🟢 à ✅.
+L'import CAMS est exercé et publié (voir J9) : le stockage brut porte
+désormais du PM2,5 et du PM10 réels, et la marche suivante peut les
+transformer — COG d'archive et de calcul, tuiles raster web, palette et
+légende **versionnées**, métadonnées légères ; puis l'échantillonnage
+ponctuel serveur pour la fiche commune (§19.2), dont l'avertissement
+`MODELLED_VALUE_NOTICE` attend depuis J1. Le JSON brut vers le navigateur
+reste interdit (§19.1).
 
-La marche de développement suivante, elle, n'attend aucune clé : les
-**périmètres versionnés** (`fire.event_perimeters`, §13.23, FR-090 à
-FR-096) — import GeoJSON/KML/Shape, validation géométrique, surfaces
-recalculées avec méthode, masquage sans destruction — avec un exercice réel
-possible sur les emprises EFFIS ouvertes des cas du corpus (Landiras 2022).
-Le radar, comme CAMS, attendra sa clé d'application Météo-France (une clé
-PAR application : celle de la vigilance produirait un 403 sans motif).
+Deux actions d'exploitation en parallèle, côté auteur : poser
+`COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
+vive (la source ne se dira « en service » qu'après ses premières passes
+planifiées) ; et créer la **clé d'application radar** sur le portail
+Météo-France (une clé PAR application — celle de la vigilance produirait un
+403 sans motif). Les périmètres versionnés (§13.23) restent la marche sans
+clé, exerçable sur les emprises EFFIS de Landiras 2022.
 
 Décisions toujours ouvertes, sans changement : formulation du panache
 (§22.5), ADR du vent historique, validation humaine des informations
@@ -914,16 +915,24 @@ l'origine, se remplissent ici.
   `air.grid_assets` (brut, COG ou tuile par polluant et échéance — le JSON
   brut vers le navigateur n'a pas de forme ici, §19.1), `radar.frames`
   (état, expiration §16.6). RLS partout, grants ingest
-- 🟢 **Connecteur CAMS, prêt-à-clé** (25 août, §16.5, FR-120) — API
-  Processes de l'ADS, jeu `cams-europe-air-quality-forecasts` (celui que le
+- ✅ **Connecteur CAMS, exercé contre l'ADS réel** (25 août, §16.5, FR-120)
+  — API Processes, jeu `cams-europe-air-quality-forecasts` (celui que le
   registre pointe depuis l'origine), modèle `ensemble` niveau sol, PM2,5 et
   PM10, emprise nationale, échéances 0-24 h ; un NetCDF par polluant déposé
-  dans `raw` (dézippé du transport), registre par fusion — les fonctions du
-  registre météo réemployées —, publication **seulement si le run est
-  complet** : à moitié importé, le run précédent continue de servir. Sans
-  `COPERNICUS_KEY`, le script explique le provisionnement et sort **sans
-  toucher au journal** — une configuration absente n'est pas une panne
-  (précédent FIRMS). 11 tests ; l'exercice contre l'ADS réel attend le jeton
+  dans `raw` (dézippé du transport), registre par fusion, publication
+  **seulement si le run est complet**. Sans `COPERNICUS_KEY`, le script
+  explique le provisionnement et sort sans toucher au journal. Premier
+  import réel le jour même, jeton posé par l'auteur : 2 × 1,68 Mo en
+  43,7 s, run **publié** (première bascule `is_current`), contenu vérifié
+  par relecture avec empreinte — `pm10_conc`, 25 échéances × grille 105×160
+  à 0,1°, 0,8-39,9 µg/m³ médiane 7,8, un fond d'été plausible. Une leçon au
+  passage : le lien de résultat ADS est **pré-signé** — y joindre les
+  en-têtes d'authentification invalide la signature, 400 mesuré puis
+  consigné dans le code. 11 tests. `cams-import.yml` planifie l'import
+  quotidien à 08 h 45 UTC ; ⚠️ le cron attend le secret GitHub
+  `COPERNICUS_KEY` — action d'exploitation, et la source ne se dira « en
+  service » qu'après ses premières passes planifiées (phrase d'attente,
+  dette §15)
 - ⬜ Stratégie raster (§19.1) : COG d'archive, tuiles web, palette et légende
   versionnées, échantillonnage ponctuel serveur pour la fiche commune
   (§19.2, `MODELLED_VALUE_NOTICE` attend depuis J1)
