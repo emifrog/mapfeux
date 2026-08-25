@@ -39,6 +39,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
 from geo_worker.db import dsn_from_env_file, dsn_target, load_env
+from geo_worker.features import FEATURE_SMOKE_FORECAST, disabling_reasons, feature_enabled
 from geo_worker.pipelines.arome_coverage import (
     coverage_checksum,
     ensure_window_coverage,
@@ -114,7 +115,7 @@ def main(argv: list[str]) -> int:
             """
             select id, extensions.st_x(representative_point) as lon,
                    extensions.st_y(representative_point) as lat,
-                   last_detected_at, detection_count, frp_max_mw
+                   last_detected_at, detection_count, frp_max_mw, territory_id
             from fire.events
             where public_id = %(public_id)s
             """,
@@ -122,10 +123,18 @@ def main(argv: list[str]) -> int:
         ).fetchone()
         if event is None:
             sys.exit(f"Événement inconnu : {public_id}")
-        event_id, longitude, latitude, started_at, detection_count, frp_max = event
+        event_id, longitude, latitude, started_at, detection_count, frp_max, territory_id = event
         window_end = started_at + timedelta(minutes=parameters.horizon_minutes)
         print(f"événement : {public_id} ({latitude:.4f} N, {longitude:.4f} E)")
         print(f"fenêtre   : {started_at:%Y-%m-%d %H:%M} → {window_end:%H:%M} UTC")
+
+        # L'interrupteur se consulte avant tout travail : couper doit couper
+        # le téléchargement et l'écriture, pas seulement l'affichage (§18.5).
+        if not feature_enabled(conn, FEATURE_SMOKE_FORECAST, territory_id):
+            print("\nPanache désactivé (FR-106) : aucun calcul, rien n'est écrit.")
+            for reason in disabling_reasons(conn, FEATURE_SMOKE_FORECAST, territory_id):
+                print(f"  motif : {reason}")
+            return 1
 
         candidates = runs_reaching(started_at, latest=latest_run(datetime.now(UTC)))
         if not candidates:
