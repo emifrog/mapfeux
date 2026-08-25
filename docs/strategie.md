@@ -1,8 +1,10 @@
 # MapFeux — Stratégie
 
-**Version 1.1 — 6 août 2026** — décision D-0 (option A) répercutée au §4,
-autorisation de cumul obtenue (§3.1, point d'arrêt du §7 levé), calendrier
-tranché (§8.2). Version 1.0 : 28 juillet 2026.
+**Version 1.2 — 25 août 2026** — veille concurrentielle du §2 : deux entrants
+examinés sur pièces (GISFire, Climate Innov), thèse confirmée, frontière des
+moyens aériens rappelée. Version 1.1 : 6 août 2026 — décision D-0 (option A)
+répercutée au §4, autorisation de cumul obtenue (§3.1, point d'arrêt du §7
+levé), calendrier tranché (§8.2). Version 1.0 : 28 juillet 2026.
 
 Ce document porte les décisions qui ne bougent pas d'une semaine sur l'autre :
 positionnement, périmètre, préalables juridiques, modèle économique, conditions
@@ -45,6 +47,54 @@ publier une position de moyens, se substituer à une alerte officielle.
 | suivi-feu-medoc | Rendu spectaculaire, ADS-B, imagerie Meteosat | Rigueur sémantique, statuts séparés, pas de confusion avec l'officiel |
 | feuxdeforet.fr, feux.net | Volume de pages, SEO | Traçabilité vérifiable, absence d'affirmation non sourcée |
 | FIRMS, EFFIS | Données brutes de référence | Maille communale, langue française, lisibilité grand public |
+| GISFire (gisfire.saro.app) | Le concurrent le plus complet : FIRMS multi-produits regroupés en événements, fiches, rejeu 7 j, panache du vent prévu, ADS-B et largages, foudre, Europe entière, pédagogie remarquable | Masque des sources statiques (leurs « feux » de Fos et Grande-Synthe, sondés le 25 août), identifiants opaques, statuts de vérification, information officielle contre fil de presse, surfaces avec méthode, rendu sans JavaScript |
+| Climate Innov (ensemblepourlaforet.fr) | Risque de départ de feu horaire, 3 km, 36 h, météo satellitaire (Spire), partenaire EDHEC | Pas un concurrent : le risque avant le feu, MapFeux l'observation pendant et après — leur propre avertissement renvoie ailleurs pour les feux en cours. SecuFire Action (Balbi, gratuit pour les SDIS) concurrence PREVIFEU, pas MapFeux |
+
+### Veille du 25 août 2026 — deux entrants, examinés sur pièces
+
+**GISFire** (SARO × Gistin, deux agences web/SIG — vitrine, pas institution)
+est le concurrent frontal le plus abouti vu à ce jour, en ligne aujourd'hui :
+cinq produits FIRMS dont GOES, regroupement en événements (~1 700 actifs,
+Europe entière), fiches par incendie (courbe FRP, emprise, avant/après),
+curseur temporel avec rejeu, panache calculé du vent prévu, suivi ADS-B des
+Canadair et zones de largage, foudre sur 7 jours, `/api/status` par source
+avec mode dégradé. Sa visite guidée est d'une honnêteté remarquable — « c'est
+une détection, pas un constat de terrain », panache « estimation, pas
+observation » qui pâlit quand le vent tourne : le ton juste existe ailleurs.
+
+Mais le produit ne porte pas la machinerie derrière le ton, et c'est
+démontrable sur ses propres données : sondé le 25 août, **GISFire servait
+« Fos-sur-Mer, 45 pixels » et « Grande-Synthe, 106 pixels » comme feux
+actifs** — les torchères que le masque MapFeux a mesurées et éteintes le
+10 août. S'y ajoutent : identifiants internes séquentiels exposés, surfaces
+en hectares sans méthode, « incendies signalés » = flux Google News au filtre
+bruyant (aucune parole officielle), aucune méthodologie publiée, rien ne se
+rend sans JavaScript. Sa visite dit « seule la préfecture fait foi » ; son
+produit ne porte pas la préfecture. Une idée à retenir : `nextDataAt`,
+l'heure du prochain passage satellite annoncée sur chaque événement.
+
+**Climate Innov** (Nice, EDHEC Climate Institute, Spire) occupe le créneau
+voisin, pas le nôtre : `ensemblepourlaforet.fr` prédit le **risque de départ
+de feu** (horaire, 3 km, 36 h) et affiche « n'informe pas sur les feux en
+cours » — le vide que MapFeux comble. Sa page commerciale revendique « 94 %
+d'efficacité » sans métrique ni référentiel, l'exemple même de ce que §2.4
+interdit. **SecuFire Action** (propagation Balbi, gratuit pour les acteurs
+publics) est en revanche un concurrent direct de PREVIFEU, à suivre avant le
+pilote 2028.
+
+Trois conséquences. La thèse tient : le couloir « observation attribuée,
+permanente, avec la parole officielle » reste vide — GISFire a la surface,
+personne n'a la profondeur, et le jour où un média titrera sur un « feu » de
+torchère d'après une carte concurrente, la différence deviendra une histoire
+racontable. **J4 prend de la valeur** : l'information officielle attribuée
+est la réponse structurelle que ni un fil de presse ni un disclaimer ne
+remplacent. Enfin la frontière des moyens aériens est déjà tranchée par la
+thèse — « jamais de position de moyens » : GISFire fait ce que MapFeux
+s'interdit, et c'est un choix, pas un retard.
+
+Entretien : re-sonder Fos chez GISFire et revisiter les deux acteurs avant
+l'ouverture publique ; toute nouvelle fonction chez eux s'évalue contre la
+thèse, pas contre la peur de manquer.
 
 ### Qui lira réellement MapFeux
 
