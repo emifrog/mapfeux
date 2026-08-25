@@ -23,6 +23,7 @@ import {
   updateEventLayer,
   type MapEvent,
 } from './event-layer';
+import { addPerimeterLayer, updatePerimeterLayer, type PerimeterShape } from './perimeter-layer';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -92,6 +93,13 @@ export interface BaseMapProps {
   className?: string;
   /** Événements à afficher. Le premier lot vient du rendu serveur. */
   events?: MapEvent[];
+  /**
+   * Périmètres à dessiner sous les marqueurs (FR-092). Le style suit la
+   * nature : trait plein d'autorité pour l'officiel, tireté pour le reste —
+   * un périmètre satellitaire ne ressemble jamais à un contour opérationnel
+   * (FR-093).
+   */
+  perimeters?: PerimeterShape[];
   /** Recharge les événements lorsque l'emprise change. FR-007. */
   reloadOnMove?: boolean;
   /**
@@ -162,6 +170,7 @@ export default function BaseMap({
   bounded = true,
   className,
   events = [],
+  perimeters = [],
   reloadOnMove = false,
   ageReference,
 }: BaseMapProps) {
@@ -176,6 +185,7 @@ export default function BaseMap({
   // La ref n'est initialisée qu'ici et mise à jour dans un effet : la muter
   // pendant le rendu rendrait le composant non réentrant.
   const eventsRef = useRef<MapEvent[]>(events);
+  const perimetersRef = useRef<PerimeterShape[]>(perimeters);
 
   // Initialisation unique. Les changements de cadrage passent par l'effet
   // suivant : recréer la carte à chaque navigation rechargerait toutes les
@@ -258,6 +268,12 @@ export default function BaseMap({
         });
       });
 
+      // Les périmètres avant les événements : le contour encadre, les
+      // détections restent au premier plan.
+      if (perimetersRef.current.length > 0) {
+        addPerimeterLayer(map, perimetersRef.current);
+      }
+
       addEventLayer(
         map,
         eventsRef.current,
@@ -312,6 +328,14 @@ export default function BaseMap({
       );
     }
   }, [events, ageReference]);
+
+  useEffect(() => {
+    perimetersRef.current = perimeters;
+    const map = mapRef.current;
+    if (map !== null && map.isStyleLoaded()) {
+      updatePerimeterLayer(map, perimeters);
+    }
+  }, [perimeters]);
 
   // Recadrage lorsque le territoire consulté change.
   useEffect(() => {

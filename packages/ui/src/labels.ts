@@ -81,6 +81,27 @@ export const CONFIDENCE_LEVEL_LABELS: Record<ConfidenceLevel, string> = {
 export const CONFIDENCE_LEVEL_NOTICE =
   'La fiabilité qualifie la cohérence des observations satellitaires. Elle ne dit rien de la gravité, de la surface ni de l’état du phénomène.';
 
+/** Natures de périmètre (FR-092). Le libellé dit la provenance, jamais plus. */
+export const PERIMETER_TYPE_LABELS: Record<string, string> = {
+  official: 'Périmètre officiel',
+  institutional: 'Périmètre institutionnel',
+  effis: 'Surface brûlée EFFIS/Copernicus',
+  estimated: 'Périmètre estimé',
+  editorial: 'Périmètre éditorial',
+  historical: 'Périmètre historique',
+};
+
+/**
+ * Confiance d'un périmètre — quatre valeurs, pas trois : une source qui fait
+ * autorité est hors de l'échelle, pas en haut de l'échelle (§13.23).
+ */
+export const PERIMETER_CONFIDENCE_LABELS: Record<string, string> = {
+  low: 'Faible',
+  medium: 'Modérée',
+  high: 'Élevée',
+  not_applicable: 'Sans objet — la source fait foi',
+};
+
 export const SOURCE_FRESHNESS_LABELS: Record<SourceFreshness, string> = {
   fresh: 'À jour',
   delayed: 'Retardée',

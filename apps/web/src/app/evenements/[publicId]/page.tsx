@@ -4,6 +4,7 @@ import {
   formatDataAge,
   isSnapshotStale,
   MAP_DISCLAIMER,
+  PERIMETER_DISCLAIMER,
 } from '@mapfeux/domain';
 import { PALETTE } from '@mapfeux/map-style';
 import {
@@ -11,6 +12,8 @@ import {
   CONFIDENCE_LEVEL_NOTICE,
   EVENT_FRESHNESS_DESCRIPTIONS,
   OFFICIAL_CONTROL_STATUS_LABELS,
+  PERIMETER_CONFIDENCE_LABELS,
+  PERIMETER_TYPE_LABELS,
   ProvenanceBadge,
   PROVENANCE_LABELS,
   VERIFICATION_STATUS_DESCRIPTIONS,
@@ -26,6 +29,7 @@ import {
   eventPath,
   fetchEvent,
   fetchEventDetections,
+  fetchEventPerimeters,
   fetchEventView,
   resolveEventAlias,
   type FireEvent,
@@ -238,12 +242,19 @@ export default async function EventPage({ params }: PageParams) {
   // que lui l'affiche partiel et le dit (dette §15 — la relecture annonçait
   // déjà le sien, la fiche pas encore).
   const DETECTION_TABLE_LIMIT = 500;
-  const [detections, officialLinks] = await Promise.all([
+  const [detections, officialLinks, perimeters] = await Promise.all([
     fetchEventDetections(event.publicId, DETECTION_TABLE_LIMIT),
     event.territory === null ? Promise.resolve([]) : fetchOfficialLinks(event.territory.slug),
+    fetchEventPerimeters(event.publicId),
   ]);
   const detectionsTruncated =
     detections.length === DETECTION_TABLE_LIMIT && event.detectionCount > DETECTION_TABLE_LIMIT;
+  const currentPerimeter = perimeters.find((perimeter) => perimeter.isCurrent) ?? null;
+  const previousPerimeters = perimeters.filter((perimeter) => !perimeter.isCurrent);
+  const perimeterIsIndicative =
+    currentPerimeter !== null &&
+    currentPerimeter.perimeterType !== 'official' &&
+    currentPerimeter.perimeterType !== 'institutional';
 
   const now = new Date();
   const snapshotIsStale =
@@ -521,9 +532,12 @@ export default async function EventPage({ params }: PageParams) {
                 </tr>
               </thead>
               <tbody>
-                {detections.map((detection) => (
+                {detections.map((detection, index) => (
+                  // L'heure et la longitude ne suffisent pas : deux pixels
+                  // d'un même passage partagent les deux — vu sur Pontevès.
+                  // La liste est triée et rendue serveur, l'indice est stable.
                   <tr
-                    key={`${detection.acquiredAt.toISOString()}-${detection.location.longitude}`}
+                    key={`${detection.acquiredAt.toISOString()}-${index}`}
                     className="border-(--border) border-b"
                   >
                     <td className="py-2 pr-4">
@@ -582,8 +596,26 @@ export default async function EventPage({ params }: PageParams) {
             center={[event.location.longitude, event.location.latitude]}
             zoom={11}
             className="h-full w-full"
+            perimeters={
+              currentPerimeter === null
+                ? []
+                : [
+                    {
+                      id: currentPerimeter.id,
+                      perimeterType: currentPerimeter.perimeterType,
+                      geometry: currentPerimeter.geometry,
+                    },
+                  ]
+            }
           />
         </div>
+        {currentPerimeter !== null && (
+          <p className="text-small text-(--text-2) mt-2">
+            {perimeterIsIndicative ? 'Le contour tireté' : 'Le contour'} est la version courante du
+            périmètre — {PERIMETER_TYPE_LABELS[currentPerimeter.perimeterType]?.toLowerCase()},
+            détaillée ci-dessous.
+          </p>
+        )}
         <p className="text-small mt-3 print:hidden">
           <Link
             href={`/evenements/${event.publicId}/relecture`}
@@ -596,6 +628,115 @@ export default async function EventPage({ params }: PageParams) {
           </span>
         </p>
       </section>
+
+      {/* Périmètres versionnés (FR-090 à FR-094). Zéro périmètre est l'état
+          normal de la plupart des événements : la section n'existe que
+          lorsqu'il y a quelque chose à sourcer. */}
+      {perimeters.length > 0 && currentPerimeter !== null && (
+        <section aria-labelledby="perimetres" className="mt-10">
+          <h2 id="perimetres" className="text-title font-bold tracking-tight">
+            Périmètres
+          </h2>
+          {perimeterIsIndicative && (
+            <p className="text-(--text-2) mt-2 text-sm">{PERIMETER_DISCLAIMER}</p>
+          )}
+
+          <p className="mt-4">
+            <span className="font-semibold">
+              {PERIMETER_TYPE_LABELS[currentPerimeter.perimeterType] ?? 'Périmètre'}
+            </span>{' '}
+            —{' '}
+            <span className="mono">
+              {currentPerimeter.areaHa.toLocaleString('fr-FR')}
+              {' '}ha
+            </span>
+          </p>
+
+          <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-small text-(--text-2)">État représenté au</dt>
+              <dd>
+                <time dateTime={currentPerimeter.validAt.toISOString()}>
+                  {formatInstant(currentPerimeter.validAt, event.timeZone)}
+                </time>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-small text-(--text-2)">Source</dt>
+              <dd>
+                {currentPerimeter.sourceName}
+                {currentPerimeter.publishedAt !== null && (
+                  <span className="text-(--text-2)">
+                    {' '}
+                    · publié le {formatInstant(currentPerimeter.publishedAt, event.timeZone)}
+                  </span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-small text-(--text-2)">Surface annoncée par la source</dt>
+              <dd>
+                {currentPerimeter.sourceAreaHa === null
+                  ? '—'
+                  : `${currentPerimeter.sourceAreaHa.toLocaleString('fr-FR')} ha`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-small text-(--text-2)">Résolution indicative</dt>
+              <dd>
+                {currentPerimeter.resolutionM === null
+                  ? '—'
+                  : `~${currentPerimeter.resolutionM.toLocaleString('fr-FR')} m`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-small text-(--text-2)">Confiance</dt>
+              <dd>
+                {PERIMETER_CONFIDENCE_LABELS[currentPerimeter.confidenceLevel] ??
+                  currentPerimeter.confidenceLevel}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-small text-(--text-2)">Importé le</dt>
+              <dd>
+                <time dateTime={currentPerimeter.importedAt.toISOString()}>
+                  {formatInstant(currentPerimeter.importedAt, event.timeZone)}
+                </time>
+              </dd>
+            </div>
+          </dl>
+
+          {/* FR-095 : une surface sans sa méthode est une affirmation. */}
+          <p className="text-(--text-3) mt-3 text-xs">
+            Surface recalculée par MapFeux : {currentPerimeter.method}.
+            {currentPerimeter.sourceAttribution !== null && (
+              <> {currentPerimeter.sourceAttribution}.</>
+            )}
+          </p>
+
+          {previousPerimeters.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-small font-semibold">
+                Version{previousPerimeters.length > 1 ? 's' : ''} précédente
+                {previousPerimeters.length > 1 ? 's' : ''}, conservée
+                {previousPerimeters.length > 1 ? 's' : ''}
+              </h3>
+              <ul className="text-small text-(--text-2) mt-1 space-y-1">
+                {previousPerimeters.map((version) => (
+                  <li key={version.id}>
+                    {PERIMETER_TYPE_LABELS[version.perimeterType] ?? 'Périmètre'} —{' '}
+                    <span className="mono">{version.areaHa.toLocaleString('fr-FR')}&nbsp;ha</span>
+                    {version.publishedAt !== null && (
+                      <> · publié le {formatInstant(version.publishedAt, event.timeZone)}</>
+                    )}{' '}
+                    · remplacé par une version plus récente
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Ce qui n'est pas affiché, et pourquoi. Une absence non expliquée se lit
           comme une absence de phénomène. */}

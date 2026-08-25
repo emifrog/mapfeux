@@ -2,10 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 
+import { PERIMETER_TYPE_LABELS } from '@mapfeux/ui';
+
 import { MapView } from '@/components/map/map-view';
 import {
   fetchEvent,
   fetchEventDetections,
+  fetchEventPerimeters,
   fetchEventTimeline,
   resolveEventAlias,
 } from '@/lib/data/events';
@@ -77,17 +80,24 @@ export default async function ReplayPage({
   // Plafond de l'API : 2 000 observations. Atteint, il est annoncé — une
   // relecture tronquée en silence raconterait un feu plus petit que le vrai.
   const DETECTION_CEILING = 2000;
-  const [detections, timeline] = await Promise.all([
+  const [detections, timeline, perimeters] = await Promise.all([
     fetchEventDetections(publicId, DETECTION_CEILING),
     fetchEventTimeline(publicId),
+    fetchEventPerimeters(publicId),
   ]);
   const truncated = detections.length === DETECTION_CEILING;
 
-  // Les instants de la relecture sont les passages satellitaires : chaque
-  // heure d'acquisition distincte est un état consultable (FR-080).
-  const instants = [...new Set(detections.map((d) => d.acquiredAt.getTime()))]
-    .sort((a, b) => a - b)
-    .map((t) => new Date(t));
+  // Les instants de la relecture sont les passages satellitaires — chaque
+  // heure d'acquisition distincte est un état consultable (FR-080) — plus
+  // les publications de périmètres : une version connue est un instant de
+  // relecture à part entière, sans quoi les cartographies publiées après la
+  // dernière observation n'apparaîtraient jamais (FR-094).
+  const passTimes = [...new Set(detections.map((d) => d.acquiredAt.getTime()))];
+  const perimeterTimes = [...new Set(perimeters.map((p) => p.knownAt.getTime()))];
+  const instants = [
+    ...passTimes.map((t) => ({ at: new Date(t), kind: 'pass' as const })),
+    ...perimeterTimes.map((t) => ({ at: new Date(t), kind: 'perimeter' as const })),
+  ].sort((a, b) => a.at.getTime() - b.at.getTime());
 
   const rawAt = typeof query['at'] === 'string' ? query['at'] : undefined;
   const parsedAt = rawAt === undefined ? undefined : new Date(rawAt);
@@ -106,13 +116,25 @@ export default async function ReplayPage({
 
   const visibleTimeline = timeline.filter((entry) => entry.occurredAt.getTime() <= at.getTime());
 
-  const currentIndex = instants.findIndex(
-    (instant) => effectiveAt !== null && instant.getTime() === effectiveAt.getTime(),
+  // Les périmètres connus à cet instant, et parmi eux les têtes de chaîne :
+  // une version remplacée par une version déjà connue ne s'affiche plus
+  // (FR-094) — mais elle redevient l'état montré aux instants antérieurs.
+  const knownPerimeters = perimeters.filter((p) => p.knownAt.getTime() <= at.getTime());
+  const perimetersAtInstant = knownPerimeters.filter(
+    (candidate) => !knownPerimeters.some((other) => other.supersedesId === candidate.id),
   );
-  const previous = currentIndex > 0 ? (instants[currentIndex - 1] ?? null) : null;
+
+  // L'instant courant est le dernier instant de relecture atteint — passage
+  // ou publication de périmètre.
+  let currentIndex = -1;
+  for (const [index, instant] of instants.entries()) {
+    if (instant.at.getTime() <= at.getTime()) currentIndex = index;
+    else break;
+  }
+  const previous = currentIndex > 0 ? (instants[currentIndex - 1]?.at ?? null) : null;
   const next =
     currentIndex >= 0 && currentIndex < instants.length - 1
-      ? (instants[currentIndex + 1] ?? null)
+      ? (instants[currentIndex + 1]?.at ?? null)
       : null;
 
   const tz = event.timeZone;
@@ -202,11 +224,35 @@ export default async function ReplayPage({
             location: d.location,
             nearestMunicipalityName: null,
           }))}
+          perimeters={perimetersAtInstant.map((perimeter) => ({
+            id: perimeter.id,
+            perimeterType: perimeter.perimeterType,
+            geometry: perimeter.geometry,
+          }))}
         />
       </div>
       <p className="text-small text-(--text-3) mt-2 max-w-[68ch]">
         Chaque point est une observation importée à cet instant, colorée par son âge{' '}
         <strong>à l’instant rejoué</strong>, pas par son âge aujourd’hui.
+      </p>
+      {/* FR-094 : l'état des périmètres est dit à chaque instant, y compris
+          leur absence — un contour manquant n'est pas un feu sans emprise. */}
+      <p className="text-small text-(--text-2) mt-1 max-w-[68ch]">
+        {perimetersAtInstant.length === 0 ? (
+          <>Aucun périmètre n’était encore publié à cet instant.</>
+        ) : (
+          <>
+            Périmètre connu à cet instant :{' '}
+            {perimetersAtInstant
+              .map(
+                (perimeter) =>
+                  `${PERIMETER_TYPE_LABELS[perimeter.perimeterType] ?? 'périmètre'}, ` +
+                  `${perimeter.areaHa.toLocaleString('fr-FR')} ha`,
+              )
+              .join(' · ')}
+            .
+          </>
+        )}
       </p>
 
       {/* Curseur et lecture automatique (FR-080, FR-082) : une amélioration
@@ -214,8 +260,12 @@ export default async function ReplayPage({
           parcours sans JavaScript et l'alternative textuelle (FR-083). */}
       <ReplayControls
         basePath={`/evenements/${event.publicId}/relecture`}
-        instants={instants.map((instant) => instant.toISOString())}
-        labels={instants.map((instant) => formatInstant(instant, tz))}
+        instants={instants.map((instant) => instant.at.toISOString())}
+        labels={instants.map(
+          (instant) =>
+            formatInstant(instant.at, tz) +
+            (instant.kind === 'perimeter' ? ' — publication d’un périmètre' : ''),
+        )}
         currentIndex={currentIndex}
       />
 
@@ -240,26 +290,29 @@ export default async function ReplayPage({
 
       <section className="mt-10" aria-labelledby="instants">
         <h2 id="instants" className="text-title font-bold tracking-tight">
-          Passages satellitaires
+          Instants de la relecture
         </h2>
         <p className="text-small text-(--text-2) mt-2 max-w-[58ch]">
-          Chaque lien ouvre l’état reconstruit à ce passage — la même adresse s’ouvre à l’identique
-          ailleurs.
+          Passages satellitaires et publications de périmètres : chaque lien ouvre l’état
+          reconstruit à cet instant — la même adresse s’ouvre à l’identique ailleurs.
         </p>
         <ol className="mt-4 space-y-1">
-          {instants.map((instant) => {
-            const isCurrent = effectiveAt !== null && instant.getTime() === effectiveAt.getTime();
+          {instants.map((instant, index) => {
+            const isCurrent = index === currentIndex;
             return (
-              <li key={instant.toISOString()}>
+              <li key={`${instant.at.toISOString()}-${instant.kind}`}>
                 <Link
-                  href={replayHref(instant)}
+                  href={replayHref(instant.at)}
                   aria-current={isCurrent ? 'time' : undefined}
                   className={`mono text-small underline-offset-4 ${
                     isCurrent ? 'font-bold' : 'underline'
                   }`}
                 >
-                  {formatInstant(instant, tz)}
+                  {formatInstant(instant.at, tz)}
                 </Link>
+                {instant.kind === 'perimeter' && (
+                  <span className="text-small text-(--text-2)"> — publication d’un périmètre</span>
+                )}
                 {isCurrent && <span className="text-small text-(--text-3)"> — affiché</span>}
               </li>
             );

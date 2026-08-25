@@ -622,6 +622,82 @@ export async function fetchEventsInBbox(
   }));
 }
 
+/** Une version de périmètre, telle que la fiche et la relecture la jugent. */
+export interface EventPerimeter {
+  id: string;
+  perimeterType: string;
+  validAt: Date;
+  publishedAt: Date | null;
+  importedAt: Date;
+  areaHa: number;
+  sourceAreaHa: number | null;
+  resolutionM: number | null;
+  confidenceLevel: string;
+  method: string;
+  sourceName: string;
+  sourceAttribution: string | null;
+  isCurrent: boolean;
+  supersedesId: string | null;
+  /** GeoJSON MultiPolygon, prêt pour la carte. */
+  geometry: GeoJSON.MultiPolygon;
+  /** L'instant où la version est devenue connaissable — publication source,
+   *  à défaut import : c'est lui que la relecture rejoue (FR-094). */
+  knownAt: Date;
+}
+
+export async function fetchEventPerimeters(publicId: string): Promise<EventPerimeter[]> {
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase.rpc('fire_event_perimeters', {
+    event_public_id: publicId,
+  });
+
+  if (error !== null) {
+    console.error('[events] périmètres illisibles', {
+      publicId,
+      code: error.code,
+      message: error.message,
+    });
+    return [];
+  }
+
+  type Row = {
+    id: string;
+    perimeter_type: string;
+    valid_at: string;
+    published_at: string | null;
+    imported_at: string;
+    area_ha: number;
+    source_area_ha: number | null;
+    resolution_m: number | null;
+    confidence_level: string;
+    method: string;
+    source_name: string;
+    source_attribution: string | null;
+    is_current: boolean;
+    supersedes_id: string | null;
+    geometry: GeoJSON.MultiPolygon;
+  };
+
+  return ((data ?? []) as Row[]).map((row) => ({
+    id: row.id,
+    perimeterType: row.perimeter_type,
+    validAt: new Date(row.valid_at),
+    publishedAt: row.published_at === null ? null : new Date(row.published_at),
+    importedAt: new Date(row.imported_at),
+    areaHa: Number(row.area_ha),
+    sourceAreaHa: row.source_area_ha === null ? null : Number(row.source_area_ha),
+    resolutionM: row.resolution_m === null ? null : Number(row.resolution_m),
+    confidenceLevel: row.confidence_level,
+    method: row.method,
+    sourceName: row.source_name,
+    sourceAttribution: row.source_attribution,
+    isCurrent: row.is_current,
+    supersedesId: row.supersedes_id,
+    geometry: row.geometry,
+    knownAt: new Date(row.published_at ?? row.imported_at),
+  }));
+}
+
 export async function fetchEventDetections(
   publicId: string,
   limit = 500,

@@ -21,5 +21,10 @@ export const DETECTION_PIXEL_NOTICE =
 export const MODELLED_VALUE_NOTICE =
   "Donnée modélisée issue d'une grille de prévision, et non d'une mesure locale.";
 
+// FR-093 : un périmètre satellitaire ou estimé n'est jamais présenté comme un
+// contour opérationnel. La phrase accompagne toute version de ces natures.
+export const PERIMETER_DISCLAIMER =
+  "Périmètre indicatif établi à partir de produits satellitaires ou d'estimations. Ce n'est pas un contour opérationnel.";
+
 export const OFFLINE_NOTICE =
   'Mode hors connexion : les informations affichées proviennent du cache et ne sont pas à jour.';
