@@ -1,15 +1,14 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 25 août 2026 (nuit) — **la chaîne CAMS est
-complète, de l'ADS à la carte**. COG et tuiles PNG par échéance sous
-palette versionnée `aq-atmo-v1` et alias atomiques (§19.1) ; fiche commune
-échantillonnée serveur, huit champs du §19.2, valeurs recoupées contre le
-NetCDF source ; **couche carte commutable**, légende lue de l'alias
-(FR-121) ; et le **workflow CI entier passé vert, secret posé** — import
-idempotent puis dérivation en 44 s. Restent à J9 : le radar (clé en cours
-côté auteur), FR-125 exercée, un coup d'œil réel sur la couche. Veille
-concurrentielle en [stratégie](strategie.md) v1.2. Total restant
-≈ 33 semaines.
+**Dernière mise à jour** : 25 août 2026 (nuit) — **les deux connecteurs de
+J9 sont complets**. CAMS de l'ADS à la carte (COG, tuiles, fiche commune,
+couche commutable, CI vert secret posé) ; **radar de DPRadar à la timeline
+publiée** : HDF5 ODIM contrôlé, image Mercator sous palette
+`radar-lame-v1`, `radar.frames` avec expiration, alias de 24 frames —
+exercé sur l'orage réel du soir, cellule maximale recoupée au pixel près.
+Restent à J9 : l'animation radar sur la carte (§19.3), FR-125 exercée, un
+coup d'œil réel sur les couches. Veille concurrentielle en
+[stratégie](strategie.md) v1.2. Total restant ≈ 33 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -120,9 +119,9 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 68 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 93 fichiers (66 worker + 27 scripts) |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 39 + 27 fichiers |
-| Worker | `pytest` | ✅ 408 tests |
+| Worker | `ruff check` / `ruff format --check` | ✅ 99 fichiers (71 worker + 28 scripts) |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 42 + 28 fichiers |
+| Worker | `pytest` | ✅ 427 tests |
 | Migrations | 37 migrations sur base vierge, en CI | ✅ CI du 25 août (d80909f) pour les 36 d'alors ; la 37ᵉ (`api_air_assets`) appliquée **et rejouée** en production, passage base vierge au prochain push |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
@@ -132,24 +131,24 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J9, suite : le radar (§16.6, §19.3, FR-123 à FR-125).**
+**J9, fin : l'animation radar sur la carte (§19.3, FR-123 à FR-124), puis
+solder G6.**
 
-La chaîne CAMS est complète — import, COG, tuiles, fiche commune, couche
-carte — et **le workflow CI entier est passé vert** le 25 au soir, secret
-posé (import idempotent puis dérivation, 44 s). La marche suivante est le
-connecteur radar : clé d'application « Données Publiques Radar » du
-portail Météo-France (une clé PAR application — celle de la vigilance
-produirait un 403 sans motif), frames dans `radar.frames` avec expiration
-(§16.6), conversion contrôlée en image web géoréférencée, timeline,
-animation 12-24 frames avec lecture/pause et respect de la réduction des
-animations (§19.3). Pour solder J9 ensuite : FR-125 exercée — couper CAMS
-puis le radar ne doit toucher ni la carte ni les fiches — et un coup
-d'œil réel sur la couche air depuis un navigateur qui composite.
+Les deux connecteurs sont complets — CAMS de l'ADS à la carte, radar de
+DPRadar à la timeline publiée. La marche suivante affiche le radar :
+source image MapLibre depuis l'alias `radar-lame-d-eau.json` (au plus 24
+frames, heure d'acquisition affichée — FR-123), lecture/pause, respect de
+`prefers-reduced-motion`, préchargement progressif (§19.3) ; la légende se
+lit de l'alias, comme pour l'air. Pour solder J9 ensuite : **FR-125
+exercée** — couper CAMS puis le radar ne doit toucher ni la carte ni les
+fiches — et un coup d'œil réel sur les couches depuis un navigateur qui
+composite.
 
-La source CAMS reste `disabled` au registre jusqu'à ses **premières passes
-planifiées** — la première est attendue demain 08 h 45 UTC ; le geste de
-mise en service (statut `active`, phrases d'attente de `/statut` et
-`/sources` à relire) se fait après l'avoir constatée.
+Deux gestes d'exploitation, côté auteur : poser le secret GitHub
+`METEOFRANCE_RADAR_API_KEY` (le cron radar de toutes les cinq minutes
+l'attend) ; et, après la première passe planifiée CAMS de 08 h 45,
+**mettre les sources en service** — statut `active` au registre, phrases
+d'attente de `/statut` et `/sources` à relire (dette §15).
 
 Deux actions d'exploitation en parallèle, côté auteur : poser
 `COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
@@ -994,9 +993,30 @@ l'origine, se remplissent ici.
   ⚠️ Le rendu n'a pas encore été **regardé** dans un navigateur qui
   composite — la leçon des 86 classes CSS vaut ici : un coup d'œil réel
   reste dû au prochain passage sur le déploiement
-- ⬜ Radar : connecteur, frames, conversion contrôlée, timeline, animation de
-  12 à 24 frames avec lecture/pause et respect de la réduction des animations,
-  expiration automatique (§16.6, §19.3, FR-123 à FR-124)
+- ✅ **Connecteur radar : frames, conversion contrôlée, timeline, expiration**
+  (25 août nuit, §16.6, FR-123) — API DPRadar (arbre de liens OGC, **sans
+  historique** : chaque production manquée est perdue, le cron colle aux
+  cinq minutes du produit, et une passe qui trouve la frame déjà servie
+  sort sans rien retélécharger). Mosaïque lame d'eau 500 m en HDF5 ODIM
+  (h5py — le driver HDF5 manque aux roues rasterio), brut archivé avant
+  analyse, conversion **contrôlée** : grandeur `ACRR` exigée, dimensions
+  vérifiées, et la convention de grille — origine au coin bas-gauche, y
+  vers le nord — **prouvée sur chaque fichier** en reprojetant son propre
+  coin. Image web Mercator au plus proche voisin (emprise sur le pourtour
+  échantillonné : les bords stéréographiques bombent, les coins seuls
+  rogneraient), palette versionnée `radar-lame-v1` — six bandes d'intensité
+  mm/h, découpage éditorial **assumé comme tel** dans la légende.
+  `radar.frames` avec expiration à deux heures ; timeline en alias JSON
+  d'au plus 24 frames (§19.3), réécrit en dernier. Exercé sur l'orage réel
+  du 25 au soir : frame 18:25, PNG 1533×1352 de 33 ko, rejeu « déjà
+  servie », et la cellule maximale du brut (97 mm/h, bande extrême)
+  **recoupée au pixel près** dans le PNG publié. 19 tests sur ODIM
+  synthétique au projdef réel ; clé par application, jamais celle de la
+  vigilance (testé). ⚠️ le cron toutes les cinq minutes attend le secret
+  GitHub `METEOFRANCE_RADAR_API_KEY`
+- ⬜ Animation radar sur la carte (§19.3, FR-123 à FR-124) : frames de la
+  timeline, lecture/pause, heure d'acquisition affichée, respect de
+  `prefers-reduced-motion`, préchargement progressif
 - ⬜ Panne de CAMS ou du radar sans effet sur la carte des détections — déjà
   la règle pour les sources en service, à vérifier sur les nouvelles (FR-125)
 - ✅ **`fire.event_perimeters` : la machinerie des périmètres versionnés**
@@ -1334,7 +1354,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Affichage des détections par commune | `/communes/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
-| Rétention des rasters CAMS | ~100 objets et 4 Mo par run quotidien dans le compartiment public `tiles` (préfixe `cams/`), aucune purge. Garder le run courant et le précédent suffit (§16.5) ; tout se régénère depuis `raw` par `build-cams-rasters.py --date`. À traiter avec la purge de `raw` | J5 |
+| Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar aux cinq minutes (préfixe `radar/`, ~9 Mo/jour) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
