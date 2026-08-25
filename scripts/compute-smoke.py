@@ -5,16 +5,22 @@ Usage :
     micromamba run -n mapfeux-geo python scripts/compute-smoke.py \
         --evenement MPF-XXXXXXXX --horizon 360
 
-Référence : cahier v2.1 §18 ; plan J8.
+Référence : cahier v2.1 §18 et §16.4 ; plan J8.
 
 Rien de ce script ne publie : la prévision est écrite avec `is_current` à
 faux, et le restera tant que la formulation publique du §22.5 n'aura pas été
 validée métier. C'est l'outil d'exercice et de calibration du calcul.
 
-Le run est choisi au registre : le plus frais dont la fenêtre d'échéances
-couvre la dernière observation de l'événement. L'extrait est relu du froid
-avec empreinte vérifiée. La provenance §18.6 est complète : version, commit
-du worker, run, paramètres, empreinte des entrées, détections sources.
+Le run se choisit sur la **grille du fournisseur**, du plus frais au plus
+vieux — pour un feu détecté à deux heures du matin, le bon run est celui de
+minuit, pas celui de la veille à midi. Les tranches d'échéances qui manquent
+au registre sont **récupérées à la demande** (§16.4) : extraites, déposées au
+froid, consignées — le corpus y gagne ce que le panache exige. Une tranche
+que le dépôt ne sert plus est dite indisponible, jamais inventée ; le panache
+tronque et le dit.
+
+La provenance §18.6 est complète : version, commit du worker, run, fichiers
+et empreintes, paramètres, empreinte composite des entrées.
 """
 
 from __future__ import annotations
@@ -24,16 +30,20 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import psycopg
-import xarray as xr
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "geo-worker" / "src"))
 
 from geo_worker.db import dsn_from_env_file, dsn_target, load_env
+from geo_worker.pipelines.arome_coverage import (
+    coverage_checksum,
+    ensure_window_coverage,
+    open_window_dataset,
+)
 from geo_worker.pipelines.smoke_forecast import (
     ALGORITHM_VERSION,
     PlumeError,
@@ -42,7 +52,8 @@ from geo_worker.pipelines.smoke_forecast import (
     inputs_checksum,
     store_forecast,
 )
-from geo_worker.storage import StorageError, download_object
+from geo_worker.providers.arome import latest_run, runs_reaching
+from geo_worker.storage import StorageError
 
 ENV_FILE = ROOT / "services" / "geo-worker" / ".env"
 
@@ -87,8 +98,12 @@ def main(argv: list[str]) -> int:
     env = load_env(ENV_FILE)
     supabase_url = env.get("SUPABASE_URL", "")
     secret_key = env.get("SUPABASE_SECRET_KEY", "")
-    if supabase_url == "" or secret_key == "":
-        sys.exit("SUPABASE_URL et SUPABASE_SECRET_KEY sont requises pour lire le froid.")
+    bucket = env.get("SUPABASE_STORAGE_BUCKET_COLD", "")
+    if supabase_url == "" or secret_key == "" or bucket == "":
+        sys.exit(
+            "SUPABASE_URL, SUPABASE_SECRET_KEY et SUPABASE_STORAGE_BUCKET_COLD "
+            "sont requises pour lire et compléter le froid."
+        )
 
     dsn = dsn_from_env_file(ENV_FILE)
     host, port, database = dsn_target(dsn)
@@ -108,57 +123,77 @@ def main(argv: list[str]) -> int:
         if event is None:
             sys.exit(f"Événement inconnu : {public_id}")
         event_id, longitude, latitude, started_at, detection_count, frp_max = event
+        window_end = started_at + timedelta(minutes=parameters.horizon_minutes)
         print(f"événement : {public_id} ({latitude:.4f} N, {longitude:.4f} E)")
-        print(f"départ    : {started_at:%Y-%m-%d %H:%M} UTC (dernière observation)")
-        print(f"horizon   : {parameters.horizon_minutes} min, pas {parameters.step_minutes} min")
+        print(f"fenêtre   : {started_at:%Y-%m-%d %H:%M} → {window_end:%H:%M} UTC")
 
-        run_row = conn.execute(
-            """
-            select id, run_at, source_path, checksum
-            from meteo.model_runs
-            where model = 'arome' and fwi_archived
-              and run_at <= %(start)s
-              and run_at + make_interval(
-                    hours => (select max(l) from unnest(available_leads) l)
-                  ) >= %(start)s
-            order by run_at desc
-            limit 1
-            """,
-            {"start": started_at},
-        ).fetchone()
-        if run_row is None:
-            print(
-                "Aucun run du registre ne couvre la dernière observation : "
-                "résultat vide (§18.5), rien n'est écrit."
-            )
+        candidates = runs_reaching(started_at, latest=latest_run(datetime.now(UTC)))
+        if not candidates:
+            print("Aucun run publiable n'atteint la fenêtre : résultat vide (§18.5).")
             return 1
-        model_run_id, run_at, source_path, checksum = run_row
-        print(f"run       : {run_at:%Y-%m-%d %H:%M} UTC — {source_path}")
 
-        bucket, _, object_path = source_path.partition("/")
-        with httpx.Client() as http:
-            payload = download_object(
-                http,
-                supabase_url=supabase_url,
-                secret_key=secret_key,
-                bucket=bucket,
-                object_path=object_path,
-                expected_checksum=checksum,
-            )
-        print(f"extrait   : {len(payload) / 1e6:.2f} Mo, empreinte conforme au registre")
-
-        with tempfile.TemporaryDirectory() as workspace:
-            local = pathlib.Path(workspace) / "extract.nc"
-            local.write_bytes(payload)
-            with xr.open_dataset(local) as dataset:
-                result = compute_plume(
-                    dataset,
+        coverage = None
+        with httpx.Client(follow_redirects=True) as http:
+            for run_at in candidates:
+                print(f"\nrun candidat : {run_at:%Y-%m-%d %H:%M} UTC")
+                attempt = ensure_window_coverage(
+                    conn,
+                    http,
                     run_at=run_at,
-                    longitude=longitude,
-                    latitude=latitude,
-                    started_at=started_at,
-                    parameters=parameters,
+                    start=started_at,
+                    end=window_end,
+                    supabase_url=supabase_url,
+                    secret_key=secret_key,
+                    bucket=bucket,
                 )
+                if attempt.fetched_spans:
+                    print(f"  récupérées  : {', '.join(attempt.fetched_spans)}")
+                if attempt.unavailable_spans:
+                    print(f"  introuvables : {', '.join(attempt.unavailable_spans)}")
+                if attempt.has_start:
+                    coverage = attempt
+                    break
+                print("  aucune tranche exploitable — repli sur le run précédent")
+
+            if coverage is None:
+                print("\nAucun run ne couvre la fenêtre : résultat vide (§18.5).")
+                return 1
+
+            row = conn.execute(
+                """
+                select id from meteo.model_runs
+                where provider = 'meteo-france' and model = 'arome'
+                  and run_at = %(run_at)s
+                """,
+                {"run_at": coverage.run_at},
+            ).fetchone()
+            if row is None:
+                # has_start implique la ligne au registre ; son absence est
+                # une incohérence à regarder, pas à enjamber.
+                sys.exit("Registre incohérent : couverture sans ligne de run.")
+            model_run_id = row[0]
+            print(
+                f"couverture : {len(coverage.files)} fichier(s), "
+                f"tranches {', '.join(coverage.needed_spans)}"
+            )
+
+            with tempfile.TemporaryDirectory() as workspace:
+                dataset = open_window_dataset(
+                    http,
+                    files=coverage.files,
+                    supabase_url=supabase_url,
+                    secret_key=secret_key,
+                    workspace=pathlib.Path(workspace),
+                )
+
+        result = compute_plume(
+            dataset,
+            run_at=coverage.run_at,
+            longitude=longitude,
+            latitude=latitude,
+            started_at=started_at,
+            parameters=parameters,
+        )
 
         if result is None:
             print("Entrées insuffisantes sur l'horizon : résultat vide (§18.5).")
@@ -181,9 +216,10 @@ def main(argv: list[str]) -> int:
             "worker_commit": worker_commit(),
             "model_run": {
                 "id": str(model_run_id),
-                "run_at": run_at.isoformat(),
-                "source_path": source_path,
-                "checksum": checksum,
+                "run_at": coverage.run_at.isoformat(),
+                "files": [
+                    {"path": f.get("path"), "checksum": f.get("checksum")} for f in coverage.files
+                ],
             },
             "source": {
                 "event": public_id,
@@ -192,7 +228,7 @@ def main(argv: list[str]) -> int:
                 "frp_max_mw": None if frp_max is None else float(frp_max),
             },
             "inputs_checksum": inputs_checksum(
-                extract_checksum=checksum,
+                extract_checksum=coverage_checksum(coverage.files),
                 public_id=public_id,
                 started_at=started_at,
                 longitude=longitude,

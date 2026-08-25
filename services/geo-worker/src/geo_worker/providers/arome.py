@@ -154,40 +154,45 @@ def noon_lead_time(run: datetime, target_day: datetime, noon_hour_utc: int = 11)
     return lead
 
 
-def runs_reaching_noon(noon: datetime, *, latest: datetime, limit: int = 4) -> tuple[datetime, ...]:
-    """Runs candidats pour atteindre une mi-journée, du plus frais au plus vieux.
+def runs_reaching(moment: datetime, *, latest: datetime, limit: int = 4) -> tuple[datetime, ...]:
+    """Runs candidats pour atteindre un instant, du plus frais au plus vieux.
 
     Leçon des 8 et 9 août 2026 : le run le plus récent n'est pas toujours
     publié quand on le demande — le délai de diffusion approche trois heures
     et demie et fluctue, si bien qu'un déclenchement ponctuel tombe des deux
-    côtés de la limite selon l'humeur du planificateur. Or la même mi-journée
-    reste prévue par les runs précédents, à échéance croissante : plutôt que
+    côtés de la limite selon l'humeur du planificateur. Or le même instant
+    reste prévu par les runs précédents, à échéance croissante : plutôt que
     d'échouer sur un 404, on recule de run en run.
 
     La liste s'arrête quand l'échéance sort de la portée du modèle (48 h) ou
-    que `limit` candidats ont été produits. Elle peut être vide : une
-    mi-journée trop ancienne n'est plus atteignable par aucun run publiable.
+    que `limit` candidats ont été produits. Elle peut être vide : un instant
+    trop ancien n'est plus atteignable par aucun run publiable.
     """
     if limit < 1:
         raise AromeError(f"Limite de candidats invalide : {limit}")
 
-    moment = noon.astimezone(UTC)
-    # Dernier run de la grille qui précède ou égale la mi-journée : un run
-    # postérieur ne la prévoit plus, il l'a vécue.
-    hour = max(h for h in RUN_HOURS if h <= moment.hour)
+    target = moment.astimezone(UTC)
+    # Dernier run de la grille qui précède ou égale l'instant : un run
+    # postérieur ne le prévoit plus, il l'a vécu.
+    hour = max(h for h in RUN_HOURS if h <= target.hour)
     candidate = min(
-        moment.replace(hour=hour, minute=0, second=0, microsecond=0),
+        target.replace(hour=hour, minute=0, second=0, microsecond=0),
         latest.astimezone(UTC),
     )
 
     runs: list[datetime] = []
     while len(runs) < limit:
-        lead = round((moment - candidate).total_seconds() / 3600)
+        lead = round((target - candidate).total_seconds() / 3600)
         if lead > 48:
             break
         runs.append(candidate)
         candidate -= timedelta(hours=3)
     return tuple(runs)
+
+
+def runs_reaching_noon(noon: datetime, *, latest: datetime, limit: int = 4) -> tuple[datetime, ...]:
+    """La même mécanique, nommée pour son usage historique : l'archivage FWI."""
+    return runs_reaching(noon, latest=latest, limit=limit)
 
 
 def next_reachable_noon(run: datetime, noon_hour_utc: int = 11) -> datetime:
@@ -219,6 +224,7 @@ __all__ = [
     "latest_run",
     "next_reachable_noon",
     "noon_lead_time",
+    "runs_reaching",
     "runs_reaching_noon",
     "span_for_lead_time",
 ]
