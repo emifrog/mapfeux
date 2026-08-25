@@ -1,0 +1,17 @@
+# Dépendances de la dérivation raster CAMS — cahier §19.1, plan J9.
+#
+# La dérivation lit du NetCDF, écrit des COG et encode des PNG : il lui faut
+# la pile géospatiale que requirements-ingestion.txt évite exprès. Les roues
+# PyPI de rasterio embarquent GDAL et PROJ, celles de netCDF4 embarquent
+# HDF5 : pas d'environnement conda à restaurer pour une passe quotidienne.
+#
+# Ce fichier s'ajoute à requirements-ingestion.txt (httpx, psycopg, numpy,
+# structlog y sont déjà) ; il ne le remplace pas. Bornes par majeure, pour
+# la même raison que là-bas : une tâche planifiée ne doit pas changer de
+# comportement pendant la nuit.
+
+xarray>=2025.1,<2027
+netCDF4>=1.7,<2.0
+rasterio>=1.4,<2.0
+pillow>=11.0,<13.0
+pmtiles>=3.2,<4.0

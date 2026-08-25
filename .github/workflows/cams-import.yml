@@ -8,11 +8,15 @@
 # heures de pointe.
 #
 # Même principe qu'ingestion.yml : GitHub Actions déclenche, la base
-# journalise. La chaîne CAMS lit du NetCDF sans l'ouvrir : les six roues de
-# requirements-ingestion.txt suffisent, pas d'environnement conda.
+# journalise. L'import lit du NetCDF sans l'ouvrir : les six roues de
+# requirements-ingestion.txt lui suffisent. La dérivation raster (§19.1),
+# elle, ouvre le NetCDF et écrit COG et tuiles : requirements-raster.txt
+# ajoute la pile géospatiale en roues PyPI — toujours pas de conda.
 #
 # Publication atomique : le run ne bascule `is_current` que s'il est complet
-# (PM2,5 et PM10) ; à moitié importé, le run précédent continue de servir.
+# (PM2,5 et PM10) ; à moitié importé, le run précédent continue de servir,
+# et la dérivation ne tourne pas. Les alias de tuiles ne sont réécrits qu'en
+# tout dernier : un lecteur d'alias ne voit jamais un objet absent.
 #
 # Secrets requis (dépôt) :
 #   INGESTION_DATABASE_URL — déjà posé (pooler session, 5432)
@@ -63,3 +67,13 @@ jobs:
           COPERNICUS_URL: https://ads.atmosphere.copernicus.eu/api
           SUPABASE_STORAGE_BUCKET_RAW: raw
         run: python scripts/import-cams.py
+
+      - name: Dépendances raster
+        run: pip install -r services/geo-worker/requirements-raster.txt
+
+      - name: Dérivation COG et tuiles (§19.1)
+        env:
+          DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python scripts/build-cams-rasters.py
