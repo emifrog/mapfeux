@@ -5,14 +5,15 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { MapView } from '@/components/map/map-view';
+import { MunicipalityAir } from '@/components/municipality-air';
 import { fetchMunicipality } from '@/lib/data/municipalities';
 
 /**
  * Synthèse communale. Cahier §7.1 et FR-022.
  *
- * Les détections, le panache et la qualité de l'air arrivent avec les lots 3, 5
- * et 6. La page affiche aujourd'hui l'identité de la commune ; chaque bloc
- * ajouté devra porter sa provenance et sa fraîcheur (§2.4).
+ * La qualité de l'air modélisée est en service (§19.2) ; les détections et
+ * le panache arrivent avec leurs lots. Chaque bloc porte sa provenance et sa
+ * fraîcheur (§2.4).
  */
 
 export const revalidate = 3600;
@@ -151,6 +152,11 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
           L’absence d’événement affiché ici ne signifie pas qu’il ne s’en produit pas.
         </p>
       </section>
+
+      <MunicipalityAir
+        longitude={municipality.centroid.longitude}
+        latitude={municipality.centroid.latitude}
+      />
 
       <p className="text-micro text-(--text-3) mt-12 max-w-[68ch]">
         Limites communales issues d’ADMIN EXPRESS COG, version{' '}
