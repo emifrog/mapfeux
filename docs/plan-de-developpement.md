@@ -4,10 +4,12 @@
 entamé, le même jour**. J7 soldé (slug éditorial exercé sur Pontevès,
 relecture v2 au-dessus des mêmes URL, « Autour de moi », plafond parlant) ;
 J8 : désactivation exercée dans les deux portées, horizon réel couvert ;
-J9 : tables `air`/`radar` en production et **premier run CAMS importé et
-publié** — jeton posé, contenu vérifié, cron quotidien écrit (le secret
-GitHub reste à poser, §2). Veille concurrentielle en
-[stratégie](strategie.md) v1.2. Total restant ≈ 38 semaines.
+J9 : tables `air`/`radar` en production, **premier run CAMS importé et
+publié** (jeton posé, contenu vérifié, cron écrit — secret GitHub à poser),
+et **les périmètres versionnés exercés sur pièces** — deux cartographies
+EFFIS réelles de Pontevès, chaînées, l'exercice ayant attrapé un défaut
+d'archivage réel (§2). Veille concurrentielle en [stratégie](strategie.md)
+v1.2. Total restant ≈ 38 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -118,10 +120,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 85 fichiers |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 36 + 25 fichiers |
-| Worker | `pytest` | ✅ 374 tests |
-| Migrations | 28 migrations sur base vierge, en CI | ✅ CI du 25 août (844da31) |
+| Worker | `ruff check` / `ruff format --check` | ✅ 88 fichiers |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 37 + 26 fichiers |
+| Worker | `pytest` | ✅ 381 tests |
+| Migrations | 29 migrations sur base vierge, en CI | ✅ CI du 25 août (40b1f1c) |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -130,23 +132,26 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J9, suite : la stratégie raster (§19.1) — la donnée est là.**
+**J9, suite : l'affichage des périmètres — fiche et relecture (FR-092 à
+FR-094).**
 
-L'import CAMS est exercé et publié (voir J9) : le stockage brut porte
-désormais du PM2,5 et du PM10 réels, et la marche suivante peut les
-transformer — COG d'archive et de calcul, tuiles raster web, palette et
-légende **versionnées**, métadonnées légères ; puis l'échantillonnage
-ponctuel serveur pour la fiche commune (§19.2), dont l'avertissement
-`MODELLED_VALUE_NOTICE` attend depuis J1. Le JSON brut vers le navigateur
-reste interdit (§19.1).
+Les périmètres ont leur machinerie et deux versions EFFIS réelles vivent sur
+Pontevès (voir J9) — l'ordre a été arbitré en session : les périmètres avant
+la stratégie raster, parce qu'ils vivent sur la fiche, l'objet central,
+quand les tuiles CAMS ne sont qu'une couche de contexte. La marche suivante
+les rend visibles : section « Périmètres » de la fiche (nature, source,
+validité, surface **avec sa méthode**, version courante), style par
+provenance — un périmètre satellitaire ou estimé n'est **jamais** présenté
+comme un contour opérationnel (FR-093) —, et les versions successives dans
+la relecture (FR-094), dont la mécanique `?at=` est prête. La stratégie
+raster (§19.1) suit.
 
 Deux actions d'exploitation en parallèle, côté auteur : poser
 `COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
 vive (la source ne se dira « en service » qu'après ses premières passes
 planifiées) ; et créer la **clé d'application radar** sur le portail
 Météo-France (une clé PAR application — celle de la vigilance produirait un
-403 sans motif). Les périmètres versionnés (§13.23) restent la marche sans
-clé, exerçable sur les emprises EFFIS de Landiras 2022.
+403 sans motif).
 
 Décisions toujours ouvertes, sans changement : formulation du panache
 (§22.5), ADR du vent historique, validation humaine des informations
@@ -941,10 +946,22 @@ l'origine, se remplissent ici.
   expiration automatique (§16.6, §19.3, FR-123 à FR-124)
 - ⬜ Panne de CAMS ou du radar sans effet sur la carte des détections — déjà
   la règle pour les sources en service, à vérifier sur les nouvelles (FR-125)
-- ⬜ `fire.event_perimeters` : périmètres versionnés multi-sources — officiel,
-  institutionnel, EFFIS, estimé, éditorial, historique —, import
-  GeoJSON/KML/Shape, validation géométrique, surfaces recalculées avec méthode,
-  masquage sans destruction (§13.23, FR-090 à FR-096)
+- ✅ **`fire.event_perimeters` : la machinerie des périmètres versionnés**
+  (25 août, §13.23, FR-090 à FR-096) — migration `20260825190000` : six
+  natures, confiance à quatre valeurs (`not_applicable` — un périmètre
+  officiel n'est pas « confiance élevée », il est hors échelle), surface
+  **recalculée** sur l'ellipsoïde avec méthode consignée et surface annoncée
+  conservée à côté, chaîne `supersedes`, masquage sans destruction, GiST.
+  EFFIS au registre des sources (`disabled` comme ses aînés). Conversion
+  GeoJSON réparée par `make_valid`, le non-surfacique refusé — 7 tests.
+  **Exercé sur pièces** : les deux cartographies EFFIS réelles du complexe
+  de Pontevès importées sur `MPF-5JP8XS99` — 967 ha (1ᵉʳ août) puis la
+  révision à 498 ha (4 août) qui la remplace, version conservée ; surfaces
+  recalculées recoupant les annoncées à 0,4 ha près, centres à 3-6 km du
+  point représentatif. L'exercice a attrapé un défaut réel : deux versions
+  partageaient un chemin d'archive et le second dépôt écrasait le brut de la
+  première (FR-096) — le chemin porte désormais la date de publication
+  source. Import KML/Shape : à l'adaptateur suivant, le GeoJSON couvre EFFIS
 - ⬜ Styles par provenance : un périmètre satellitaire ou estimé n'est jamais
   présenté comme un contour opérationnel (FR-093)
 - ⬜ Versions successives affichables dans la relecture (FR-094)
