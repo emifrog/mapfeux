@@ -1,6 +1,7 @@
 import { MODELLED_VALUE_NOTICE } from '@mapfeux/domain';
 import Link from 'next/link';
 
+import { POLLUTANT_LABELS } from '@/lib/air/labels';
 import { fetchAirSamples } from '@/lib/data/air';
 
 /**
@@ -15,11 +16,6 @@ import { fetchAirSamples } from '@/lib/data/air';
  * calendrier : la phrase reste vraie que la source soit à venir, en panne ou
  * en retard (le piège des phrases d'attente, plan §15).
  */
-
-const POLLUTANT_LABELS: Record<string, string> = {
-  pm2_5: 'PM2,5',
-  pm10: 'PM10',
-};
 
 const TIME = new Intl.DateTimeFormat('fr-FR', {
   dateStyle: 'short',

@@ -1,9 +1,8 @@
 import { MAP_DISCLAIMER } from '@mapfeux/domain';
 import type { Metadata } from 'next';
 
+import { CarteMapPanel } from '@/components/map/carte-map-panel';
 import { EventList } from '@/components/event-list';
-import { MapLegend } from '@/components/map/legend';
-import { MapView } from '@/components/map/map-view';
 import { fetchEventsInBbox } from '@/lib/data/events';
 
 /**
@@ -68,33 +67,24 @@ export default async function MapPage() {
 
       <p className="text-lead text-(--text-2) mt-4 max-w-[68ch]">{MAP_DISCLAIMER}</p>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
-        <div
-          className="sm:h-104 lg:h-136 h-96 overflow-hidden rounded-lg border"
-          style={{ borderColor: 'var(--border-strong)' }}
-        >
-          <MapView
-            center={[
-              (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
-              (INITIAL_BBOX.minLat + INITIAL_BBOX.maxLat) / 2,
-            ]}
-            zoom={8}
-            className="h-full w-full"
-            events={events.map((event) => ({
-              publicId: event.publicId,
-              freshnessStatus: event.freshnessStatus,
-              lastDetectedAt: event.lastDetectedAt.toISOString(),
-              confidence: event.confidenceLevel,
-              detectionCount: event.detectionCount,
-              location: event.location,
-              nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
-            }))}
-            reloadOnMove
-          />
-        </div>
-
-        <MapLegend />
-      </div>
+      {/* La couche air (§19.1) et sa légende vivent dans le panneau client :
+          l'état du sélecteur est partagé entre la carte et la colonne. */}
+      <CarteMapPanel
+        center={[
+          (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
+          (INITIAL_BBOX.minLat + INITIAL_BBOX.maxLat) / 2,
+        ]}
+        zoom={8}
+        events={events.map((event) => ({
+          publicId: event.publicId,
+          freshnessStatus: event.freshnessStatus,
+          lastDetectedAt: event.lastDetectedAt.toISOString(),
+          confidence: event.confidenceLevel,
+          detectionCount: event.detectionCount,
+          location: event.location,
+          nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
+        }))}
+      />
 
       <section aria-labelledby="liste" className="mt-12 max-w-[840px]">
         <h2 id="liste" className="text-title font-bold tracking-tight">

@@ -8,6 +8,7 @@ import { Protocol } from 'pmtiles';
 
 import { publicEnv } from '@/lib/env';
 
+import { removeAirLayer, resolveAirTiles, setAirLayer, type AirTilesInfo } from './air-layer';
 import {
   addDepartmentLayer,
   DEPARTMENTS_FILL_LAYER_ID,
@@ -108,6 +109,18 @@ export interface BaseMapProps {
    * absent, l'âge se mesure contre maintenant, comme sur la carte vivante.
    */
   ageReference?: string;
+  /**
+   * Polluant de la couche air modélisée (§19.1), ou null pour l'éteindre.
+   * La couche se glisse sous les lavis et les événements : un contexte,
+   * jamais le sujet.
+   */
+  airPollutant?: string | null;
+  /**
+   * Reçoit ce que la couche air affiche réellement — l'échéance choisie et
+   * la palette lue de l'alias — ou null quand rien ne s'affiche : c'est ce
+   * qui permet à la légende de décrire la couche sans recopier ses seuils.
+   */
+  onAirInfo?: (info: AirTilesInfo | null) => void;
 }
 
 function prefersReducedMotion(): boolean {
@@ -173,10 +186,25 @@ export default function BaseMap({
   perimeters = [],
   reloadOnMove = false,
   ageReference,
+  airPollutant = null,
+  onAirInfo,
 }: BaseMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const router = useRouter();
+
+  // Le rappel vit dans une ref : sa nouvelle identité à chaque rendu ne doit
+  // pas relancer l'effet de la couche air.
+  const onAirInfoRef = useRef(onAirInfo);
+  useEffect(() => {
+    onAirInfoRef.current = onAirInfo;
+  }, [onAirInfo]);
+
+  // « Le style a fini de charger » se mémorise ici : `isStyleLoaded()` peut
+  // répondre faux transitoirement bien après l'événement `load` (pendant un
+  // chargement de tuiles), et un `once('load')` posé à ce moment-là ne
+  // tirerait plus jamais.
+  const styleReadyRef = useRef(false);
 
   // Le premier lot vient du serveur : la liste textuelle est rendue sans
   // JavaScript, et la carte n'attend pas un aller-retour pour montrer quelque
@@ -229,6 +257,7 @@ export default function BaseMap({
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
     map.on('load', () => {
+      styleReadyRef.current = true;
       // Les départements d'abord, les événements ensuite : les lavis
       // d'agrégats restent sous les marqueurs.
       void resolveTilesUrl().then((tilesUrl) => {
@@ -307,6 +336,12 @@ export default function BaseMap({
     });
 
     mapRef.current = map;
+    // Poignée de débogage, développement seulement : dans un panneau de
+    // navigation sans compositing, `requestAnimationFrame` ne tire jamais et
+    // la carte ne « charge » pas — c'est par cette poignée qu'on la pilote.
+    if (process.env.NODE_ENV === 'development') {
+      (window as unknown as { __mapfeuxMap?: maplibregl.Map }).__mapfeuxMap = map;
+    }
 
     return () => {
       map.remove();
@@ -336,6 +371,39 @@ export default function BaseMap({
       updatePerimeterLayer(map, perimeters);
     }
   }, [perimeters]);
+
+  // Couche air modélisée (§19.1). L'alias est relu à chaque activation :
+  // c'est lui qui dit quelle archive est courante, et c'est court.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map === null) return;
+    let cancelled = false;
+
+    const apply = async (): Promise<void> => {
+      if (airPollutant === null) {
+        removeAirLayer(map);
+        onAirInfoRef.current?.(null);
+        return;
+      }
+      const info = await resolveAirTiles(airPollutant);
+      if (cancelled || mapRef.current === null) return;
+      if (info === null) {
+        removeAirLayer(map);
+      } else {
+        setAirLayer(map, info);
+      }
+      onAirInfoRef.current?.(info);
+    };
+
+    if (styleReadyRef.current) {
+      void apply();
+    } else {
+      map.once('load', () => void apply());
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [airPollutant]);
 
   // Recadrage lorsque le territoire consulté change.
   useEffect(() => {
