@@ -5,11 +5,11 @@ entamé, le même jour**. J7 soldé (slug éditorial exercé sur Pontevès,
 relecture v2 au-dessus des mêmes URL, « Autour de moi », plafond parlant) ;
 J8 : désactivation exercée dans les deux portées, horizon réel couvert ;
 J9 : tables `air`/`radar` en production, **premier run CAMS importé et
-publié** (jeton posé, contenu vérifié, cron écrit — secret GitHub à poser),
-et **les périmètres versionnés exercés sur pièces** — deux cartographies
-EFFIS réelles de Pontevès, chaînées, l'exercice ayant attrapé un défaut
-d'archivage réel (§2). Veille concurrentielle en [stratégie](strategie.md)
-v1.2. Total restant ≈ 38 semaines.
+publié** (cron écrit, secret GitHub à poser), et **les périmètres complets
+de bout en bout** — deux versions EFFIS réelles sur Pontevès, affichées sur
+la fiche et rejouées dans la relecture aux trois époques, le tireté FR-093
+gravé dans la structure des couches. Veille concurrentielle en
+[stratégie](strategie.md) v1.2. Total restant ≈ 38 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -123,7 +123,7 @@ build — vertes.
 | Worker | `ruff check` / `ruff format --check` | ✅ 88 fichiers |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 37 + 26 fichiers |
 | Worker | `pytest` | ✅ 381 tests |
-| Migrations | 29 migrations sur base vierge, en CI | ✅ CI du 25 août (40b1f1c) |
+| Migrations | 30 migrations sur base vierge, en CI | ✅ CI du 25 août (d80909f) |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -132,19 +132,16 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J9, suite : l'affichage des périmètres — fiche et relecture (FR-092 à
-FR-094).**
+**J9, suite : la stratégie raster (§19.1).**
 
-Les périmètres ont leur machinerie et deux versions EFFIS réelles vivent sur
-Pontevès (voir J9) — l'ordre a été arbitré en session : les périmètres avant
-la stratégie raster, parce qu'ils vivent sur la fiche, l'objet central,
-quand les tuiles CAMS ne sont qu'une couche de contexte. La marche suivante
-les rend visibles : section « Périmètres » de la fiche (nature, source,
-validité, surface **avec sa méthode**, version courante), style par
-provenance — un périmètre satellitaire ou estimé n'est **jamais** présenté
-comme un contour opérationnel (FR-093) —, et les versions successives dans
-la relecture (FR-094), dont la mécanique `?at=` est prête. La stratégie
-raster (§19.1) suit.
+Les périmètres sont complets — machinerie, versions réelles et affichage
+jusqu'à la relecture (voir J9). La marche suivante transforme les NetCDF
+CAMS déjà importés : COG d'archive et de calcul, tuiles raster web, palette
+et légende **versionnées**, métadonnées légères ; puis l'échantillonnage
+ponctuel serveur pour la fiche commune (§19.2), dont l'avertissement
+`MODELLED_VALUE_NOTICE` attend depuis J1. Le JSON brut vers le navigateur
+reste interdit (§19.1). Suivront le radar (à sa clé) et, pour solder J9, la
+vérification FR-125 sur les nouvelles sources.
 
 Deux actions d'exploitation en parallèle, côté auteur : poser
 `COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
@@ -962,9 +959,23 @@ l'origine, se remplissent ici.
   partageaient un chemin d'archive et le second dépôt écrasait le brut de la
   première (FR-096) — le chemin porte désormais la date de publication
   source. Import KML/Shape : à l'adaptateur suivant, le GeoJSON couvre EFFIS
-- ⬜ Styles par provenance : un périmètre satellitaire ou estimé n'est jamais
-  présenté comme un contour opérationnel (FR-093)
-- ⬜ Versions successives affichables dans la relecture (FR-094)
+- ✅ **L'affichage des périmètres — fiche, carte, relecture** (25 août,
+  FR-091 à FR-094) — `api.fire_event_perimeters` sert toutes les versions
+  publiques avec source, méthode et version courante ; un périmètre masqué
+  rend la précédente courante — la fiche ne reste pas nue sur une erreur
+  retirée. Sur la carte, **FR-093 est porté par la structure** :
+  `line-dasharray` n'étant pas pilotable par donnée, l'officiel a sa couche
+  au trait plein d'autorité et tout le reste passe par la couche tiretée —
+  il n'existe pas de chemin de code qui dessinerait un périmètre
+  satellitaire en contour opérationnel. La fiche détaille la version
+  courante (surface **avec sa méthode**, source et publication, résolution,
+  confiance à quatre valeurs, `PERIMETER_DISCLAIMER`) et garde les
+  précédentes visibles. **FR-094** : la publication d'un périmètre est un
+  instant de relecture à part entière — vérifié sur Pontevès aux trois
+  époques : absence dite au 23/07, 967 ha au 02/08, la révision à 497 ha au
+  05/08, curseur et liens compris. Au passage : clés React dédoublonnées du
+  tableau des détections, défaut préexistant révélé par les 500 lignes de
+  Pontevès
 
 **Critère de sortie** (G6) : couper CAMS puis le radar ne touche ni la carte ni
 les fiches ; un périmètre importé porte source, nature, dates, méthode et
