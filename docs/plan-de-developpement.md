@@ -1,13 +1,12 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 25 août 2026 — **G4 et G5 atteints le même jour**.
-J7 soldé par ses quatre restes : slug éditorial (posé et exercé sur
-Pontevès), relecture v2 (curseur et lecture automatique **au-dessus des
-mêmes URL**, observée 0 → 30 en six secondes), page « Autour de moi »,
-plafond parlant du tableau. J8 : désactivation en une action exercée dans
-les deux portées, horizon réel couvert, veille concurrentielle en
-[stratégie](strategie.md) v1.2. Restent des décisions (§22.5, ADR vent,
-§8.3, §8.5) ; la prochaine action entame J9. Total restant ≈ 38 semaines.
+**Dernière mise à jour** : 25 août 2026 — **G4 et G5 atteints, et J9
+entamé, le même jour**. J7 soldé (slug éditorial exercé sur Pontevès,
+relecture v2 au-dessus des mêmes URL, « Autour de moi », plafond parlant) ;
+J8 : désactivation exercée dans les deux portées, horizon réel couvert ;
+J9 : tables `air`/`radar` en production et connecteur CAMS **prêt-à-clé** —
+l'action qui débloque est le jeton ADS (§2). Veille concurrentielle en
+[stratégie](strategie.md) v1.2. Total restant ≈ 38 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -118,10 +117,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 81 fichiers |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 34 + 24 fichiers |
-| Worker | `pytest` | ✅ 363 tests |
-| Migrations | 27 migrations sur base vierge, en CI | ✅ CI du 25 août (748549c) |
+| Worker | `ruff check` / `ruff format --check` | ✅ 85 fichiers |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 36 + 25 fichiers |
+| Worker | `pytest` | ✅ 374 tests |
+| Migrations | 28 migrations sur base vierge, en CI | ✅ CI du 25 août (844da31) |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -130,26 +129,27 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Entamer J9 — CAMS, radar et périmètres.**
+**Exercer l'import CAMS — la clé d'abord, l'ADS ensuite.**
 
-J7 et J8 ont atteint leurs critères de sortie le même jour, le 25 août :
-G4 par les quatre derniers restes (slug éditorial, lecture automatique,
-« Autour de moi », plafond parlant), G5 par la désactivation. Ce qui demeure
-aux deux jalons est suspendu à des décisions, pas à du code : la formulation
-publique du panache (§22.5) à valider métier, l'ADR de la source de vent
-historique pour calibrer Gironde 2022, l'affichage de l'incertitude qui en
-découle (FR-101 à FR-103) — et, plus anciennes, la validation humaine des
-informations officielles (§8.3) et la réponse à la première erreur publique
-(§8.5). Pour le futur affichage du panache, deux faits d'exercice restent à
-formuler : le garde-fou de distance tire vite par vent établi, et un
-événement frontalier produit un panache sans commune française.
+La première marche de J9 est posée (tables `air`/`radar`, connecteur CAMS
+prêt-à-clé — voir J9). L'action qui débloque est un provisionnement, pas du
+code : créer le compte ADS, **accepter la licence du jeu** sur sa page,
+poser `COPERNICUS_KEY` dans `services/geo-worker/.env` — le script
+`import-cams.py` imprime le mode d'emploi complet. Le premier import réel
+validera le dialecte de l'API Processes, remplira `air.model_runs` et fera
+basculer la première publication ; le connecteur passera alors de 🟢 à ✅.
 
-L'ordre du tableau donne donc J9. Première marche proposée : les tables des
-schémas `air` et `radar` (§13.17-18) et le **connecteur CAMS** (§16.5) —
-import par run, PM2,5 et PM10, publication atomique avec conservation de la
-version précédente, panne sans effet sur la carte (FR-125). Le registre des
-runs de J8 et ses motifs (fusion d'échéances, empreintes, couverture à la
-demande) sont faits pour être réemployés là.
+La marche de développement suivante, elle, n'attend aucune clé : les
+**périmètres versionnés** (`fire.event_perimeters`, §13.23, FR-090 à
+FR-096) — import GeoJSON/KML/Shape, validation géométrique, surfaces
+recalculées avec méthode, masquage sans destruction — avec un exercice réel
+possible sur les emprises EFFIS ouvertes des cas du corpus (Landiras 2022).
+Le radar, comme CAMS, attendra sa clé d'application Météo-France (une clé
+PAR application : celle de la vigilance produirait un 403 sans motif).
+
+Décisions toujours ouvertes, sans changement : formulation du panache
+(§22.5), ADR du vent historique, validation humaine des informations
+officielles (§8.3), réponse à la première erreur publique (§8.5).
 
 La spécification de J8 est **vérifiée contre le PDF v2.1** (67 pages, fourni
 le 10 août) : les §13.12-16, §16.4 et §18 y sont identiques au v1.1, à une
@@ -206,7 +206,7 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J3 | Carte et territoires | 3 | 6 sem. | **2 sem.** | 🟡 pilote livré |
 | J7 | Expérience FeuScope complète : catalogue, archives, relecture, partage | 4 — gate G4 Alpha | 10 sem. | **1 sem.** | 🟡 critère de sortie atteint |
 | J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
-| J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | 8 sem. | ⬜ |
+| J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **7 sem.** | 🟡 entamé |
 | J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | 2 sem. | ⬜ |
 | J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | 6 sem. | ⬜ vigilance déjà en service |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
@@ -907,9 +907,26 @@ historique, ADR à venir) restent dus avant toute publication.
 Phase 6 du cahier v2.1, gate G6. Les schémas `air` et `radar`, vides depuis
 l'origine, se remplissent ici.
 
-- ⬜ CAMS : connecteur, import par run, PM2,5 et PM10, COG ou tuiles raster,
-  publication atomique avec conservation de la version précédente (§16.5,
-  FR-120 à FR-121)
+- ✅ **Les schémas `air` et `radar` ont leurs tables** (25 août, §13.17-18) —
+  migration `20260825170000`, appliquée et rejouée : `air.model_runs` (même
+  vocabulaire d'état que le registre météo, **publication atomique** par
+  bascule `is_current` — l'ancien run et ses fichiers survivent, §16.5),
+  `air.grid_assets` (brut, COG ou tuile par polluant et échéance — le JSON
+  brut vers le navigateur n'a pas de forme ici, §19.1), `radar.frames`
+  (état, expiration §16.6). RLS partout, grants ingest
+- 🟢 **Connecteur CAMS, prêt-à-clé** (25 août, §16.5, FR-120) — API
+  Processes de l'ADS, jeu `cams-europe-air-quality-forecasts` (celui que le
+  registre pointe depuis l'origine), modèle `ensemble` niveau sol, PM2,5 et
+  PM10, emprise nationale, échéances 0-24 h ; un NetCDF par polluant déposé
+  dans `raw` (dézippé du transport), registre par fusion — les fonctions du
+  registre météo réemployées —, publication **seulement si le run est
+  complet** : à moitié importé, le run précédent continue de servir. Sans
+  `COPERNICUS_KEY`, le script explique le provisionnement et sort **sans
+  toucher au journal** — une configuration absente n'est pas une panne
+  (précédent FIRMS). 11 tests ; l'exercice contre l'ADS réel attend le jeton
+- ⬜ Stratégie raster (§19.1) : COG d'archive, tuiles web, palette et légende
+  versionnées, échantillonnage ponctuel serveur pour la fiche commune
+  (§19.2, `MODELLED_VALUE_NOTICE` attend depuis J1)
 - ⬜ Radar : connecteur, frames, conversion contrôlée, timeline, animation de
   12 à 24 frames avec lecture/pause et respect de la réduction des animations,
   expiration automatique (§16.6, §19.3, FR-123 à FR-124)
@@ -1228,7 +1245,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
 | ADR-001 à 013 non rédigés | Décisions actées, non documentées | Au fil des jalons |
-| Schémas `air` et `radar` vides | Tables créées en J9 ; le panache arrive en J8 — la décision D-0 a réintégré ces blocs au périmètre d'ouverture. `meteo` porte déjà la vigilance | J9 |
+| Schémas `air` et `radar` vides | Traité le 25 août : les trois tables sont en production (§13.17-18). Les schémas restent sans données tant que les connecteurs n'ont pas leurs clés — voir §2 | Traité |
 | `app.official_messages` inutilisable par une ingestion | La table exige un `created_by` humain et un `validated_by` : la vigilance a donc ses propres tables. La [décision §8.3](strategie.md#83-validation-humaine-des-informations-officielles) reste ouverte pour les sources en texte libre | J4 |
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
 | Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service. ⚠️ Phrase d'attente à retirer le jour de la mise en service (J9) | J9 |
