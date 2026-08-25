@@ -1,15 +1,15 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 25 août 2026 (soir) — **la stratégie raster est
-en service de bout en bout**. Les NetCDF CAMS deviennent, par échéance, COG
-d'archive et archives PMTiles de tuiles PNG colorées par la palette
-versionnée `aq-atmo-v1`, publiés sous alias atomiques (§19.1) ; la fiche
-commune échantillonne le COG côté serveur et affiche les huit champs du
-§19.2 — exercé sur Le Plan-de-la-Tour, valeurs recoupées contre le NetCDF
-source à la même cellule. Restent à J9 : le radar (à sa clé), la couche
-air sur la carte, FR-125. Acquis du matin inchangés : G4 et G5 atteints,
-périmètres complets, premier run CAMS importé. Veille concurrentielle en
-[stratégie](strategie.md) v1.2. Total restant ≈ 33 semaines.
+**Dernière mise à jour** : 25 août 2026 (nuit) — **la chaîne CAMS est
+complète, de l'ADS à la carte**. COG et tuiles PNG par échéance sous
+palette versionnée `aq-atmo-v1` et alias atomiques (§19.1) ; fiche commune
+échantillonnée serveur, huit champs du §19.2, valeurs recoupées contre le
+NetCDF source ; **couche carte commutable**, légende lue de l'alias
+(FR-121) ; et le **workflow CI entier passé vert, secret posé** — import
+idempotent puis dérivation en 44 s. Restent à J9 : le radar (clé en cours
+côté auteur), FR-125 exercée, un coup d'œil réel sur la couche. Veille
+concurrentielle en [stratégie](strategie.md) v1.2. Total restant
+≈ 33 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -132,17 +132,24 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J9, suite : la couche air sur la carte, puis le radar.**
+**J9, suite : le radar (§16.6, §19.3, FR-123 à FR-125).**
 
-La stratégie raster est en service (voir J9) : COG et tuiles publiés sous
-alias, fiche commune échantillonnée. La marche suivante affiche la couche
-raster sur la carte : source PMTiles depuis l'alias `cams-{polluant}.json`,
-légende lue de l'alias — jamais recopiée, c'est la palette versionnée qui a
-coloré les tuiles —, résolution, unité, heure et nature modélisée visibles
-(FR-121), et le choix d'échéance par l'heure courante. Suivront le radar
-(dès sa clé) et, pour solder J9, la vérification FR-125 exercée : couper
-CAMS ne doit toucher ni la carte ni les fiches — le code le promet, une
-coupure réelle doit le montrer.
+La chaîne CAMS est complète — import, COG, tuiles, fiche commune, couche
+carte — et **le workflow CI entier est passé vert** le 25 au soir, secret
+posé (import idempotent puis dérivation, 44 s). La marche suivante est le
+connecteur radar : clé d'application « Données Publiques Radar » du
+portail Météo-France (une clé PAR application — celle de la vigilance
+produirait un 403 sans motif), frames dans `radar.frames` avec expiration
+(§16.6), conversion contrôlée en image web géoréférencée, timeline,
+animation 12-24 frames avec lecture/pause et respect de la réduction des
+animations (§19.3). Pour solder J9 ensuite : FR-125 exercée — couper CAMS
+puis le radar ne doit toucher ni la carte ni les fiches — et un coup
+d'œil réel sur la couche air depuis un navigateur qui composite.
+
+La source CAMS reste `disabled` au registre jusqu'à ses **premières passes
+planifiées** — la première est attendue demain 08 h 45 UTC ; le geste de
+mise en service (statut `active`, phrases d'attente de `/statut` et
+`/sources` à relire) se fait après l'avoir constatée.
 
 Deux actions d'exploitation en parallèle, côté auteur : poser
 `COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
@@ -969,8 +976,24 @@ l'origine, se remplissent ici.
   Plan-de-la-Tour : PM10 12,1 et PM2,5 6,1 µg/m³ à 18 h UTC, **recoupés
   contre le NetCDF source à la même cellule** (12,12 / 6,14), console
   vide. 10 tests purs, dont le `-0` du bord nord
-- ⬜ Couche raster air sur la carte : source PMTiles depuis l'alias,
-  légende lue de l'alias, choix d'échéance par l'heure courante (FR-121)
+- ✅ **Couche raster air sur la carte** (25 août soir, FR-121) — commutable
+  et **éteinte par défaut** : la carte parle d'abord des détections (§8.1).
+  La couche lit l'alias, choisit l'échéance la plus proche de maintenant
+  (péremption à douze heures — une carte de la veille présentée comme
+  actuelle serait un mensonge coloré) et se glisse **sous** les lavis et
+  les événements, rééchantillonnage au plus proche voisin. La légende est
+  **lue de l'alias** — bornes, couleurs et version de la palette qui a
+  réellement coloré les tuiles, jamais une copie — avec unité, grille,
+  heure de validité, modèle, run et nature modélisée. Un piège MapLibre au
+  dossier : `isStyleLoaded()` répond faux transitoirement après `load`, et
+  un `once('load')` posé alors ne tire plus jamais — remplacé par un
+  drapeau posé dans le gestionnaire. Exercé sur serveur local (carte
+  pilotée par sa poignée de dev — le panneau sans compositing ne tire
+  jamais `requestAnimationFrame`) : couche sous les six couches mapfeux,
+  tuiles chargées sans erreur, bascule PM2,5/PM10, extinction propre.
+  ⚠️ Le rendu n'a pas encore été **regardé** dans un navigateur qui
+  composite — la leçon des 86 classes CSS vaut ici : un coup d'œil réel
+  reste dû au prochain passage sur le déploiement
 - ⬜ Radar : connecteur, frames, conversion contrôlée, timeline, animation de
   12 à 24 frames avec lecture/pause et respect de la réduction des animations,
   expiration automatique (§16.6, §19.3, FR-123 à FR-124)
