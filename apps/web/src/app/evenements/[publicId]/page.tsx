@@ -23,6 +23,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { MapView } from '@/components/map/map-view';
 import { ShareLink } from '@/components/share-link';
 import {
+  eventPath,
   fetchEvent,
   fetchEventDetections,
   fetchEventView,
@@ -96,6 +97,9 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
       event.firstDetectedAt,
       event.timeZone,
     )} et le ${formatInstant(event.lastDetectedAt, event.timeZone)}. ${EVENT_DISCLAIMER}`,
+    // L'URL nue et l'URL avec slug servent la même fiche (FR-060) : la
+    // canonique départage, c'est la forme avec slug quand il existe.
+    alternates: { canonical: `${getServerEnv().PUBLIC_APP_URL}${eventPath(event)}` },
     openGraph: {
       type: 'article',
       title: `${event.publicId} — ${place}`,
@@ -230,10 +234,16 @@ export default async function EventPage({ params }: PageParams) {
 
   const { event, timeline } = view;
 
+  // Plafond du tableau, nommé pour être annoncé : un événement plus grand
+  // que lui l'affiche partiel et le dit (dette §15 — la relecture annonçait
+  // déjà le sien, la fiche pas encore).
+  const DETECTION_TABLE_LIMIT = 500;
   const [detections, officialLinks] = await Promise.all([
-    fetchEventDetections(event.publicId),
+    fetchEventDetections(event.publicId, DETECTION_TABLE_LIMIT),
     event.territory === null ? Promise.resolve([]) : fetchOfficialLinks(event.territory.slug),
   ]);
+  const detectionsTruncated =
+    detections.length === DETECTION_TABLE_LIMIT && event.detectionCount > DETECTION_TABLE_LIMIT;
 
   const now = new Date();
   const snapshotIsStale =
@@ -243,7 +253,7 @@ export default async function EventPage({ params }: PageParams) {
       now,
       eventFreshness: event.freshnessStatus,
     });
-  const canonicalUrl = `${getServerEnv().PUBLIC_APP_URL}/evenements/${event.publicId}`;
+  const canonicalUrl = `${getServerEnv().PUBLIC_APP_URL}${eventPath(event)}`;
   const isFixture = event.publicId.startsWith('DEMO-');
 
   return (
@@ -469,6 +479,21 @@ export default async function EventPage({ params }: PageParams) {
           Détections membres
         </h2>
         <p className="text-(--text-2) mt-2 text-sm">{MAP_DISCLAIMER}</p>
+        {detectionsTruncated && (
+          <p className="text-small mt-2">
+            <strong>
+              Tableau partiel : les {DETECTION_TABLE_LIMIT} observations les plus récentes, sur{' '}
+              {event.detectionCount}.
+            </strong>{' '}
+            <Link
+              href={`/evenements/${event.publicId}/relecture`}
+              className="underline underline-offset-4"
+            >
+              La relecture
+            </Link>{' '}
+            <span className="text-(--text-2)">rejoue l’événement passage par passage.</span>
+          </p>
+        )}
 
         {detections.length === 0 ? (
           <p className="text-(--text-2) mt-3">Aucune détection publiable.</p>

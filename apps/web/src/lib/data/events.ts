@@ -50,6 +50,7 @@ interface EventRow {
   updated_at: string;
   timeline_entry_count: number;
   timeline_latest_at: string | null;
+  editorial_slug: string | null;
 }
 
 export interface FireEvent {
@@ -75,6 +76,19 @@ export interface FireEvent {
   updatedAt: Date;
   timelineEntryCount: number;
   timelineLatestAt: Date | null;
+  /** Slug éditorial facultatif (FR-042). Posé par un humain, jamais généré. */
+  editorialSlug: string | null;
+}
+
+/**
+ * Chemin canonique d'une fiche : l'identifiant, plus le slug éditorial quand
+ * un humain en a posé un (FR-060). L'URL nue reste servie quoi qu'il arrive —
+ * le slug s'ajoute, il ne remplace pas.
+ */
+export function eventPath(event: Pick<FireEvent, 'publicId' | 'editorialSlug'>): string {
+  return event.editorialSlug === null
+    ? `/evenements/${event.publicId}`
+    : `/evenements/${event.publicId}/${event.editorialSlug}`;
 }
 
 export interface TimelineEntry {
@@ -140,6 +154,7 @@ function toEvent(row: EventRow): FireEvent {
     updatedAt: new Date(row.updated_at),
     timelineEntryCount: row.timeline_entry_count,
     timelineLatestAt: row.timeline_latest_at === null ? null : new Date(row.timeline_latest_at),
+    editorialSlug: row.editorial_slug,
   };
 }
 
@@ -250,6 +265,8 @@ export interface EventView {
 
 interface SnapshotPayload {
   id: string;
+  /** Absent des snapshots antérieurs au 25 août 2026 : lu avec repli nul. */
+  editorialSlug?: string | null;
   freshnessStatus: EventFreshness;
   verificationStatus: VerificationStatus;
   officialControlStatus: OfficialControlStatus | null;
@@ -300,6 +317,7 @@ export async function fetchEventView(publicId: string): Promise<EventView | null
         generatedAt: new Date(snapshot.generated_at),
         event: {
           publicId: p.id,
+          editorialSlug: p.editorialSlug ?? null,
           freshnessStatus: p.freshnessStatus,
           verificationStatus: p.verificationStatus,
           officialControlStatus: p.officialControlStatus,

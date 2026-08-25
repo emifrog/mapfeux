@@ -57,6 +57,7 @@ const NAV = [
 
 const FOOTER_LINKS = [
   { href: '/archives', label: 'Archives' },
+  { href: '/autour-de-moi', label: 'Autour de moi' },
   { href: '/sources', label: 'Sources et licences' },
   { href: '/methodologie', label: 'Méthodologie' },
   { href: '/statut', label: 'État des données' },

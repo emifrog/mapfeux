@@ -10,6 +10,8 @@ import {
   resolveEventAlias,
 } from '@/lib/data/events';
 
+import { ReplayControls } from './replay-controls';
+
 /**
  * Relecture temporelle d'un événement. Cahier FR-080 à FR-087 et §15.5.
  *
@@ -206,6 +208,16 @@ export default async function ReplayPage({
         Chaque point est une observation importée à cet instant, colorée par son âge{' '}
         <strong>à l’instant rejoué</strong>, pas par son âge aujourd’hui.
       </p>
+
+      {/* Curseur et lecture automatique (FR-080, FR-082) : une amélioration
+          posée au-dessus des mêmes URL — les liens ci-dessous restent le
+          parcours sans JavaScript et l'alternative textuelle (FR-083). */}
+      <ReplayControls
+        basePath={`/evenements/${event.publicId}/relecture`}
+        instants={instants.map((instant) => instant.toISOString())}
+        labels={instants.map((instant) => formatInstant(instant, tz))}
+        currentIndex={currentIndex}
+      />
 
       <nav className="mt-8 flex flex-wrap items-baseline gap-6" aria-label="Navigation temporelle">
         {previous !== null && (
