@@ -1,13 +1,14 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 18 août 2026 — **le panache se calcule** : advection
-§18.3 au vent du point courant, garde-fous §18.5, incertitude par facteurs,
-versionnement §18.6 complet, 7 communes rangées FR-072 sur l'exercice réel de
-Saurat, rejeu identique (G5) — et rien de publié (`is_current` faux, §22.5 en
-attente). Le même jour : `wind_samples` livré (validation bilinéaire/voisin
-mesurée), contrôle du masque **concluant** (Fos et Dunkerque `archived`, zéro
-naissance près d'une source), semaine d'archivage AROME autonome constatée,
-spécification vérifiée contre le PDF v2.1.
+**Dernière mise à jour** : 25 août 2026 — **le panache couvre l'horizon
+réel** : le run se choisit sur la grille du fournisseur, les tranches
+manquantes se récupèrent à la demande (§16.4 complet), la lecture coud les
+fichiers du run — exercé sur un feu de la nuit, 19 pas à travers la couture,
+garde-fou de distance tiré en réel. La veille concurrentielle du 25 est
+consignée dans la [stratégie](strategie.md) v1.2 (GISFire, Climate Innov —
+la thèse tient, J4 prend de la valeur). Le 18 : panache calculé, borné,
+drapeauté ; `wind_samples` ; contrôle du masque concluant. Rien de publié :
+`is_current` faux partout, §22.5 en attente.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -118,10 +119,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 58 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 77 fichiers |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 32 + 23 fichiers |
-| Worker | `pytest` | ✅ 349 tests |
-| Migrations | 25 migrations sur base vierge, en CI | ✅ CI du 18 août (6186fcf) |
+| Worker | `ruff check` / `ruff format --check` | ✅ 79 fichiers |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 33 + 23 fichiers |
+| Worker | `pytest` | ✅ 363 tests |
+| Migrations | 25 migrations sur base vierge, en CI | ✅ CI du 25 août (52dbc4b) |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -130,25 +131,26 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J8, suite : couvrir l'horizon réel — l'ingestion à la demande des
-tranches.**
+**J8, suite : la désactivation immédiate (FR-106, FR-155).**
 
-Le panache se calcule depuis le 18 août (voir J8) et son premier exercice
-réel a montré la limite exactement où elle était attendue : sur Saurat, le
-vent s'épuise à 12 h et la prévision s'arrête à 2 h 45 sur les 6 h demandées
-— tronquée et drapeautée, comme il se doit, mais tronquée. L'archive
-quotidienne ne porte que la tranche 0-6 h autour de la mi-journée ; couvrir
-l'horizon d'un événement réel exige d'aller chercher **à la demande** les
-tranches manquantes du run (`07H12H`, `13H18H`…) — la machinerie existe
-(`PackageRef`, tranches, registre qui fusionne les échéances), il manque le
-déclencheur : « quelles tranches faut-il pour cet événement, lesquelles
-manquent, va les chercher » (§16.4, « recalcul des panaches concernés »).
+L'horizon réel est couvert depuis le 25 août : le run se choisit sur la
+grille du fournisseur, les tranches manquantes se récupèrent à la demande et
+enrichissent registre et corpus (voir J8). Avant toute publication, le
+panache doit pouvoir s'éteindre **en une action, sans déploiement** :
+globalement et par territoire. La marche est petite et nette — un état en
+base (schéma `app`, lu par le calcul comme par le futur affichage), le
+calcul qui refuse de produire quand l'interrupteur est ouvert, et le geste
+d'exploitation documenté. C'est le dernier verrou technique du §18.5 ;
+resteront alors la formulation §22.5 **validée métier**, l'affichage de
+l'incertitude (FR-101 à FR-103), et la calibration — qui, pour Gironde 2022,
+exigera une source de vent historique (ADR à venir).
 
-Restent ensuite à J8, avant toute publication : la désactivation immédiate
-(FR-106, FR-155), la formulation publique §22.5 **validée métier**,
-l'affichage de l'incertitude (FR-101 à FR-103), et la calibration — qui,
-pour Gironde 2022, exigera une source de vent historique (voir J8, ADR à
-venir).
+Deux faits d'exercice à garder en tête pour l'affichage : le garde-fou de
+distance tire vite par vent établi (57,7 km en 4 h 45 sur l'exercice du 25 —
+les 60 km par défaut sont une borne de sécurité, pas une calibration), et un
+événement frontalier produit un panache **sans commune française** — juste,
+mais à formuler (l'exercice du 25 : ArcelorMittal Gand, rattaché à
+Condé-sur-l'Escaut par le tampon frontalier, panache sur la Flandre).
 
 La spécification de J8 est **vérifiée contre le PDF v2.1** (67 pages, fourni
 le 10 août) : les §13.12-16, §16.4 et §18 y sont identiques au v1.1, à une
@@ -809,9 +811,19 @@ et d'exploitation, pas un retrait de périmètre
   mesurée** : bilinéaire vs voisin, Δvitesse ≤ 0,32 m/s, Δdirection 22° par
   vent faible mais 2,5° au pas le plus venté — la bilinéaire est retenue,
   13 tests dont la grille à latitudes décroissantes
-- 🟡 Ingestion des runs pour le calcul (§16.4) : index ✅, extraction et
-  interpolation validée ✅ ; reste l'ingestion **à la demande** des tranches
-  couvrant l'horizon réel d'un événement — voir §2
+- ✅ **Ingestion des runs pour le calcul, complète** (25 août, §16.4) —
+  `pipelines/arome_coverage.py` : échéances d'une fenêtre, tranches qui les
+  portent, manquantes récupérées au dépôt (sondées par HEAD, extraites,
+  déposées au froid, journalisées `arome:panache:<tranche>`, registre
+  enrichi par fusion), lecture **cousue** multi-fichiers avec empreintes
+  vérifiées et empreinte composite au versionnement. Le run se choisit sur
+  la **grille du fournisseur** (`runs_reaching`, généralisation de la
+  mécanique du colmatage) : pour un feu de la nuit, le run de minuit, pas
+  celui de la veille. Exercé sur `MPF-5SV8SEFF` : run 03 h du jour créé au
+  registre, deux tranches récupérées (24 Mo archivés — le corpus y gagne),
+  19 pas **à travers la couture** 06 h→07 h, confiance `high`, garde-fou de
+  distance tiré en réel à 57,7 km. Le registre porte 22 runs dont un à
+  13 échéances en 2 fichiers. 14 tests
 - ✅ **Le panache se calcule** (18 août, §18.3) —
   `pipelines/smoke_forecast.py` : advection pas à pas (15 min) avec le vent
   relu **au point courant** — bilinéaire en espace, linéaire en temps entre
