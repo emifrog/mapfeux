@@ -13,14 +13,17 @@
 
 -- `status` est renseigné explicitement, colonne comprise.
 --
--- Le registre décrit ce que le cahier prévoit ; il est donc en avance sur ce
--- qui est construit. Laisser CAMS et le radar en `active` par défaut les faisait
--- afficher « Indisponible » sur /statut — le mot d'une panne pour un connecteur
--- qui n'existe pas encore. `disabled` les fait lire « À venir » (FR-150).
+-- Un connecteur qui n'existe pas encore se déclare `disabled` — /statut lit
+-- alors « À venir » (FR-150), jamais le mot d'une panne. La mise en service
+-- passe le statut à `active` **ici et en production** : le seed est en
+-- `on conflict do nothing`, le rejouer ne modifie jamais une ligne existante
+-- — l'UPDATE en production est un geste d'exploitation distinct, consigné au
+-- plan. CAMS et le radar sont en service depuis le 26 août 2026, premières
+-- passes planifiées constatées.
 --
 -- Le statut vit ici, et non dans une migration seule : les migrations
 -- s'appliquent **avant** le seed, si bien qu'un `update` sur une base vierge ne
--- toucherait aucune ligne et repartirait en `active` au premier ensemencement.
+-- toucherait aucune ligne.
 insert into ingest.data_sources
   (key, name, provider, status, expected_interval, stale_after, documentation_url,
    license_name, attribution, retention_policy, settings)
@@ -89,11 +92,10 @@ values
     'cams',
     'Copernicus CAMS — qualité de l''air Europe',
     'Copernicus / ECMWF',
-    -- Connecteur et rasters en service depuis le 25 août 2026 ; reste
-    -- « disabled » tant que le cron quotidien n'a pas ses premières passes
-    -- planifiées (secret GitHub à poser) — /statut dit « à venir » sans
-    -- annoncer une panne. Passer à 'active' est le geste de mise en service.
-    'disabled',
+    -- En service depuis le 26 août 2026 : chaîne complète (import, COG,
+    -- tuiles, fiche commune, couche carte) et première passe planifiée
+    -- constatée.
+    'active',
     interval '24 hours',
     interval '48 hours',
     'https://ads.atmosphere.copernicus.eu/datasets/cams-europe-air-quality-forecasts',
@@ -107,13 +109,17 @@ values
     'radar',
     'Météo-France — radar de précipitations',
     'Météo-France',
-    -- Connecteur en service depuis le 25 août 2026 (mosaïque lame d'eau
-    -- 500 m, HDF5 ODIM via DPRadar) ; reste « disabled » tant que le cron
-    -- n'a pas ses premières passes planifiées — passer à 'active' est le
-    -- geste de mise en service.
-    'disabled',
-    interval '5 minutes',
+    -- En service depuis le 26 août 2026 (mosaïque lame d'eau 500 m, HDF5
+    -- ODIM via DPRadar). Les intervalles décrivent l'âge de la donnée que
+    -- NOTRE chaîne peut promettre, pas la cadence du produit : le produit
+    -- paraît toutes les cinq minutes, mais GitHub Actions étrangle les
+    -- crons `*/5` à ~une passe par heure (mesuré les 25-26 août : 06:21,
+    -- 07:22, 08:06). Annoncer cinq minutes afficherait « En retard » en
+    -- permanence — un signal exact et faux, la leçon de la vigilance.
+    -- L'ordonnancement propre (§8.1) ramènera ces bornes aux cinq minutes.
+    'active',
     interval '1 hour',
+    interval '3 hours',
     'https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesRadar',
     'Licence Ouverte / Etalab',
     'Données radar Météo-France',

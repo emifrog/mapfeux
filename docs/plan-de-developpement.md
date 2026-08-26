@@ -1,14 +1,16 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 25 août 2026 (nuit) — **les deux connecteurs de
-J9 sont complets**. CAMS de l'ADS à la carte (COG, tuiles, fiche commune,
-couche commutable, CI vert secret posé) ; **radar de DPRadar à la timeline
-publiée** : HDF5 ODIM contrôlé, image Mercator sous palette
-`radar-lame-v1`, `radar.frames` avec expiration, alias de 24 frames —
-exercé sur l'orage réel du soir, cellule maximale recoupée au pixel près.
-Restent à J9 : l'animation radar sur la carte (§19.3), FR-125 exercée, un
-coup d'œil réel sur les couches. Veille concurrentielle en
-[stratégie](strategie.md) v1.2. Total restant ≈ 33 semaines.
+**Dernière mise à jour** : 26 août 2026 — **G6 atteint et les deux sources
+en service**. L'animation radar est sur la carte (lecture/pause,
+pas-à-pas, `prefers-reduced-motion`, frames expirées écartées à l'horloge
+du lecteur) ; FR-125 exercée par coupure réelle — la carte et les fiches
+n'en souffrent pas ; et après la **première passe planifiée CAMS
+constatée** (09 h 24, retard GitHub de 40 min), CAMS et le radar sont
+passés `active` au registre : `/statut` les dit « À jour », plus aucun
+« à venir ». La veille de la nuit a aussi prouvé le cycle radar complet en
+autonomie : 21 frames importées, 18 expirées par le cycle de vie. Veille
+concurrentielle en [stratégie](strategie.md) v1.2. Total restant
+≈ 31 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -110,14 +112,14 @@ posées dans `next.config.ts` ; la fonction SQL `fires_in_bbox` garde son nom,
 interne. Portes repassées après renommage : format, lint, typecheck, tests,
 build — vertes.
 
-### Portes de qualité — dernier passage (25 août, soir)
+### Portes de qualité — dernier passage (26 août, matin)
 
 | Chaîne | Commande | Résultat |
 |---|---|---|
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 68 tests |
+| Web | `pnpm test` | ✅ 76 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 99 fichiers (71 worker + 28 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 42 + 28 fichiers |
@@ -131,24 +133,23 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J9, fin : l'animation radar sur la carte (§19.3, FR-123 à FR-124), puis
-solder G6.**
+**J10 : la réconciliation trimestrielle NRT/standard (§16.3, FR-032).**
 
-Les deux connecteurs sont complets — CAMS de l'ADS à la carte, radar de
-DPRadar à la timeline publiée. La marche suivante affiche le radar :
-source image MapLibre depuis l'alias `radar-lame-d-eau.json` (au plus 24
-frames, heure d'acquisition affichée — FR-123), lecture/pause, respect de
-`prefers-reduced-motion`, préchargement progressif (§19.3) ; la légende se
-lit de l'alias, comme pour l'air. Pour solder J9 ensuite : **FR-125
-exercée** — couper CAMS puis le radar ne doit toucher ni la carte ni les
-fiches — et un coup d'œil réel sur les couches depuis un navigateur qui
-composite.
+G6 est atteint et les sources de J9 sont en service ; le dernier bloc de
+J10 est la réconciliation : import de l'archive FIRMS standard,
+rapprochement des détections déjà en base par clés spatiotemporelles,
+corrections enregistrées comme **enrichissements, jamais comme
+réécritures** du payload brut. C'est elle qui résorbera les 8,9 % de
+lignes N21 non étiquetées (dette §15) et qui donne son critère de sortie
+au jalon : rejouer la réconciliation sur un trimestre déjà traité ne
+change rien.
 
-Deux gestes d'exploitation, côté auteur : poser le secret GitHub
-`METEOFRANCE_RADAR_API_KEY` (le cron radar de toutes les cinq minutes
-l'attend) ; et, après la première passe planifiée CAMS de 08 h 45,
-**mettre les sources en service** — statut `active` au registre, phrases
-d'attente de `/statut` et `/sources` à relire (dette §15).
+Reste de J9, hors critère : un coup d'œil réel sur les couches air et
+radar depuis un navigateur qui composite (réserve consignée au jalon).
+Côté décisions ouvertes, sans changement — formulation du panache
+(§22.5), ADR du vent historique, §8.3, §8.5 — et l'**ordonnancement
+(§8.1) a gagné un argument concret** : GitHub étrangle le cron radar à
+~une passe par heure là où le produit en offre douze (dette §15).
 
 Deux actions d'exploitation en parallèle, côté auteur : poser
 `COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
@@ -216,14 +217,14 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J3 | Carte et territoires | 3 | 6 sem. | **2 sem.** | 🟡 pilote livré |
 | J7 | Expérience FeuScope complète : catalogue, archives, relecture, partage | 4 — gate G4 Alpha | 10 sem. | **1 sem.** | 🟡 critère de sortie atteint |
 | J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
-| J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **3 sem.** | 🟡 rasters en service, radar à sa clé |
+| J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **1 sem.** | 🟡 critère G6 atteint, sources en service |
 | J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | 2 sem. | ⬜ |
 | J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | 6 sem. | ⬜ vigilance déjà en service |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
 | J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
-| | | | 66 sem. | **≈ 33 sem.** | |
+| | | | 66 sem. | **≈ 31 sem.** | |
 
-Il reste **environ 33 semaines** — nettement sous la fourchette 40-50 de la
+Il reste **environ 31 semaines** — nettement sous la fourchette 40-50 de la
 D-0. Le recalage du 6 août avait ajouté 30 semaines au total d'alors (21) :
 c'est le prix, connu et accepté, du périmètre intégral ; le 25 août en a
 rendu dix-sept — J7 neuf, J8 quatre, J9 quatre — les dix semaines du
@@ -1014,11 +1015,29 @@ l'origine, se remplissent ici.
   synthétique au projdef réel ; clé par application, jamais celle de la
   vigilance (testé). ⚠️ le cron toutes les cinq minutes attend le secret
   GitHub `METEOFRANCE_RADAR_API_KEY`
-- ⬜ Animation radar sur la carte (§19.3, FR-123 à FR-124) : frames de la
-  timeline, lecture/pause, heure d'acquisition affichée, respect de
-  `prefers-reduced-motion`, préchargement progressif
-- ⬜ Panne de CAMS ou du radar sans effet sur la carte des détections — déjà
-  la règle pour les sources en service, à vérifier sur les nouvelles (FR-125)
+- ✅ **Animation radar sur la carte** (26 août matin, §19.3, FR-123 à
+  FR-124) — panneau « Radar de précipitations » sur /carte, éteint par
+  défaut : timeline lue de l'alias, frame la plus récente d'abord avec son
+  heure d'acquisition (FR-123), lecture/pause à 600 ms par pas, pas-à-pas
+  toujours disponible, préchargement progressif des frames. La sélection
+  filtre l'expiration **contre l'horloge du lecteur** : l'alias de 08 h 06
+  listait encore la frame de 06 h 15 expirée à 08 h 15 — le cas, constaté
+  en production le matin même, est testé. `prefers-reduced-motion` fait
+  disparaître la lecture automatique (le pas-à-pas n'est pas une
+  animation), mécanique `useSyncExternalStore` comme la relecture. Couche
+  = source image MapLibre sous les lavis et les événements, fondu raster
+  coupé — 300 ms de fondu fabriqueraient des fantômes de pluie. Exercé sur
+  la vraie carte : bascule 08:00↔07:20 en lecture, pause tenue, la frame
+  expirée écartée en direct (2 servies sur 3 listées)
+- ✅ **FR-125 exercée — G6 se solde** (26 août matin) : CAMS et radar
+  coupés par interception réseau sur /carte — messages d'absence dans les
+  deux panneaux, les cinq couches de détections intactes, console vide ;
+  et côté fiche commune, quatre tests serveur (PostgREST en erreur,
+  Storage injoignable, COG en 500, empreinte déviante) prouvent que la
+  panne rend une liste vide, jamais une exception. Les chaînes d'ingestion
+  sont séparées par construction (workflows distincts)
+- ✅ Panne de CAMS ou du radar sans effet sur la carte des détections
+  (FR-125) — exercée le 26 août, voir le dossier de G6 ci-dessous
 - ✅ **`fire.event_perimeters` : la machinerie des périmètres versionnés**
   (25 août, §13.23, FR-090 à FR-096) — migration `20260825190000` : six
   natures, confiance à quatre valeurs (`not_applicable` — un périmètre
@@ -1053,9 +1072,13 @@ l'origine, se remplissent ici.
   tableau des détections, défaut préexistant révélé par les 500 lignes de
   Pontevès
 
-**Critère de sortie** (G6) : couper CAMS puis le radar ne touche ni la carte ni
-les fiches ; un périmètre importé porte source, nature, dates, méthode et
-confiance, et son remplacement conserve la version précédente.
+**Critère de sortie** (G6) : ✅ **atteint le 26 août**, par exécution — les
+périmètres EFFIS réels de Pontevès portent source, nature, dates, méthode
+et confiance, leur remplacement conserve la version précédente (25 août) ;
+et couper CAMS puis le radar, exercé par interception, ne touche ni la
+carte ni les fiches : messages d'absence, détections intactes, console
+vide. Reste à J9, hors critère : le coup d'œil réel sur les couches depuis
+un navigateur qui composite (réserve déjà consignée).
 
 ---
 
@@ -1354,7 +1377,8 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Affichage des détections par commune | `/communes/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
-| Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar aux cinq minutes (préfixe `radar/`, ~9 Mo/jour) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
+| Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar (préfixe `radar/`) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
+| Cadence radar étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes | §8.1 / J5 |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
@@ -1362,7 +1386,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Schémas `air` et `radar` vides | Traité le 25 août : les trois tables sont en production (§13.17-18). Les schémas restent sans données tant que les connecteurs n'ont pas leurs clés — voir §2 | Traité |
 | `app.official_messages` inutilisable par une ingestion | La table exige un `created_by` humain et un `validated_by` : la vigilance a donc ses propres tables. La [décision §8.3](strategie.md#83-validation-humaine-des-informations-officielles) reste ouverte pour les sources en texte libre | J4 |
 | Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
-| Schémas `air` et `radar` déclarés au registre | CAMS et radar affichés « à venir » plutôt qu'« indisponibles » : le connecteur n'existe pas, ce n'est pas une panne. Le compteur public ne porte que sur les sources en service. ⚠️ Phrase d'attente à retirer le jour de la mise en service (J9) | J9 |
+| Schémas `air` et `radar` déclarés au registre | Traité le 26 août : les deux sources sont `active` après leurs premières passes planifiées, `/statut` les dit « À jour ». Aucune phrase d'attente à retirer côté web — l'affichage « à venir » venait du statut au registre, et s'est résolu avec lui. Les intervalles radar (1 h / 3 h) sont calés sur la cadence Actions réelle, voir la dette dédiée | Traité |
 | Regroupement encore lent | Chiffré le 9 août : **11,2 h de CPU saturé sans terminer un seul regroupement complet des quatorze saisons** (337 757 détections, recherche de candidats en mémoire). Les passes incrémentales de production restent rapides (orphelines seules), mais tout recalcul complet à l'échelle est impraticable — la structure de voisinage se paie par détection × événements. À traiter avant la montée en charge (§6.3) | J6 |
 | Coût d'un jeu de calibration | Borné par le sous-corpus (16 544 détections) : 102 à 161 s par jeu (mesure du 6 août, `data/calibration/axes-sous-corpus.csv`). La calibration est close ; le banc reste prêt pour une v2 des règles | Traité |
 | `cluster-detections.py` vise encore la production | Traité le 6 août : bascule `--calibration` posée, cible affichée avant d'agir. L'usage production reste légitime — reprise manuelle aux paramètres de référence | Traité |
