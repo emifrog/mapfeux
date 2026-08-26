@@ -9,6 +9,7 @@ import { Protocol } from 'pmtiles';
 import { publicEnv } from '@/lib/env';
 
 import { removeAirLayer, resolveAirTiles, setAirLayer, type AirTilesInfo } from './air-layer';
+import { removeRadarLayer, setRadarFrame, type RadarFrameDisplay } from './radar-layer';
 import {
   addDepartmentLayer,
   DEPARTMENTS_FILL_LAYER_ID,
@@ -121,6 +122,12 @@ export interface BaseMapProps {
    * qui permet à la légende de décrire la couche sans recopier ses seuils.
    */
   onAirInfo?: (info: AirTilesInfo | null) => void;
+  /**
+   * Frame radar à afficher (§19.3), ou null pour éteindre la couche. C'est
+   * le panneau qui tient la timeline et le rythme ; la carte ne fait
+   * qu'afficher la frame qu'on lui donne.
+   */
+  radarFrame?: RadarFrameDisplay | null;
 }
 
 function prefersReducedMotion(): boolean {
@@ -188,6 +195,7 @@ export default function BaseMap({
   ageReference,
   airPollutant = null,
   onAirInfo,
+  radarFrame = null,
 }: BaseMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -404,6 +412,28 @@ export default function BaseMap({
       cancelled = true;
     };
   }, [airPollutant]);
+
+  // Couche radar (§19.3). Changer de frame ne touche que l'image de la
+  // source : c'est ce qui rend l'animation fluide.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map === null) return;
+
+    const apply = (): void => {
+      if (mapRef.current === null) return;
+      if (radarFrame === null) {
+        removeRadarLayer(map);
+      } else {
+        setRadarFrame(map, radarFrame);
+      }
+    };
+
+    if (styleReadyRef.current) {
+      apply();
+    } else {
+      map.once('load', apply);
+    }
+  }, [radarFrame]);
 
   // Recadrage lorsque le territoire consulté change.
   useEffect(() => {
