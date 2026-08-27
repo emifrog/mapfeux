@@ -1,0 +1,54 @@
+# =============================================================================
+# Réconciliation trimestrielle NRT/standard — cahier v2.1 §16.3, plan J10.
+#
+# FIRMS republie ses détections en qualité scientifique standard avec ~5
+# mois de décalage. La passe lit la disponibilité, croise avec la base,
+# relit le standard sur les fenêtres qui recouvrent et enrichit les lignes
+# appariées — thermal_type, ligne standard complète, reconciled_at. Jamais
+# d'insertion, jamais de réécriture du brut (FR-032) ; rejouer une fenêtre
+# déjà traitée ne change rien.
+#
+# Trimestrielle (§16.8) : le 1ᵉʳ janvier, avril, juillet et octobre. Le
+# déclenchement manuel sert aux rattrapages.
+#
+# Secrets requis (dépôt) : INGESTION_DATABASE_URL, FIRMS_MAP_KEY — déjà
+# posés pour l'ingestion.
+# =============================================================================
+
+name: Réconciliation FIRMS
+
+on:
+  schedule:
+    - cron: '30 6 1 1,4,7,10 *'
+  workflow_dispatch:
+
+concurrency:
+  group: reconcile-firms
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    name: Archive standard vers les détections
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/geo-worker/requirements-ingestion.txt
+
+      - name: Dépendances
+        run: pip install -r services/geo-worker/requirements-ingestion.txt
+
+      - name: Réconciliation
+        env:
+          DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+        run: python scripts/reconcile-firms.py
