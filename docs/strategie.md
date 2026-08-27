@@ -367,15 +367,19 @@ Le point de vigilance demeure : les jalons intermédiaires tombent en pleine
 saison des feux, au moment où la disponibilité de l'auteur s'effondre. Les
 durées du plan sont calendaires et l'assument.
 
-### 8.3 Validation humaine des informations officielles
+### 8.3 Validation humaine des informations officielles — tranché le 26 août 2026
 
-L'ingestion automatisée a été ajoutée au MVP pour ne pas dépendre d'un opérateur
-disponible en août. Exiger ensuite qu'une information captée soit validée à la
-main avant publication réintroduit exactement cette dépendance.
+**Liste blanche automatique**
+([ADR-026](adr/026-republication-automatique-liste-blanche.md)).
 
-Il faut trancher : soit une liste blanche de sources dont la republication
-**attribuée et non réécrite** est automatique, soit assumer le second valideur
-et l'identifier dès maintenant.
+Les sources d'un registre en base — publications d'autorités sur leurs
+domaines officiels — sont republiées automatiquement, attribuées et jamais
+réécrites, sans valideur humain dans la boucle : exiger une validation
+manuelle réintroduirait la dépendance à un opérateur disponible en août,
+celle-là même que l'automatisation devait supprimer. Chaque élément capté
+reste masquable sans destruction par un administrateur ; la voie
+éditoriale (`official_messages`, auteur et second valideur) demeure
+inchangée pour tout contenu que MapFeux formule lui-même.
 
 ### 8.4 Préfixe d'identifiant public — tranché le 10 août 2026
 

@@ -35,6 +35,7 @@ Supabase doit être consignée ici et validée **avant** implémentation.
 | ADR-023 | Politique de republication des informations officielles | réservé, à rédiger en J4 |
 | [ADR-024](024-recherche-spatiale-en-memoire.md) | Recherche des candidats de regroupement en mémoire | accepté, à réexaminer à l'échelle nationale |
 | [ADR-025](025-plateforme-a-deux-visages.md) | Plateforme à deux visages : accueil de PREVIFEU dans le monorepo | accepté ; ⚠️ s'adosse à ADR-008, non rédigé, et son point 4 chiffre l'archivage AROME à un coût « quasi gratuit » que la mesure dément — voir `providers/arome.py` |
+| [ADR-026](026-republication-automatique-liste-blanche.md) | Republication automatique en liste blanche des informations officielles | accepté — tranche la décision stratégie §8.3 |
 
 Les ADR 001 à 013 sont réservés par le cahier. Leur numérotation est figée ;
 seul leur contenu reste à rédiger, au fur et à mesure des jalons qui les mettent
