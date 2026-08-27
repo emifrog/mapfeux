@@ -1,16 +1,15 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 26 août 2026 — **G6 atteint et les deux sources
-en service**. L'animation radar est sur la carte (lecture/pause,
-pas-à-pas, `prefers-reduced-motion`, frames expirées écartées à l'horloge
-du lecteur) ; FR-125 exercée par coupure réelle — la carte et les fiches
-n'en souffrent pas ; et après la **première passe planifiée CAMS
-constatée** (09 h 24, retard GitHub de 40 min), CAMS et le radar sont
-passés `active` au registre : `/statut` les dit « À jour », plus aucun
-« à venir ». La veille de la nuit a aussi prouvé le cycle radar complet en
-autonomie : 21 frames importées, 18 expirées par le cycle de vie. Veille
-concurrentielle en [stratégie](strategie.md) v1.2. Total restant
-≈ 31 semaines.
+**Dernière mise à jour** : 26 août 2026 — **G6 atteint, sources en
+service, et J10 soldé le même jour**. Matin : animation radar sur la
+carte, FR-125 exercée par coupure réelle, puis — première passe planifiée
+CAMS constatée — CAMS et radar passés `active`, `/statut` les dit « À
+jour ». Après-midi : **la réconciliation NRT/standard est en service** —
+3 060 lignes standard de mai relues, 4 enrichies sur 7 candidates, rejeu à
+zéro changement, et la ligne `type=2` du standard confirme le masque de
+proximité. Deux critères de sortie tenus par exécution dans la journée
+(G6, J10). Veille concurrentielle en [stratégie](strategie.md) v1.2. Total
+restant ≈ 29 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -121,10 +120,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 76 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 99 fichiers (71 worker + 28 scripts) |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 42 + 28 fichiers |
-| Worker | `pytest` | ✅ 427 tests |
-| Migrations | 37 migrations sur base vierge, en CI | ✅ CI du 25 août (d80909f) pour les 36 d'alors ; la 37ᵉ (`api_air_assets`) appliquée **et rejouée** en production, passage base vierge au prochain push |
+| Worker | `ruff check` / `ruff format --check` | ✅ 102 fichiers (73 worker + 29 scripts) |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 43 + 29 fichiers |
+| Worker | `pytest` | ✅ 437 tests |
+| Migrations | 38 migrations sur base vierge, en CI | ✅ CI du 26 août pour 37 ; la 38ᵉ (`detections_reconciliation`) appliquée **et rejouée** en production, passage base vierge au prochain push |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -133,23 +132,27 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J10 : la réconciliation trimestrielle NRT/standard (§16.3, FR-032).**
+**J4 : les informations officielles (§9.2, FR-140 à FR-145).**
 
-G6 est atteint et les sources de J9 sont en service ; le dernier bloc de
-J10 est la réconciliation : import de l'archive FIRMS standard,
-rapprochement des détections déjà en base par clés spatiotemporelles,
-corrections enregistrées comme **enrichissements, jamais comme
-réécritures** du payload brut. C'est elle qui résorbera les 8,9 % de
-lignes N21 non étiquetées (dette §15) et qui donne son critère de sortie
-au jalon : rejouer la réconciliation sur un trimestre déjà traité ne
-change rien.
+Le jalon différenciant s'ouvre : capter ce que publient les autorités sans
+jamais le réécrire. La vigilance est déjà en service ; les marches
+suivantes sont les **connecteurs restants** — flux RSS préfectoraux, pages
+de communiqués, arrêtés d'accès aux massifs — puis le **rapprochement
+géographique** entre une information officielle et un événement, et
+l'affichage strictement distinct des estimations automatiques (FR-104).
 
-Reste de J9, hors critère : un coup d'œil réel sur les couches air et
-radar depuis un navigateur qui composite (réserve consignée au jalon).
-Côté décisions ouvertes, sans changement — formulation du panache
-(§22.5), ADR du vent historique, §8.3, §8.5 — et l'**ordonnancement
-(§8.1) a gagné un argument concret** : GitHub étrangle le cron radar à
-~une passe par heure là où le produit en offre douze (dette §15).
+⚠️ La [décision §8.3](strategie.md#83-validation-humaine-des-informations-officielles)
+— validation humaine avant publication — est due **avant J4** (dette §15) :
+telle qu'écrite, elle annule le bénéfice de l'automatisation. À trancher
+côté auteur avant que le premier connecteur préfectoral n'écrive quoi que
+ce soit de public.
+
+Restent aussi, hors critères : le coup d'œil réel sur les couches air et
+radar depuis un navigateur qui composite (réserve de J9), et les autres
+décisions ouvertes — formulation du panache (§22.5), ADR du vent
+historique, §8.5 — plus l'**ordonnancement (§8.1)**, qui a gagné un
+argument concret : GitHub étrangle le cron radar à ~une passe par heure là
+où le produit en offre douze (dette §15).
 
 Deux actions d'exploitation en parallèle, côté auteur : poser
 `COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
@@ -218,13 +221,13 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J7 | Expérience FeuScope complète : catalogue, archives, relecture, partage | 4 — gate G4 Alpha | 10 sem. | **1 sem.** | 🟡 critère de sortie atteint |
 | J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
 | J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **1 sem.** | 🟡 critère G6 atteint, sources en service |
-| J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | 2 sem. | ⬜ |
+| J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | **0 sem.** | 🟡 critère de sortie atteint |
 | J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | 6 sem. | ⬜ vigilance déjà en service |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
 | J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
-| | | | 66 sem. | **≈ 31 sem.** | |
+| | | | 66 sem. | **≈ 29 sem.** | |
 
-Il reste **environ 31 semaines** — nettement sous la fourchette 40-50 de la
+Il reste **environ 29 semaines** — nettement sous la fourchette 40-50 de la
 D-0. Le recalage du 6 août avait ajouté 30 semaines au total d'alors (21) :
 c'est le prix, connu et accepté, du périmètre intégral ; le 25 août en a
 rendu dix-sept — J7 neuf, J8 quatre, J9 quatre — les dix semaines du
@@ -1134,15 +1137,37 @@ détections `type = 2` sur quatorze ans.
   nationale. Les deux restent servis jusqu'à leur archivage par le cycle de
   vie, sept jours sans observation — contrôle au §2. FR-036 tenu de bout en
   bout : classées, jamais supprimées, toutes publiables
-- ⬜ Réconciliation trimestrielle NRT/standard : import de l'archive,
-  rapprochement par clés spatiotemporelles, corrections enregistrées comme
-  enrichissements, jamais comme réécritures (§16.3, FR-032)
-- ⚠️ N21 sans corpus retraité (dette du §15) : la réconciliation résorbera
-  progressivement les 8,9 % de lignes non étiquetées.
+- ✅ **Réconciliation trimestrielle NRT/standard, en service** (26 août,
+  §16.3, FR-032) — `pipelines/reconciliation.py` : la passe lit la
+  **disponibilité FIRMS** (les bornes standard avancent, FIRMS rogne le
+  NRT en face — constaté contigu au jour près), croise avec la base par
+  satellite — ce qui est écarté est **dit avec son motif** — et relit le
+  standard par fenêtres de cinq jours sur l'API Area (les produits `_SP`
+  s'y servent comme le NRT, colonne `type` comprise). Le rapprochement
+  passe par la **clé naturelle** (satellite, horodatage, coordonnées à
+  cinq décimales) : `provider_key` inclut la version brute (« 2.0NRT » ≠
+  « 2 », testé) et ne bouge jamais — la prémisse « même clé » du plan
+  était fausse, corrigée ici. Liste blanche du §17.1 enfin écrite :
+  `thermal_type`, `standard_payload` (la ligne standard complète, à côté
+  du brut immuable), `reconciled_at` — le verrou d'idempotence. **Pas
+  d'insertion des lignes sans correspondance (v1, motivé au module)** : le
+  standard est national quand la base de mai-juillet est pilote 06/83.
+  Exercé en production : 3 060 lignes de mai (N20), **4 enrichies sur 7
+  candidates** — les 3 autres n'existent pas au standard, le retraitement
+  écarte des fausses alarmes — 3 056 non-appariées comptées ; **rejeu à
+  zéro changement**. Et la ligne `type=2` reçue du standard était déjà
+  classée par le masque de proximité : la vérité terrain FIRMS confirme
+  le registre spatial. Cron trimestriel (`reconcile-firms.yml`),
+  `records_updated` câblé pour la première fois. 10 tests
+- ⚠️ N21 sans corpus retraité (dette du §15) : la réconciliation est
+  bornée par la disponibilité FIRMS et **se détectera elle-même** le jour
+  où un produit `VIIRS_NOAA21_SP` paraîtra — d'ici là, l'exclusion est
+  imprimée à chaque passe.
 
-**Critère de sortie** : la carte publique ne montre plus la moitié
-non-végétation du signal sans le dire ; rejouer la réconciliation sur un
-trimestre déjà traité ne change rien.
+**Critère de sortie** : ✅ **atteint le 26 août**, par exécution — la carte
+ne montre plus la moitié non-végétation sans le dire depuis le masque du
+10 août, et rejouer la réconciliation sur la fenêtre déjà traitée n'a rien
+changé : 0 enrichie, 4 déjà réconciliées.
 
 ---
 
@@ -1390,7 +1415,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Regroupement encore lent | Chiffré le 9 août : **11,2 h de CPU saturé sans terminer un seul regroupement complet des quatorze saisons** (337 757 détections, recherche de candidats en mémoire). Les passes incrémentales de production restent rapides (orphelines seules), mais tout recalcul complet à l'échelle est impraticable — la structure de voisinage se paie par détection × événements. À traiter avant la montée en charge (§6.3) | J6 |
 | Coût d'un jeu de calibration | Borné par le sous-corpus (16 544 détections) : 102 à 161 s par jeu (mesure du 6 août, `data/calibration/axes-sous-corpus.csv`). La calibration est close ; le banc reste prêt pour une v2 des règles | Traité |
 | `cluster-detections.py` vise encore la production | Traité le 6 août : bascule `--calibration` posée, cible affichée avant d'agir. L'usage production reste légitime — reprise manuelle aux paramètres de référence | Traité |
-| N21 sans corpus retraité | 30 180 lignes — 8,9 % du corpus — de janvier 2024 à août 2026, servies en NRT faute d'archive publiée par FIRMS. Ni retraitement scientifique, ni `type` : les deux saisons les plus récentes sont partiellement non étiquetées | J2 |
+| N21 sans corpus retraité | 30 180 lignes — 8,9 % du corpus — servies en NRT : FIRMS ne publie aucun produit standard NOAA21 (confirmé à l'API de disponibilité le 26 août). La réconciliation trimestrielle, bornée par cette disponibilité, **se détectera elle-même** le jour où le produit paraîtra ; d'ici là chaque passe imprime l'exclusion | Suit FIRMS |
 | La borne de R4 suppose le corpus standard dense | Un satellite indisponible en milieu de période retraitée verrait ses lignes NRT de la panne écartées à tort. FIRMS ne publie pas de calendrier de couverture. La borne employée est consignée dans le compte rendu du corpus | J2 |
 | Corpus dérivé versionné | Le Parquet pèse 6,8 Mo et se régénère depuis les zips. Chaque régénération dépose un nouveau blob dans l'historique. À arbitrer : le compte rendu JSON suffit à prouver la provenance | J6 |
 | `api.fire_events` expose l'`id` interne | §15.1 demande des identifiants publics opaques. Non exploité par nos réponses, mais lisible via PostgREST | J6 |
