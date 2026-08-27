@@ -38,6 +38,11 @@ class ImportCounters:
     artifact_path: str | None = None
     checksum: str | None = None
     metrics: dict[str, Any] = field(default_factory=dict)
+    #: Identifiant du run, posé par `import_run` à l'ouverture : c'est lui
+    #: qui permet à un pipeline d'estampiller ses lignes (`import_run_id`)
+    #: — la traçabilité que les premiers chemins d'ingestion n'ont jamais
+    #: câblée (dette relevée le 26 août).
+    run_id: UUID | None = None
 
     @property
     def status(self) -> str:
@@ -87,6 +92,7 @@ def import_run(
         raise ImportRunError("UNKNOWN_SOURCE", f"Source inconnue : {source_key}")
 
     run_id: UUID = row["id"]
+    counters.run_id = run_id
     conn.commit()
 
     log = logger.bind(import_run_id=str(run_id), source=source_key, job=job_name)

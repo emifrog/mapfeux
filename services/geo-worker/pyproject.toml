@@ -61,6 +61,8 @@ module = [
   "pmtiles.*",
   # h5py : installé sans marqueur py.typed ni stubs publiés.
   "h5py.*",
+  # beautifulsoup4 : stubs séparés (types-beautifulsoup4), non embarqués.
+  "bs4.*",
 ]
 ignore_missing_imports = true
 

@@ -1,0 +1,56 @@
+# =============================================================================
+# Capture préfectorale — cahier v2.1 §9.2 et §20.4, ADR-026, plan J4.
+#
+# La passe lit la liste blanche en base, archive chaque page brute avant
+# analyse et range les publications datées en citations — jamais réécrites,
+# jamais supprimées. Le critère de J4 vise « visible en moins de trente
+# minutes » : le cron demande le quart d'heure, en sachant que GitHub
+# étrangle les crons serrés (mesuré sur le radar : ~une passe par heure) —
+# l'ordonnancement propre (§8.1) resserrera.
+#
+# Secrets requis (dépôt) : INGESTION_DATABASE_URL, SUPABASE_URL,
+# SUPABASE_SECRET_KEY — déjà posés.
+# =============================================================================
+
+name: Capture prefectures
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: prefectures-import
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    name: Pages d'actualités vers les citations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            services/geo-worker/requirements-ingestion.txt
+            services/geo-worker/requirements-prefectures.txt
+
+      - name: Dépendances
+        run: |
+          pip install -r services/geo-worker/requirements-ingestion.txt
+          pip install -r services/geo-worker/requirements-prefectures.txt
+
+      - name: Capture
+        env:
+          DATABASE_URL: ${{ secrets.INGESTION_DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python scripts/import-prefectures.py

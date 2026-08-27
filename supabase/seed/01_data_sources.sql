@@ -138,5 +138,23 @@ values
     'Limites administratives © IGN — ADMIN EXPRESS COG',
     'Versions conservées pour reproductibilité',
     jsonb_build_object('rate_limit_rps', 10, 'import_mode', 'manual')
+  ),
+  (
+    'prefectures',
+    'Préfectures — communiqués et actualités',
+    'Préfectures (sites de l''État)',
+    -- Connecteur écrit le 26 août 2026 (ADR-026, liste blanche) ; reste
+    -- « disabled » tant que le cron n'a pas ses premières passes
+    -- planifiées — passer à 'active' est le geste de mise en service.
+    -- Les intervalles portent sur l'âge de la donnée : une préfecture
+    -- publie irrégulièrement — quotidien en crise, hebdomadaire l'hiver.
+    'disabled',
+    interval '7 days',
+    interval '30 days',
+    'https://www.var.gouv.fr/Actualites',
+    'Licence Ouverte / Etalab',
+    'Publications officielles des préfectures, attribuées et non réécrites',
+    'Pages brutes 30 jours ; citations conservées',
+    jsonb_build_object('poll_interval_minutes', 15, 'liste_blanche', 'app.official_feeds')
   )
 on conflict (key) do nothing;

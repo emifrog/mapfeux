@@ -1,0 +1,8 @@
+# Dépendances de la capture préfectorale — ADR-026, plan J4.
+#
+# Les sites préfectoraux nouvelle génération n'exposent plus de flux RSS :
+# la capture lit les cartes DSFR de leurs pages d'actualités, et il lui
+# faut un analyseur HTML. httpx, psycopg et structlog viennent de
+# requirements-ingestion.txt : ce fichier s'y ajoute, il ne le remplace pas.
+
+beautifulsoup4>=4.12,<5.0
