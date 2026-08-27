@@ -1,15 +1,15 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 26 août 2026 — **G6 atteint, sources en
-service, et J10 soldé le même jour**. Matin : animation radar sur la
-carte, FR-125 exercée par coupure réelle, puis — première passe planifiée
-CAMS constatée — CAMS et radar passés `active`, `/statut` les dit « À
-jour ». Après-midi : **la réconciliation NRT/standard est en service** —
-3 060 lignes standard de mai relues, 4 enrichies sur 7 candidates, rejeu à
-zéro changement, et la ligne `type=2` du standard confirme le masque de
-proximité. Deux critères de sortie tenus par exécution dans la journée
-(G6, J10). Veille concurrentielle en [stratégie](strategie.md) v1.2. Total
-restant ≈ 29 semaines.
+**Dernière mise à jour** : 26 août 2026 (soir) — **trois jalons ont bougé
+dans la journée : G6 atteint, J10 soldé, J4 entamé**. Matin : animation
+radar, FR-125 exercée, sources CAMS et radar en service. Après-midi : la
+réconciliation NRT/standard exercée et rejouée à zéro. Soir : **la §8.3
+est tranchée** (ADR-026, liste blanche automatique) et le premier
+connecteur de J4 capte — 20 citations préfectorales réelles (06 et 83,
+dont « Risque feux de forêt »), brut archivé, rejeu inerte, lignes
+tracées à leur run pour la première fois de la chaîne. Veille
+concurrentielle en [stratégie](strategie.md) v1.2. Total restant
+≈ 28 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -120,10 +120,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 76 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 102 fichiers (73 worker + 29 scripts) |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 43 + 29 fichiers |
-| Worker | `pytest` | ✅ 437 tests |
-| Migrations | 38 migrations sur base vierge, en CI | ✅ CI du 26 août pour 37 ; la 38ᵉ (`detections_reconciliation`) appliquée **et rejouée** en production, passage base vierge au prochain push |
+| Worker | `ruff check` / `ruff format --check` | ✅ 105 fichiers (75 worker + 30 scripts) |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 45 + 30 fichiers |
+| Worker | `pytest` | ✅ 445 tests |
+| Migrations | 39 migrations sur base vierge, en CI | ✅ CI du 26 août pour 37 ; les 38ᵉ et 39ᵉ appliquées **et rejouées** en production, passage base vierge au prochain push |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -132,27 +132,29 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J4 : les informations officielles (§9.2, FR-140 à FR-145).**
+**J4, suite : l'affichage des citations et le rapprochement géographique.**
 
-Le jalon différenciant s'ouvre : capter ce que publient les autorités sans
-jamais le réécrire. La vigilance est déjà en service ; les marches
-suivantes sont les **connecteurs restants** — flux RSS préfectoraux, pages
-de communiqués, arrêtés d'accès aux massifs — puis le **rapprochement
-géographique** entre une information officielle et un événement, et
-l'affichage strictement distinct des estimations automatiques (FR-104).
+La §8.3 est tranchée (ADR-026, liste blanche automatique) et le premier
+connecteur capte : 20 citations préfectorales réelles en base, tracées à
+leur run. Les marches suivantes rendent la capture **visible et utile** :
+l'affichage des citations sur les pages territoire (06 et 83) puis sur les
+fiches, provenance `official_information` strictement distincte des
+estimations automatiques (FR-104) ; et le **rapprochement** entre une
+citation et un événement — le département est déjà porté, le lien à
+l'événement reste à construire sans jamais interpréter le texte au-delà de
+l'attribution (§2.4). Le critère du jalon se mesurera là : une information
+préfectorale visible sur la fiche en moins de trente minutes, attribuée et
+datée, sans réécriture.
 
-⚠️ La [décision §8.3](strategie.md#83-validation-humaine-des-informations-officielles)
-— validation humaine avant publication — est due **avant J4** (dette §15) :
-telle qu'écrite, elle annule le bénéfice de l'automatisation. À trancher
-côté auteur avant que le premier connecteur préfectoral n'écrive quoi que
-ce soit de public.
+Geste d'exploitation à venir : passer la source `prefectures` à `active`
+après ses premières passes planifiées (cron au quart d'heure poussé ce
+jour), même doctrine que CAMS et radar.
 
 Restent aussi, hors critères : le coup d'œil réel sur les couches air et
-radar depuis un navigateur qui composite (réserve de J9), et les autres
-décisions ouvertes — formulation du panache (§22.5), ADR du vent
-historique, §8.5 — plus l'**ordonnancement (§8.1)**, qui a gagné un
-argument concret : GitHub étrangle le cron radar à ~une passe par heure là
-où le produit en offre douze (dette §15).
+radar depuis un navigateur qui composite (réserve de J9), et les décisions
+ouvertes — formulation du panache (§22.5), ADR du vent historique, §8.5 —
+plus l'**ordonnancement (§8.1)**, qui presse : GitHub étrangle le radar
+comme il étranglera la capture au quart d'heure (dette §15).
 
 Deux actions d'exploitation en parallèle, côté auteur : poser
 `COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
@@ -222,12 +224,12 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
 | J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **1 sem.** | 🟡 critère G6 atteint, sources en service |
 | J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | **0 sem.** | 🟡 critère de sortie atteint |
-| J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | 6 sem. | ⬜ vigilance déjà en service |
+| J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | **5 sem.** | 🟡 §8.3 tranchée, capture préfectorale exercée |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
 | J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
-| | | | 66 sem. | **≈ 29 sem.** | |
+| | | | 66 sem. | **≈ 28 sem.** | |
 
-Il reste **environ 29 semaines** — nettement sous la fourchette 40-50 de la
+Il reste **environ 28 semaines** — nettement sous la fourchette 40-50 de la
 D-0. Le recalage du 6 août avait ajouté 30 semaines au total d'alors (21) :
 c'est le prix, connu et accepté, du périmètre intégral ; le 25 août en a
 rendu dix-sept — J7 neuf, J8 quatre, J9 quatre — les dix semaines du
@@ -1202,15 +1204,35 @@ sans jamais le réécrire.
   - ⚠️ Piège du format, explicité par le descriptif : **les crues n'ont jamais
     de chronologie**. Un analyseur lisant `timelaps_items` perdrait toute
     vigilance crue en silence — 194 niveaux sur le seul bulletin d'essai
-- ⬜ Connecteurs restants : flux RSS préfectoraux, pages de communiqués,
-  arrêtés d'accès aux massifs
-- ⬜ Rapprochement géographique entre une information officielle et un événement
-- ⬜ Affichage strictement distinct des estimations automatiques (FR-104)
+- ✅ **Politique de republication tranchée et gravée** (26 août) —
+  [ADR-026](adr/026-republication-automatique-liste-blanche.md), stratégie
+  §8.3 : **liste blanche automatique**, republication attribuée et jamais
+  réécrite, sans valideur humain ; masquage sans destruction ; la voie
+  éditoriale `official_messages` garde son second valideur. La ligne « ADR
+  à rédiger sur la politique de republication » se solde du même geste
+- ✅ **Capture préfectorale en liste blanche, 06 et 83** (26 août, §9.2,
+  FR-141 à FR-143) — les sites préfectoraux nouvelle génération n'ont
+  **plus de RSS** (sondé sur les deux pilotes) : le connecteur lit la page
+  « Actualités » elle-même — cartes DSFR, seules les datées sont des
+  publications, tout lien hors du domaine de l'autorité est rejeté et
+  compté. Liste blanche en base (`app.official_feeds`, administrable),
+  citations dans `official_feed_items` : titre verbatim, URL, date au
+  jour — aucune heure inventée. Exercé en production : 10 publications par
+  préfecture — dont « Mesures d'interdictions » (83) et « Risque feux de
+  forêt » (06), la matière même du jalon — brut archivé avant analyse,
+  **rejeu à zéro nouvelle et vingt revues**. `ImportCounters` expose
+  désormais `run_id` : cette chaîne est la première à estampiller ses
+  lignes. Cron au quart d'heure ; ⚠️ source `disabled` jusqu'à ses
+  premières passes planifiées — même doctrine que CAMS et radar
+- ⬜ Connecteurs restants : arrêtés d'accès aux massifs (formats à sonder
+  par département), autres départements à l'ouverture de leurs territoires
+- ⬜ Rapprochement géographique entre une information officielle et un
+  événement — les citations portent leur département, le lien à l'événement
+  reste à construire
+- ⬜ Affichage des citations captées : pages territoire et fiches, avec la
+  provenance `official_information` strictement distincte des estimations
+  automatiques (FR-104)
 - ⬜ Gestion des contradictions entre observation satellitaire et statut officiel
-- ⬜ ADR à rédiger sur la politique de republication
-- ⚠️ La validation humaine avant publication est une
-  [décision ouverte](strategie.md#83-validation-humaine-des-informations-officielles) :
-  telle qu'écrite, elle annule le bénéfice de l'automatisation.
 
 **Critère de sortie** : une information préfectorale publiée est visible sur la
 fiche de l'événement correspondant en moins de 30 minutes, attribuée et datée,
@@ -1397,7 +1419,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 
 | Sujet | Nature | Échéance |
 |---|---|---|
-| Décisions ouvertes restantes | Validation humaine des informations officielles (§8.3) et réponse à la première erreur publique (§8.5). Préfixe (§8.4) tranché le 10 août — `MPF-`, [ADR-021](adr/021-prefixe-didentifiant-public.md) ; ordonnancement (§8.1) et calendrier (§8.2, D-0) tranchés antérieurement | Validation avant J4 ; réponse avant J6 |
+| Décisions ouvertes restantes | Réponse à la première erreur publique (§8.5), qui couvre aussi le canal de republication (ADR-026). Validation humaine (§8.3) tranchée le 26 août — liste blanche automatique, [ADR-026](adr/026-republication-automatique-liste-blanche.md) ; préfixe (§8.4) tranché le 10 août ; ⚠️ l'ordonnancement (§8.1), « tranché » par un retour à plus tard, presse désormais : il étrangle radar et capture préfectorale | Réponse avant J6 ; §8.1 à réexaminer |
 | Mesures faussées par le cache Vercel | `Cache-Control: no-cache` ne traverse pas le cache de bordure : on conclut sur un rendu vieux de plusieurs jours en croyant lire l'état courant. Lire `x-vercel-cache` et `age`, ou interroger la base. `/statut` répondait `STALE` le 6 août | Continu |
 | Affichage des détections par commune | `/communes/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
