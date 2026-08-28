@@ -1,15 +1,15 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 26 août 2026 (soir) — **trois jalons ont bougé
-dans la journée : G6 atteint, J10 soldé, J4 entamé**. Matin : animation
-radar, FR-125 exercée, sources CAMS et radar en service. Après-midi : la
-réconciliation NRT/standard exercée et rejouée à zéro. Soir : **la §8.3
-est tranchée** (ADR-026, liste blanche automatique) et le premier
-connecteur de J4 capte — 20 citations préfectorales réelles (06 et 83,
-dont « Risque feux de forêt »), brut archivé, rejeu inerte, lignes
-tracées à leur run pour la première fois de la chaîne. Veille
-concurrentielle en [stratégie](strategie.md) v1.2. Total restant
-≈ 28 semaines.
+**Dernière mise à jour** : 26 août 2026 (nuit) — **la chaîne des citations
+officielles est complète** : capture en liste blanche (ADR-026, §8.3
+tranchée), **rapprochement par appariement de structure** — noms de
+communes du référentiel dans les titres, fenêtre −7/+14 jours autour de
+l'activité de l'événement, garde-fou temporel démontré sur pièces — et
+**affichage** : la page du Var porte ses dix citations réelles, la fiche
+montre celles qui mentionnent sa commune sous un intitulé qui est le
+critère même. Plus tôt dans la journée : G6 atteint, sources en service,
+J10 soldé. Veille concurrentielle en [stratégie](strategie.md) v1.2.
+Total restant ≈ 27 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -120,10 +120,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 76 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 105 fichiers (75 worker + 30 scripts) |
+| Worker | `ruff check` / `ruff format --check` | ✅ 106 fichiers (76 worker + 30 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 45 + 30 fichiers |
-| Worker | `pytest` | ✅ 445 tests |
-| Migrations | 39 migrations sur base vierge, en CI | ✅ CI du 26 août pour 37 ; les 38ᵉ et 39ᵉ appliquées **et rejouées** en production, passage base vierge au prochain push |
+| Worker | `pytest` | ✅ 448 tests |
+| Migrations | 41 migrations sur base vierge, en CI | ✅ CI du 26 août pour 37 ; les quatre du jour appliquées **et rejouées** en production, passage base vierge au prochain push |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -132,29 +132,24 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J4, suite : l'affichage des citations et le rapprochement géographique.**
+**J4, suite : les contradictions et la mesure du critère.**
 
-La §8.3 est tranchée (ADR-026, liste blanche automatique) et le premier
-connecteur capte : 20 citations préfectorales réelles en base, tracées à
-leur run. Les marches suivantes rendent la capture **visible et utile** :
-l'affichage des citations sur les pages territoire (06 et 83) puis sur les
-fiches, provenance `official_information` strictement distincte des
-estimations automatiques (FR-104) ; et le **rapprochement** entre une
-citation et un événement — le département est déjà porté, le lien à
-l'événement reste à construire sans jamais interpréter le texte au-delà de
-l'attribution (§2.4). Le critère du jalon se mesurera là : une information
-préfectorale visible sur la fiche en moins de trente minutes, attribuée et
-datée, sans réécriture.
+La chaîne des citations est complète — capture, rapprochement, affichage
+sur territoire et fiche. Les marches restantes du jalon : la **gestion des
+contradictions** entre observation satellitaire et statut officiel
+(FR-145 : affichées, jamais écrasées l'une par l'autre), les **arrêtés
+d'accès aux massifs** (formats à sonder par département), et la **mesure
+du critère de sortie** — une information préfectorale visible sur la fiche
+en moins de trente minutes : elle dépend de la cadence réelle du cron
+(§8.1, qui presse) et se constatera sur les passes planifiées.
 
 Geste d'exploitation à venir : passer la source `prefectures` à `active`
-après ses premières passes planifiées (cron au quart d'heure poussé ce
-jour), même doctrine que CAMS et radar.
+après ses premières passes planifiées, même doctrine que CAMS et radar.
 
 Restent aussi, hors critères : le coup d'œil réel sur les couches air et
 radar depuis un navigateur qui composite (réserve de J9), et les décisions
 ouvertes — formulation du panache (§22.5), ADR du vent historique, §8.5 —
-plus l'**ordonnancement (§8.1)**, qui presse : GitHub étrangle le radar
-comme il étranglera la capture au quart d'heure (dette §15).
+plus l'**ordonnancement (§8.1)**.
 
 Deux actions d'exploitation en parallèle, côté auteur : poser
 `COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
@@ -224,12 +219,12 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
 | J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **1 sem.** | 🟡 critère G6 atteint, sources en service |
 | J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | **0 sem.** | 🟡 critère de sortie atteint |
-| J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | **5 sem.** | 🟡 §8.3 tranchée, capture préfectorale exercée |
+| J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | **4 sem.** | 🟡 citations captées, rapprochées et affichées |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
 | J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
-| | | | 66 sem. | **≈ 28 sem.** | |
+| | | | 66 sem. | **≈ 27 sem.** | |
 
-Il reste **environ 28 semaines** — nettement sous la fourchette 40-50 de la
+Il reste **environ 27 semaines** — nettement sous la fourchette 40-50 de la
 D-0. Le recalage du 6 août avait ajouté 30 semaines au total d'alors (21) :
 c'est le prix, connu et accepté, du périmètre intégral ; le 25 août en a
 rendu dix-sept — J7 neuf, J8 quatre, J9 quatre — les dix semaines du
@@ -1226,12 +1221,27 @@ sans jamais le réécrire.
   premières passes planifiées — même doctrine que CAMS et radar
 - ⬜ Connecteurs restants : arrêtés d'accès aux massifs (formats à sonder
   par département), autres départements à l'ouverture de leurs territoires
-- ⬜ Rapprochement géographique entre une information officielle et un
-  événement — les citations portent leur département, le lien à l'événement
-  reste à construire
-- ⬜ Affichage des citations captées : pages territoire et fiches, avec la
-  provenance `official_information` strictement distincte des estimations
-  automatiques (FR-104)
+- ✅ **Rapprochement géographique, en service** (26 août soir) — un
+  **appariement de structure, jamais une lecture** (§2.4) : noms entiers du
+  référentiel communal détectés dans les titres (frontière de mot, sans
+  accents ni tirets — « Toulon » ne se trouve pas dans « toulonnais »),
+  croisés avec la commune la plus proche de l'événement dans une fenêtre
+  de −7/+14 jours autour de son activité. Exercé sur pièces : deux
+  citations réelles portent leurs communes (Sainte-Maxime, Hyères), et le
+  garde-fou temporel a démontré les deux sens — l'événement d'Hyères de
+  juin existe, la citation ZMEL date de février, hors fenêtre, écartée.
+  ⚠️ Limite assumée et testée : un nom court articulé (« Le Val ») peut
+  sur-apparier une expression courante — borné par le département et la
+  fenêtre, et la fiche dit que la publication peut concerner un autre sujet
+- ✅ **Affichage des citations** (26 août soir, FR-104) — la page
+  territoire d'un département porte ses publications préfectorales (titres
+  verbatim, attribués, datés, note disant la capture automatique — vérifié
+  sur le Var, dix citations réelles) ; la fiche événement montre celles
+  qui mentionnent sa commune, sous un intitulé qui **est** le critère de
+  rapprochement, avec l'avertissement qu'une publication peut concerner un
+  autre sujet. Une fiche sans rapprochement reste entière (vérifié sur
+  Pontevès). Rien de tout cela n'est une estimation de MapFeux, et rien
+  n'y ressemble
 - ⬜ Gestion des contradictions entre observation satellitaire et statut officiel
 
 **Critère de sortie** : une information préfectorale publiée est visible sur la
