@@ -144,3 +144,40 @@ class TestParseActualites:
         items, rejections = parse_actualites("<html><body></body></html>", base_url=BASE_URL)
         assert items == []
         assert rejections == []
+
+
+class TestDetectMunicipalities:
+    """Le rapprochement du §2.4 : un appariement de structure, pas une lecture."""
+
+    MUNICIPALITIES = (
+        ("83115", "Sainte-Maxime"),
+        ("83137", "Toulon"),
+        ("83061", "La Garde"),
+        ("83107", "Le Val"),
+    )
+
+    def test_nom_avec_tiret_et_accents(self) -> None:
+        from geo_worker.pipelines.official_feeds import detect_municipalities
+
+        assert detect_municipalities("Déminage Sainte-Maxime", self.MUNICIPALITIES) == ["83115"]
+        # La casse et les accents de la page ne comptent pas.
+        assert detect_municipalities("DEMINAGE SAINTE MAXIME", self.MUNICIPALITIES) == ["83115"]
+
+    def test_frontiere_de_mot(self) -> None:
+        from geo_worker.pipelines.official_feeds import detect_municipalities
+
+        # « Toulonnais » ne mentionne pas Toulon ; « Le Val » entier exigé —
+        # le mot « val » seul dans un autre contexte ne suffit pas.
+        assert detect_municipalities("Le grand public toulonnais", self.MUNICIPALITIES) == []
+        assert detect_municipalities("Travaux dans le val de la rivière", self.MUNICIPALITIES) == [
+            "83107"
+        ]
+        assert detect_municipalities("Réunion à Toulon et à La Garde", self.MUNICIPALITIES) == [
+            "83061",
+            "83137",
+        ]
+
+    def test_sans_referentiel_rien(self) -> None:
+        from geo_worker.pipelines.official_feeds import detect_municipalities
+
+        assert detect_municipalities("Déminage Sainte-Maxime", []) == []

@@ -34,6 +34,7 @@ import {
   resolveEventAlias,
   type FireEvent,
 } from '@/lib/data/events';
+import { fetchEventOfficialItems } from '@/lib/data/official';
 import { fetchOfficialLinks } from '@/lib/data/territories';
 import { getServerEnv } from '@/lib/env';
 
@@ -242,10 +243,11 @@ export default async function EventPage({ params }: PageParams) {
   // que lui l'affiche partiel et le dit (dette §15 — la relecture annonçait
   // déjà le sien, la fiche pas encore).
   const DETECTION_TABLE_LIMIT = 500;
-  const [detections, officialLinks, perimeters] = await Promise.all([
+  const [detections, officialLinks, perimeters, officialItems] = await Promise.all([
     fetchEventDetections(event.publicId, DETECTION_TABLE_LIMIT),
     event.territory === null ? Promise.resolve([]) : fetchOfficialLinks(event.territory.slug),
     fetchEventPerimeters(event.publicId),
+    fetchEventOfficialItems(event.publicId),
   ]);
   const detectionsTruncated =
     detections.length === DETECTION_TABLE_LIMIT && event.detectionCount > DETECTION_TABLE_LIMIT;
@@ -751,6 +753,49 @@ export default async function EventPage({ params }: PageParams) {
           de transport en altitude et une calibration sur cas connus seront disponibles.
         </p>
       </section>
+
+      {officialItems.length > 0 && (
+        <section aria-labelledby="publications-officielles" className="mt-10">
+          <h2 id="publications-officielles" className="text-title font-bold tracking-tight">
+            Publications de la préfecture mentionnant {officialItems[0]?.municipalityName}
+          </h2>
+          {/* FR-104 et ADR-026 : le critère d'affichage EST la définition du
+              rapprochement — le nom de la commune figure dans le titre, dans
+              la fenêtre d'activité de l'événement. Rien de plus n'est déduit :
+              la publication peut concerner un tout autre sujet. */}
+          <p className="text-small text-(--text-2) mt-2 max-w-[68ch]">
+            Publications officielles dont le titre mentionne la commune la plus proche des
+            observations, autour de la période d’activité. Ce rapprochement est automatique : la
+            publication peut concerner un autre sujet que cet événement.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {officialItems.map((item) => (
+              <li key={item.url}>
+                <a
+                  href={item.url}
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-4"
+                >
+                  {item.title}
+                </a>
+                <span className="text-(--text-2) block text-xs">
+                  {item.organisation}
+                  {item.publishedOn !== null && (
+                    <>
+                      {' · publié le '}
+                      <time dateTime={item.publishedOn} className="mono">
+                        {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' }).format(
+                          new Date(item.publishedOn),
+                        )}
+                      </time>
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {officialLinks.length > 0 && (
         <section aria-labelledby="officiel" className="mt-10">

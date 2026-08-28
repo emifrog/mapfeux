@@ -31,6 +31,7 @@ from geo_worker.db import dsn_from_env_file, dsn_target, load_env
 from geo_worker.pipelines.import_run import ImportRunError, import_run
 from geo_worker.pipelines.official_feeds import (
     active_feeds,
+    department_municipalities,
     mark_polled,
     raw_object_name,
     record_items,
@@ -114,11 +115,17 @@ def main(argv: list[str]) -> int:
                         print(f"{label} : aucune publication datée — page restructurée ?")
                         continue
 
+                    municipalities = (
+                        department_municipalities(conn, feed.department_code)
+                        if feed.department_code is not None
+                        else []
+                    )
                     result = record_items(
                         conn,
                         feed_id=feed.id,
                         items=items,
                         import_run_id=str(counters.run_id) if counters.run_id else None,
+                        municipalities=municipalities,
                     )
                     total_read += len(items)
                     total_inserted += result.inserted

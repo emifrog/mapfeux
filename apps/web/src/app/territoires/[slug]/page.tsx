@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 
 import { MapView } from '@/components/map/map-view';
 import { MunicipalitySearch } from '@/components/municipality-search';
+import { fetchDepartmentOfficialItems } from '@/lib/data/official';
 import { fetchOfficialLinks, fetchTerritories, fetchTerritory } from '@/lib/data/territories';
 
 /**
@@ -14,8 +15,9 @@ import { fetchOfficialLinks, fetchTerritories, fetchTerritory } from '@/lib/data
  * état de session n'est nécessaire pour retrouver la même vue.
  */
 
-// La configuration territoriale est administrée à la main et change rarement.
-export const revalidate = 3600;
+// La page porte désormais les publications captées, pas seulement la
+// configuration : dix minutes suivent le rythme préfectoral sans coûter.
+export const revalidate = 600;
 
 const LINK_CATEGORY_LABELS: Record<string, string> = {
   prefecture: 'Préfecture',
@@ -50,9 +52,13 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
   const territory = await fetchTerritory(slug);
   if (territory === null) notFound();
 
-  const [officialLinks, allTerritories] = await Promise.all([
+  const [officialLinks, allTerritories, officialItems] = await Promise.all([
     fetchOfficialLinks(slug),
     fetchTerritories(),
+    // Les citations sont départementales — la liste blanche l'est (ADR-026).
+    territory.type === 'department'
+      ? fetchDepartmentOfficialItems(territory.code)
+      : Promise.resolve([]),
   ]);
 
   const children = allTerritories.filter((t) => t.parentSlug === territory.slug);
@@ -147,6 +153,56 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
           )}
         </section>
       </div>
+
+      {territory.type === 'department' && (
+        <section className="mt-12" aria-labelledby="publications">
+          <h2 id="publications" className="text-title font-bold tracking-tight">
+            Publications de la préfecture
+          </h2>
+          {/* FR-104 et ADR-026 : des citations attribuées et datées, jamais
+              réécrites — rien ici n'est une estimation de MapFeux. */}
+          {officialItems.length === 0 ? (
+            <p className="text-small text-(--text-2) mt-4 max-w-[68ch]">
+              Aucune publication captée pour ce département. Cela ne signifie pas qu’il n’en existe
+              pas : consultez directement le site de la préfecture.
+            </p>
+          ) : (
+            <>
+              <ul className="mt-4 space-y-3">
+                {officialItems.map((item) => (
+                  <li key={item.url}>
+                    <a
+                      href={item.url}
+                      className="underline underline-offset-4"
+                      rel="noopener noreferrer"
+                    >
+                      {item.title}
+                    </a>
+                    <span className="eyebrow mt-0.5 block">
+                      {item.organisation}
+                      {item.publishedOn !== null && (
+                        <>
+                          {' · publié le '}
+                          <time dateTime={item.publishedOn} className="mono">
+                            {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' }).format(
+                              new Date(item.publishedOn),
+                            )}
+                          </time>
+                        </>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-small text-(--text-3) mt-4 max-w-[68ch]">
+                Titres repris tels que publiés par la préfecture, sans reformulation ; chaque lien
+                mène à la publication d’origine. La capture est automatique : une publication
+                récente peut ne pas encore apparaître.
+              </p>
+            </>
+          )}
+        </section>
+      )}
 
       {children.length > 0 && (
         <section className="mt-12" aria-labelledby="rattaches">
