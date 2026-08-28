@@ -272,6 +272,21 @@ def main(argv: list[str]) -> int:
             conn.commit()
         print(f"snapshots   : {refreshed} reconstruit(s)", flush=True)
 
+        # Alerte de cohérence (§17.4, FR-145) : un événement « éteint »
+        # observé après son statut est journalisé pour revue — une fois par
+        # statut, la déduplication vit dans la fonction. Rien n'est modifié :
+        # la fiche affiche les deux faits côte à côte.
+        with conn.cursor() as cur:
+            cur.execute("select public_id from fire.flag_official_status_divergences()")
+            divergences = [str(row[0]) for row in cur.fetchall()]
+            conn.commit()
+        if divergences:
+            print(
+                f"cohérence   : {len(divergences)} divergence(s) signalée(s) — "
+                + ", ".join(divergences),
+                flush=True,
+            )
+
     duration = (datetime.now(UTC) - started).total_seconds()
     print(f"\nterminé en {duration:.0f} s.")
 

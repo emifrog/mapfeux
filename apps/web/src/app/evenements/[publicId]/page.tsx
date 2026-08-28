@@ -2,8 +2,10 @@ import {
   dataAgeMs,
   EVENT_DISCLAIMER,
   formatDataAge,
+  hasOfficialStatusDivergence,
   isSnapshotStale,
   MAP_DISCLAIMER,
+  OFFICIAL_DIVERGENCE_NOTICE,
   PERIMETER_DISCLAIMER,
 } from '@mapfeux/domain';
 import { PALETTE } from '@mapfeux/map-style';
@@ -331,6 +333,37 @@ export default async function EventPage({ params }: PageParams) {
       </h1>
 
       <StatusPanel event={event} now={now} />
+
+      {/* FR-145 : la divergence s'affiche, elle n'arbitre pas. Les deux faits
+          sont datés, aucun n'écrase l'autre — et « maîtrisé » n'en est jamais
+          une : ce statut annonce une activité qui continue (§17.4). */}
+      {event.officialSource !== null &&
+        hasOfficialStatusDivergence({
+          officialControlStatus: event.officialControlStatus,
+          officialStatusAt: event.officialSource.publishedAt,
+          lastDetectedAt: event.lastDetectedAt,
+        }) && (
+          <p
+            className="text-small mt-4 rounded-md border-l-[3px] px-4 py-3"
+            style={{
+              borderColor: 'var(--color-degraded)',
+              background: 'var(--color-degraded-wash)',
+              color: 'var(--text)',
+            }}
+          >
+            <strong>Divergence entre observation et statut officiel.</strong> Le statut «{' '}
+            {OFFICIAL_CONTROL_STATUS_LABELS[event.officialControlStatus ?? 'extinguished']} » a été
+            publié par {event.officialSource.organisation} le{' '}
+            <time dateTime={event.officialSource.publishedAt} className="mono">
+              {formatInstant(new Date(event.officialSource.publishedAt), event.timeZone)}
+            </time>
+            . Une anomalie thermique a été observée le{' '}
+            <time dateTime={event.lastDetectedAt.toISOString()} className="mono">
+              {formatInstant(event.lastDetectedAt, event.timeZone)}
+            </time>
+            , postérieure à cette publication. {OFFICIAL_DIVERGENCE_NOTICE}
+          </p>
+        )}
 
       {/* Dernière observation : l'horodatage exact accompagne toujours l'âge. */}
       <section aria-labelledby="derniere-observation" className="mt-8">

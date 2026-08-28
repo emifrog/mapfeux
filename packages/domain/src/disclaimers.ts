@@ -28,3 +28,8 @@ export const PERIMETER_DISCLAIMER =
 
 export const OFFLINE_NOTICE =
   'Mode hors connexion : les informations affichées proviennent du cache et ne sont pas à jour.';
+
+// FR-145 : une divergence s'affiche, elle n'arbitre pas. Aucune des deux
+// informations n'est écartée ni corrigée par l'autre.
+export const OFFICIAL_DIVERGENCE_NOTICE =
+  "Les deux informations sont affichées telles quelles : MapFeux n'écarte ni ne corrige aucune des deux. Une anomalie thermique peut avoir une autre origine que le feu concerné.";
