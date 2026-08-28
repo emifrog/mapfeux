@@ -1,16 +1,17 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 26 août 2026 (nuit) — **citations complètes et
-contradictions en service**. La chaîne des citations va de la préfecture à
-la fiche (capture ADR-026, rapprochement par structure, affichage sur le
-Var réel) ; et FR-145 est tenu : une détection postérieure à un statut
-officiel génère une **alerte de cohérence** au journal (fonction
-`security definer`, dédup par statut, câblée aux dix minutes) et un
-**bandeau de divergence** sur la fiche — seul « éteint » diverge, la
-définition vit alignée dans le domaine et en SQL, exercée en transaction
-annulée. Plus tôt dans la journée : G6 atteint, sources en service, J10
-soldé. Veille concurrentielle en [stratégie](strategie.md) v1.2. Total
-restant ≈ 27 semaines.
+**Dernière mise à jour** : 28 août 2026 — **J4 est construit en entier** :
+les niveaux d'accès aux massifs sont captés du site interservices (9
+massifs du Var, 7 du 06, libellés officiels verbatim au vocabulaire
+propre de chaque département) et affichés sur les pages territoire, à
+côté des citations préfectorales, du rapprochement et des contradictions
+livrés le 26. Le **contrôle des migrations** du jour : 42 en dépôt, 20
+objets matériels sondés tous présents, registre `supabase_migrations`
+inexistant — la voie réelle est l'application directe idempotente. Reste
+au jalon : la mise en service des sources `prefectures` et `massifs`
+après leurs passes planifiées, et la mesure du critère des trente
+minutes. Veille concurrentielle en [stratégie](strategie.md) v1.2. Total
+restant ≈ 24 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -121,10 +122,10 @@ build — vertes.
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
 | Web | `pnpm test` | ✅ 76 tests |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 106 fichiers (76 worker + 30 scripts) |
-| Worker | `mypy src` + `mypy scripts` | ✅ strict, 45 + 30 fichiers |
-| Worker | `pytest` | ✅ 448 tests |
-| Migrations | 42 migrations sur base vierge, en CI | ✅ CI du 26 août pour 37 ; les cinq du jour appliquées **et rejouées** en production, passage base vierge au prochain push |
+| Worker | `ruff check` / `ruff format --check` | ✅ 109 fichiers (78 worker + 31 scripts) |
+| Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
+| Worker | `pytest` | ✅ 459 tests |
+| Migrations | 42 migrations sur base vierge, en CI | ✅ CI verte sur les 41 du dernier push ; la 42ᵉ (`massif_access`) appliquée **et rejouée** en production. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -133,15 +134,17 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J4, fin : les arrêtés d'accès aux massifs, puis la mesure du critère.**
+**J4, clôture : mise en service des trois sources et mesure du critère.**
 
-Capture, rapprochement, affichage et contradictions sont en service. Les
-marches restantes du jalon : les **arrêtés d'accès aux massifs** (formats
-à sonder par département — le 83 publie une carte quotidienne en saison,
-le format réel dictera le connecteur, jamais l'inverse), et la **mesure du
-critère de sortie** — une information préfectorale visible sur la fiche en
-moins de trente minutes : elle dépend de la cadence réelle du cron (§8.1,
-qui presse) et se constatera sur les passes planifiées.
+Tout le contenu du jalon est construit et exercé — citations, massifs,
+rapprochement, contradictions. Restent deux gestes et une mesure : passer
+`prefectures` et `massifs` à `active` après leurs premières passes
+planifiées (les crons sont poussés — quart d'heure et trois heures) ;
+puis **mesurer le critère de sortie** — une information préfectorale
+visible sur la fiche en moins de trente minutes — sur les passes réelles :
+la cadence GitHub tranchera, et son verdict nourrira la décision
+d'ordonnancement (§8.1). Ensuite, J5 s'ouvre : administration,
+supervision, mode dégradé.
 
 Geste d'exploitation à venir : passer la source `prefectures` à `active`
 après ses premières passes planifiées, même doctrine que CAMS et radar.
@@ -219,12 +222,12 @@ prévu**, aligné sur les phases du cahier v2.1 (§26.3) rappelées en colonne.
 | J8 | Météo et panache : vent, panache indicatif, communes concernées | 5 — gate G5 | 6 sem. | **2 sem.** | 🟡 critère G5 atteint |
 | J9 | CAMS, radar et périmètres versionnés | 6 — gate G6 | 8 sem. | **1 sem.** | 🟡 critère G6 atteint, sources en service |
 | J10 | Sources statiques et réconciliation NRT/standard | 7 | 2 sem. | **0 sem.** | 🟡 critère de sortie atteint |
-| J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | **4 sem.** | 🟡 citations captées, rapprochées et affichées |
+| J4 | Informations officielles automatisées | 8 (partiel) + ajout stratégie §4 | 6 sem. | **1 sem.** | 🟡 tout construit ; mise en service et mesure du critère |
 | J5 | Administration, supervision, mode dégradé | 8 — gate G7 | 5 sem. | 5 sem. | ⬜ |
 | J6 | Durcissement, recette, pilote et ouverture | 9-11 — gates G8-G10 | 9 sem. | 9 sem. | ⬜ |
-| | | | 66 sem. | **≈ 27 sem.** | |
+| | | | 66 sem. | **≈ 24 sem.** | |
 
-Il reste **environ 27 semaines** — nettement sous la fourchette 40-50 de la
+Il reste **environ 24 semaines** — nettement sous la fourchette 40-50 de la
 D-0. Le recalage du 6 août avait ajouté 30 semaines au total d'alors (21) :
 c'est le prix, connu et accepté, du périmètre intégral ; le 25 août en a
 rendu dix-sept — J7 neuf, J8 quatre, J9 quatre — les dix semaines du
@@ -1219,8 +1222,20 @@ sans jamais le réécrire.
   désormais `run_id` : cette chaîne est la première à estampiller ses
   lignes. Cron au quart d'heure ; ⚠️ source `disabled` jusqu'à ses
   premières passes planifiées — même doctrine que CAMS et radar
-- ⬜ Connecteurs restants : arrêtés d'accès aux massifs (formats à sonder
-  par département), autres départements à l'ouverture de leurs territoires
+- ✅ **Accès aux massifs forestiers, capté et affiché** (28 août, FR-140,
+  ADR-026) — le site interservices des préfectures
+  (risque-prevention-incendie.fr) publie un niveau par massif et par jour,
+  la prévision du lendemain vers 18 h. La capture croise le JSON
+  quotidien, le référentiel GeoJSON du site et **les libellés officiels au
+  vocabulaire propre à chaque département** (tableau indexé dans le Var
+  dont la queue compose le niveau 5 exceptionnel, clés nommées dans le
+  06), republiés verbatim. Deux pièges de terrain couverts et testés : le
+  06 vit sous `/6/`, et son référentiel est nu quand le JSON quotidien
+  préfixe. Exercé en réel : 9 massifs du Var et 7 du 06 avec leurs
+  libellés, rejeu inerte, page territoire du Var affichant le verbatim
+  préfectoral et le renvoi à la carte officielle qui fait foi. Cron aux
+  trois heures ; ⚠️ source `disabled` jusqu'aux passes planifiées. Autres
+  départements : à l'ouverture de leurs territoires, jamais en masse
 - ✅ **Rapprochement géographique, en service** (26 août soir) — un
   **appariement de structure, jamais une lecture** (§2.4) : noms entiers du
   référentiel communal détectés dans les titres (frontière de mot, sans
