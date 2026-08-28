@@ -156,5 +156,21 @@ values
     'Publications officielles des préfectures, attribuées et non réécrites',
     'Pages brutes 30 jours ; citations conservées',
     jsonb_build_object('poll_interval_minutes', 15, 'liste_blanche', 'app.official_feeds')
+  ),
+  (
+    'massifs',
+    'Préfectures — accès aux massifs forestiers',
+    'Préfectures / risque-prevention-incendie.fr',
+    -- Connecteur écrit le 28 août 2026 (ADR-026) ; reste « disabled »
+    -- jusqu'aux premières passes planifiées — le geste de mise en service.
+    -- La donnée est quotidienne, publiée vers 18 h pour le lendemain.
+    'disabled',
+    interval '24 hours',
+    interval '48 hours',
+    'https://www.risque-prevention-incendie.fr/',
+    'Licence Ouverte / Etalab',
+    'Niveaux d''accès aux massifs : préfectures, risque-prevention-incendie.fr',
+    'JSON bruts 30 jours ; niveaux conservés par jour',
+    jsonb_build_object('departements', jsonb_build_array('06', '83'), 'poll_interval_hours', 3)
   )
 on conflict (key) do nothing;

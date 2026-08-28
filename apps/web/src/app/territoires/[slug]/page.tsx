@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 
 import { MapView } from '@/components/map/map-view';
 import { MunicipalitySearch } from '@/components/municipality-search';
-import { fetchDepartmentOfficialItems } from '@/lib/data/official';
+import { fetchDepartmentMassifLevels, fetchDepartmentOfficialItems } from '@/lib/data/official';
 import { fetchOfficialLinks, fetchTerritories, fetchTerritory } from '@/lib/data/territories';
 
 /**
@@ -52,12 +52,15 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
   const territory = await fetchTerritory(slug);
   if (territory === null) notFound();
 
-  const [officialLinks, allTerritories, officialItems] = await Promise.all([
+  const [officialLinks, allTerritories, officialItems, massifLevels] = await Promise.all([
     fetchOfficialLinks(slug),
     fetchTerritories(),
     // Les citations sont départementales — la liste blanche l'est (ADR-026).
     territory.type === 'department'
       ? fetchDepartmentOfficialItems(territory.code)
+      : Promise.resolve([]),
+    territory.type === 'department'
+      ? fetchDepartmentMassifLevels(territory.code)
       : Promise.resolve([]),
   ]);
 
@@ -153,6 +156,46 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
           )}
         </section>
       </div>
+
+      {territory.type === 'department' && massifLevels.length > 0 && (
+        <section className="mt-12" aria-labelledby="massifs">
+          <h2 id="massifs" className="text-title font-bold tracking-tight">
+            Accès aux massifs forestiers
+          </h2>
+          {/* ADR-026 : les niveaux et leurs libellés sont ceux du site
+              interservices des préfectures, verbatim — MapFeux n'ajoute ni
+              couleur d'alerte ni interprétation. */}
+          <ul className="mt-4 space-y-2">
+            {massifLevels.map((massif) => (
+              <li key={`${massif.massifName}-${massif.validOn}`} className="max-w-[68ch]">
+                <span className="font-semibold">{massif.massifName}</span>
+                <span className="text-(--text-2)">
+                  {' — '}
+                  <time dateTime={massif.validOn} className="mono">
+                    {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' }).format(
+                      new Date(massif.validOn),
+                    )}
+                  </time>
+                  {' : '}
+                  {massif.levelLabel ?? `niveau ${massif.level}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-small text-(--text-3) mt-4 max-w-[68ch]">
+            Niveaux et libellés repris tels que publiés par les préfectures sur{' '}
+            <a
+              href={massifLevels[0]?.sourceUrl}
+              className="underline underline-offset-4"
+              rel="noopener noreferrer"
+            >
+              risque-prevention-incendie.fr
+            </a>
+            , mis à jour chaque jour vers 18 h. La capture est automatique : en cas de doute, la
+            carte officielle fait foi.
+          </p>
+        </section>
+      )}
 
       {territory.type === 'department' && (
         <section className="mt-12" aria-labelledby="publications">
