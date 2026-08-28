@@ -1,15 +1,16 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 26 août 2026 (nuit) — **la chaîne des citations
-officielles est complète** : capture en liste blanche (ADR-026, §8.3
-tranchée), **rapprochement par appariement de structure** — noms de
-communes du référentiel dans les titres, fenêtre −7/+14 jours autour de
-l'activité de l'événement, garde-fou temporel démontré sur pièces — et
-**affichage** : la page du Var porte ses dix citations réelles, la fiche
-montre celles qui mentionnent sa commune sous un intitulé qui est le
-critère même. Plus tôt dans la journée : G6 atteint, sources en service,
-J10 soldé. Veille concurrentielle en [stratégie](strategie.md) v1.2.
-Total restant ≈ 27 semaines.
+**Dernière mise à jour** : 26 août 2026 (nuit) — **citations complètes et
+contradictions en service**. La chaîne des citations va de la préfecture à
+la fiche (capture ADR-026, rapprochement par structure, affichage sur le
+Var réel) ; et FR-145 est tenu : une détection postérieure à un statut
+officiel génère une **alerte de cohérence** au journal (fonction
+`security definer`, dédup par statut, câblée aux dix minutes) et un
+**bandeau de divergence** sur la fiche — seul « éteint » diverge, la
+définition vit alignée dans le domaine et en SQL, exercée en transaction
+annulée. Plus tôt dans la journée : G6 atteint, sources en service, J10
+soldé. Veille concurrentielle en [stratégie](strategie.md) v1.2. Total
+restant ≈ 27 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -123,7 +124,7 @@ build — vertes.
 | Worker | `ruff check` / `ruff format --check` | ✅ 106 fichiers (76 worker + 30 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 45 + 30 fichiers |
 | Worker | `pytest` | ✅ 448 tests |
-| Migrations | 41 migrations sur base vierge, en CI | ✅ CI du 26 août pour 37 ; les quatre du jour appliquées **et rejouées** en production, passage base vierge au prochain push |
+| Migrations | 42 migrations sur base vierge, en CI | ✅ CI du 26 août pour 37 ; les cinq du jour appliquées **et rejouées** en production, passage base vierge au prochain push |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -132,16 +133,15 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J4, suite : les contradictions et la mesure du critère.**
+**J4, fin : les arrêtés d'accès aux massifs, puis la mesure du critère.**
 
-La chaîne des citations est complète — capture, rapprochement, affichage
-sur territoire et fiche. Les marches restantes du jalon : la **gestion des
-contradictions** entre observation satellitaire et statut officiel
-(FR-145 : affichées, jamais écrasées l'une par l'autre), les **arrêtés
-d'accès aux massifs** (formats à sonder par département), et la **mesure
-du critère de sortie** — une information préfectorale visible sur la fiche
-en moins de trente minutes : elle dépend de la cadence réelle du cron
-(§8.1, qui presse) et se constatera sur les passes planifiées.
+Capture, rapprochement, affichage et contradictions sont en service. Les
+marches restantes du jalon : les **arrêtés d'accès aux massifs** (formats
+à sonder par département — le 83 publie une carte quotidienne en saison,
+le format réel dictera le connecteur, jamais l'inverse), et la **mesure du
+critère de sortie** — une information préfectorale visible sur la fiche en
+moins de trente minutes : elle dépend de la cadence réelle du cron (§8.1,
+qui presse) et se constatera sur les passes planifiées.
 
 Geste d'exploitation à venir : passer la source `prefectures` à `active`
 après ses premières passes planifiées, même doctrine que CAMS et radar.
@@ -1242,7 +1242,22 @@ sans jamais le réécrire.
   autre sujet. Une fiche sans rapprochement reste entière (vérifié sur
   Pontevès). Rien de tout cela n'est une estimation de MapFeux, et rien
   n'y ressemble
-- ⬜ Gestion des contradictions entre observation satellitaire et statut officiel
+- ✅ **Gestion des contradictions observation / statut officiel** (26 août
+  nuit, FR-145, §17.4-17.5) — une détection postérieure à un statut ne le
+  modifie jamais en silence : **alerte de cohérence** au journal d'audit
+  (fonction `security definer` — le rôle d'ingestion, sans accès au
+  journal par doctrine, reçoit la capacité étroite de signaler ; dédup
+  interne, une alerte par statut) câblée dans la chaîne des dix minutes,
+  et **bandeau de divergence** sur la fiche : les deux faits datés côte à
+  côte, aucun n'écrase l'autre. Seul « éteint » diverge d'une observation
+  postérieure — « circonscrit » et « maîtrisé » annoncent par définition
+  une activité qui continue, les signaler apprendrait à ignorer l'alerte.
+  La définition vit deux fois, alignée et dite telle (prédicat du domaine,
+  fonction SQL). **Exercée en transaction annulée** — le seul moyen
+  honnête sans fabriquer un statut officiel public : statut synthétique
+  posé, 1 divergence signalée à la bonne forme, dédup à 0 au second appel,
+  annulation, zéro trace. Production réelle : 0 divergence — exact,
+  aucun statut officiel n'existe encore
 
 **Critère de sortie** : une information préfectorale publiée est visible sur la
 fiche de l'événement correspondant en moins de 30 minutes, attribuée et datée,
