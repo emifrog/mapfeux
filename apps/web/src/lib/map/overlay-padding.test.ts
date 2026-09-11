@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { overlayPadding, OVERLAY_GUTTER, type OverlayPanel, type Rect } from './overlay-padding';
 
-/** La carte du 12 septembre 2026 en 1024 de large : 1024 × 513, sous la coque. */
+/** La carte du 11 septembre 2026 en 1024 de large : 1024 × 513, sous la coque. */
 const CARTE: Rect = { top: 172, right: 1024, bottom: 685, left: 0 };
 
 /** Colonne de lecture, panneau de calques et barre temporelle, tels que mesurés. */

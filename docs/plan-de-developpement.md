@@ -1,11 +1,12 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 12 septembre 2026 — **`/carte` est devenue une
-coque d'application, son fond suit le thème, et sa liste suit la carte**. La page faisait 3,4
-écrans de haut et donnait 47 % du premier à la carte ; elle fait
-maintenant un écran, la carte le remplit, le reste flotte dessus — à
-gauche ce qui se lit, à droite ce qui se manipule. Le fond vectoriel est
-**dérivé en sombre** à partir de la feuille « gris » de l'IGN, qui n'en
+**Dernière mise à jour** : 11 septembre 2026, nuit — **`/carte` est
+devenue une coque d'application, son fond suit le thème, et sa liste suit
+la carte**. La page faisait 3,4 écrans de haut et donnait 47 % du premier
+à la carte ; elle fait maintenant un écran, la carte le remplit, le reste
+flotte dessus — à gauche ce qui se lit, à droite ce qui se manipule. Le
+fond vectoriel est **dérivé en sombre** à partir de la feuille « gris » de
+l'IGN, qui n'en
 publie aucune : inversion de la clarté, bornée pour qu'un fond noir ne
 fasse pas des marqueurs orange des trous de lumière. Deux défauts
 antérieurs trouvés en vérifiant — le sprite de la Géoplateforme n'existe
@@ -16,10 +17,11 @@ vue. Enfin, les trois imperfections énoncées en livrant la coque sont
 **soldées**, et tenaient à une seule cause : la carte chargeait toute sa
 toile alors qu'elle n'en montre que la bande centrale. Elle charge
 l'emprise visible, la liste la suit, et la page ne défile plus d'un pixel.
-Le détail en [§14](#refonte-visuelle-).
+Le tout **mesuré sur le déploiement**, pas seulement en local. Le détail
+en [§14](#refonte-visuelle-).
 
-**11 septembre 2026** — **la carte a été reprise après comparaison**. La [veille GISFire](strategie.md) v1.3 a servi de
-miroir : leur carte est meilleure que la nôtre, et l'écart tenait à la
+**Plus tôt le même jour** — **la carte a été reprise après comparaison**.
+La [veille GISFire](strategie.md) v1.3 a servi de miroir : leur carte est meilleure que la nôtre, et l'écart tenait à la
 finition, pas à la doctrine. Le lavis départemental cessait d'être un
 agrégat pour devenir un cache — il s'efface en fondu là où les marqueurs
 prennent le relais ; la carte occupe la hauteur de l'écran et les
@@ -134,7 +136,7 @@ posées dans `next.config.ts` ; la fonction SQL `fires_in_bbox` garde son nom,
 interne. Portes repassées après renommage : format, lint, typecheck, tests,
 build — vertes.
 
-### Portes de qualité — dernier passage (12 septembre)
+### Portes de qualité — dernier passage (11 septembre, nuit)
 
 | Chaîne | Commande | Résultat |
 |---|---|---|
@@ -1474,10 +1476,10 @@ toutes les comparaisons puisque `NaN` les fait toutes échouer, si bien
 qu'un `new Date(undefined)` devenait l'échéance retenue. Garde-fou posé
 dans la fonction pure du domaine, avec son test.
 
-#### La coque d'application et le fond sombre — 12 septembre 2026
+#### La coque d'application et le fond sombre — 11 septembre 2026, soir
 
-La comparaison reprise à froid : sur les quatre points travaillés la
-veille, GISFire et MapFeux se ressemblent. Sur les deux plus gros, non.
+La comparaison reprise à froid, quelques heures après : sur les quatre
+points travaillés plus tôt, GISFire et MapFeux se ressemblent. Sur les deux plus gros, non.
 Mesuré en 1280 × 800 avant la séance : leur page fait un écran de haut,
 la carte commence à y = 0 ; la nôtre faisait **3,4 écrans**, la carte
 commençait à **426 px** et n'occupait que **47 %** de l'écran à
@@ -1528,7 +1530,7 @@ page s'ouvrait sur une carte sans anomalie pendant que sa liste en
 annonçait neuf. Le centre suit désormais l'étendue des événements servis
 — le milieu, pas la moyenne, pour qu'une grappe ne tire pas le cadrage à
 elle. Le zoom, lui, ne bouge pas : l'ajuster aux données ferait remonter
-le lavis que la veille avait fait céder.
+le lavis qu'on venait de faire céder.
 
 La colonne de lecture se replie, enfin, et la caméra en tient compte
 (`padding`). Ce n'est pas un confort : elle couvre en permanence le tiers
@@ -1536,7 +1538,7 @@ ouest de la carte, et rien ne garantit que les marqueurs du jour soient
 ailleurs. Ouverte par défaut — sans JavaScript elle reste là, et c'est le
 seul chemin d'accès textuel de la page.
 
-#### Les trois imperfections de la veille, soldées — 12 septembre 2026
+#### Les trois imperfections annoncées, soldées — 11 septembre 2026, nuit
 
 Elles avaient été énoncées en livrant la coque. Elles tenaient en fait à
 **une seule cause** : la carte chargeait et cadrait sur toute sa toile,
@@ -1561,7 +1563,7 @@ panneaux compris, alors qu'elle n'en montre que la bande centrale.
 - ✅ **La page ne défile plus** : 0 pixel, mesuré. C'est la répartition en
   colonne du gabarit qui la mesure — `main` cesse de grandir avec son
   contenu et prend ce qui reste entre l'en-tête et le pied de page. Aucune
-  hauteur n'est écrite à la main ; la version de la veille en réservait une
+  hauteur n'est écrite à la main ; la version précédente en réservait une
   pour l'en-tête, qu'il aurait fallu corriger à chaque retouche. Le pied de
   page **reste**, resserré : ses liens — mentions légales, confidentialité,
   accessibilité — doivent être atteignables depuis toutes les pages. La
@@ -1576,6 +1578,50 @@ coque), et c'est la **géométrie** qui dit s'ils recouvrent la carte : sous
 640 px ils s'empilent dessous et leur retrait tombe à zéro sans qu'aucun
 seuil ne soit écrit. Un nombre écrit à la main décrit une mise en page à un
 instant ; les panneaux, eux, continuent de vivre.
+
+#### Contrôle sur le déploiement — 11 septembre 2026, 21 h
+
+Tout ce qui précède a été **regardé et mesuré sur
+<https://mapfeux.vercel.app/carte>**, pas seulement en local. Le rendu
+servi porte bien la construction du soir (`x-vercel-cache: HIT`, `age: 0`).
+
+La preuve la plus nette est l'emprise que la carte demande en production :
+
+```
+bbox=5.1704,43.2847,6.2250,44.0338
+```
+
+1,055° de large. Au zoom 8, la toile entière couvre 2,81° ; la bande
+visible fait 1024 − 360 − 280 = 384 px, soit **1,055°**. En latitude,
+0,749° demandés pour 377 px visibles, soit **0,749°**. Au centième près :
+la carte ne charge que ce qu'elle montre, et c'est une garantie de
+construction — non un comptage de marqueurs qui pourrait tomber juste par
+hasard un jour de faible activité.
+
+| Contrôle | Attendu | Constaté en production |
+|---|---|---|
+| Défilement de la page | nul | **0 px** |
+| Carte | plein bord sous la coque | y = 172, 513 × 1024 |
+| Pied de page | présent, resserré | 685 → 768, les neuf liens |
+| Liste / barre / carte | même compte | **9 / 9 / 9**, « dans l'emprise affichée » |
+| Attribution IGN | permanente | « © IGN — Géoplateforme » |
+| Sprite à densité 2 | pas de `@2x` | `PlanIgn-Gris.png` et `.json`, rien d'autre |
+| Console | sans erreur | sans erreur |
+
+Le fond sombre s'affiche — Marseille, Aix-en-Provence, PNR du Luberon, PNR
+de Camargue, Grimaud, Golfe du Lion en gris clair sur presque noir. La
+**bascule de thème a été actionnée sur le site servi** : la page passe au
+sombre, les marqueurs survivent au remplacement du style — c'est le chemin
+`style.load` qui repose les calques — et la liste se met à jour. En clair,
+`rgb(246, 248, 250)` en fond de page et fond de carte clair. En 375 × 812 à
+densité 2, la page défile normalement et la carte redevient un bloc de
+485 px : la règle de coque ne mord bien qu'au-dessus de 640 px.
+
+Un comportement à connaître, qui n'est pas un défaut : sur téléphone la
+liste reste sur le lot du rendu serveur — « au chargement de la page » —
+jusqu'au premier déplacement. Sans panneau flottant il n'y a pas de marge
+posée, donc aucun mouvement de caméra pour déclencher un rechargement. La
+phrase le dit, et bascule sur « dans l'emprise affichée » au premier geste.
 
 #### Une affirmation devenue fausse, trouvée en refondant
 

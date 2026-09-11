@@ -195,7 +195,7 @@ function prefersReducedMotion(): boolean {
  * colonne de lecture recouvre. Charger là-dessus revient à demander des
  * événements qu'on ne montrera pas — et à en faire la liste, qui désigne
  * alors des marqueurs cachés derrière elle-même : dix sur dix-neuf au
- * relevé du 12 septembre 2026. La marge de la caméra dit exactement ce que
+ * relevé du 11 septembre 2026. La marge de la caméra dit exactement ce que
  * les panneaux mangent ; il suffit de la retrancher.
  *
  * La rotation est désactivée sur cette carte, les deux coins suffisent donc

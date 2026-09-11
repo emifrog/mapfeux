@@ -12,7 +12,7 @@ import type { EventSummary } from '@/lib/data/events';
  * chaque changement de fenêtre. Les deux comptaient donc deux choses
  * différentes, et la page le disait dans un paragraphe d'excuse : « cette
  * liste ne suit ni les déplacements de la carte ni la fenêtre que vous y
- * choisissez ». Le 12 septembre 2026, la barre annonçait 19 événements et le
+ * choisissez ». Le 11 septembre 2026, la barre annonçait 19 événements et le
  * carton juste à côté en annonçait 8. Aucun des deux ne mentait ; ensemble
  * ils étaient illisibles.
  *

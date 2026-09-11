@@ -6,7 +6,7 @@
  * ## Pourquoi mesurer plutôt qu'écrire
  *
  * Une première version portait quatre nombres en dur, recopiés des largeurs
- * CSS. Ils se sont trompés deux fois en une soirée du 12 septembre 2026 :
+ * CSS. Ils se sont trompés deux fois en une soirée du 11 septembre 2026 :
  * d'abord parce que la barre temporelle passe à deux lignes sur un écran
  * étroit, ensuite parce que sa hauteur avait tout simplement grandi — deux
  * marqueurs se retrouvaient dessous. Un nombre écrit à la main décrit une

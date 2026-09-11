@@ -47,7 +47,7 @@ import { TimeBar } from './time-bar';
  * ## La liste suit la carte
  *
  * Elle ne le faisait pas, et la page s'en excusait par écrit. Le
- * 12 septembre 2026, la barre annonçait 19 événements et le carton voisin
+ * 11 septembre 2026, la barre annonçait 19 événements et le carton voisin
  * en annonçait 8 : aucun ne mentait, ensemble ils étaient illisibles. La
  * carte tient déjà la réponse — elle vient de la demander pour dessiner ses
  * marqueurs. Le premier état de la liste reste celui du rendu serveur, qui
