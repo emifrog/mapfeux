@@ -46,8 +46,11 @@ export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('${THEME
  * Sans cette résolution, la première pression sur le bouton partirait d'un état
  * supposé. Sur un système en sombre et sans choix mémorisé, elle basculerait
  * vers le sombre — c'est-à-dire ne changerait rien de visible.
+ *
+ * Exportée parce que la carte pose la même question : son fond vectoriel est
+ * dérivé en sombre, et deux résolutions du thème finiraient par diverger.
  */
-function effectiveTheme(): ThemeChoice {
+export function effectiveTheme(): ThemeChoice {
   const explicit = document.documentElement.getAttribute('data-theme');
   if (explicit === 'light' || explicit === 'dark') {
     return explicit;

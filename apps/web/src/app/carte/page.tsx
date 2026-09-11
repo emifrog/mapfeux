@@ -2,8 +2,10 @@ import { MAP_DISCLAIMER } from '@mapfeux/domain';
 import type { Metadata } from 'next';
 
 import { CarteMapPanel } from '@/components/map/carte-map-panel';
+import { FloatingCard } from '@/components/map/floating-card';
 import { EventList } from '@/components/event-list';
 import { fetchEventsInBbox } from '@/lib/data/events';
+import { framingCenter } from '@/lib/map/framing';
 import { DEFAULT_WINDOW_HOURS, windowPhrase, windowSince } from '@/lib/map/time-windows';
 
 /**
@@ -13,17 +15,31 @@ import { DEFAULT_WINDOW_HOURS, windowPhrase, windowSince } from '@/lib/map/time-
  * fonctionne sans JavaScript, et la carte affiche quelque chose sans attendre
  * un aller-retour. Les lots suivants suivent l'emprise (FR-007).
  *
- * ## Mise en page
+ * ## Une coque d'application — refaite le 11 septembre 2026
  *
- * La carte occupe toute la largeur de la coque et la hauteur de l'écran ;
- * la liste et les textes restent dans une colonne de lecture. Une carte
- * étirée sur 1240 px se lit mieux qu'une carte contrainte, alors qu'une
- * ligne de texte de 1240 px ne se lit pas du tout.
+ * La page est la carte. Tout le reste flotte au-dessus : l'identité et la
+ * liste à gauche, les calques à droite, la fenêtre temporelle en bas.
  *
- * Les commandes se posent **sur** la carte, les explications dessous : voir
- * `carte-map-panel.tsx`. La légende d'âge était auparavant à côté, pour ne
- * pas tomber hors de vue — elle y tombait quand même, puisque la carte
- * elle-même n'occupait qu'un quart de page.
+ * La version précédente était un **document** avec une carte dedans. Mesuré
+ * en 1280 × 800 : 426 px d'en-tête, de bandeau, de fil d'Ariane, de titre et
+ * de paragraphe avant que la carte commence, 47 % de l'écran pour elle à
+ * l'ouverture — et coupée par le pli —, 3,4 écrans de défilement en tout.
+ * Une carte qu'il faut aller chercher n'est pas le sujet de sa page.
+ *
+ * Ce qui n'a pas bougé : rien n'est retiré. L'avertissement du §2.4 est en
+ * tête du premier carton, la liste textuelle du §8.6 est toujours rendue par
+ * le serveur et lisible sans JavaScript, l'attribution IGN reste permanente
+ * (§9.5). Ils ont changé de place, pas de statut.
+ *
+ * ## Le partage gauche / droite
+ *
+ * À gauche ce qui **se lit** — l'identité, la liste, la légende, la
+ * provenance des calques affichés. À droite ce qui **se manipule**. C'est
+ * la règle qui manquait quand trois paragraphes d'explication occupaient la
+ * colonne des commandes.
+ *
+ * Sous 640 px, rien ne flotte : la carte prend une hauteur franche et tout
+ * s'empile dessous, dans l'ordre de lecture.
  */
 
 export const metadata: Metadata = {
@@ -57,50 +73,58 @@ export default async function MapPage() {
     timeZone: 'Europe/Paris',
   }).format(now);
 
+  // Le cadrage suit ce qu'il y a à montrer : sans cela, une page intitulée
+  // « anomalies thermiques observées » peut s'ouvrir sur une carte où l'on
+  // n'en voit aucune, pendant que sa propre liste en annonce neuf.
+  const center = framingCenter(
+    events.map((event) => event.location),
+    [
+      (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
+      (INITIAL_BBOX.minLat + INITIAL_BBOX.maxLat) / 2,
+    ],
+  );
+
   return (
-    <div className="shell py-10">
-      <nav aria-label="Fil d’Ariane" className="eyebrow flex flex-wrap items-center gap-2">
-        <span>carte</span>
-        <span aria-hidden="true" className="text-(--border-strong)">
-          /
-        </span>
-        <span>territoires pilotes 06 et 83</span>
-        <span aria-hidden="true" className="text-(--border-strong)">
-          /
-        </span>
-        <span>observation satellitaire</span>
-      </nav>
+    <CarteMapPanel
+      center={center}
+      zoom={8}
+      events={events.map((event) => ({
+        publicId: event.publicId,
+        freshnessStatus: event.freshnessStatus,
+        lastDetectedAt: event.lastDetectedAt.toISOString(),
+        confidence: event.confidenceLevel,
+        detectionCount: event.detectionCount,
+        location: event.location,
+        nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
+      }))}
+    >
+      <FloatingCard>
+        <nav aria-label="Fil d’Ariane" className="eyebrow flex flex-wrap items-center gap-1.5">
+          <span>carte</span>
+          <span aria-hidden="true" className="text-(--border-strong)">
+            /
+          </span>
+          <span>territoires pilotes 06 et 83</span>
+        </nav>
 
-      <h1 className="text-display mt-3 max-w-[16ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
-        Anomalies thermiques observées
-      </h1>
+        {/*
+          Le titre quitte l'échelle d'affichage — 46 px n'entrent pas dans un
+          carton de 21 rem, et un titre qui déborde de son support ne se lit
+          pas mieux pour être grand. Il reste le `h1` de la page.
+        */}
+        <h1 className="text-title mt-1.5 text-balance font-extrabold tracking-tight">
+          Anomalies thermiques observées
+        </h1>
 
-      <p className="text-lead text-(--text-2) mt-4 max-w-[68ch]">{MAP_DISCLAIMER}</p>
+        {/* §2.4 : l'avertissement précède tout ce qu'on pourrait conclure. */}
+        <p className="text-small text-(--text-2) mt-2 leading-relaxed">{MAP_DISCLAIMER}</p>
+      </FloatingCard>
 
-      {/* Carte, calques et légendes vivent dans le panneau client : l'état
-          des sélecteurs est partagé entre la carte et ce qui la commente. */}
-      <CarteMapPanel
-        center={[
-          (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
-          (INITIAL_BBOX.minLat + INITIAL_BBOX.maxLat) / 2,
-        ]}
-        zoom={8}
-        events={events.map((event) => ({
-          publicId: event.publicId,
-          freshnessStatus: event.freshnessStatus,
-          lastDetectedAt: event.lastDetectedAt.toISOString(),
-          confidence: event.confidenceLevel,
-          detectionCount: event.detectionCount,
-          location: event.location,
-          nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
-        }))}
-      />
-
-      <section aria-labelledby="liste" className="mt-12 max-w-[840px]">
-        <h2 id="liste" className="text-title font-bold tracking-tight">
+      <FloatingCard labelledBy="liste">
+        <h2 id="liste" className="text-body font-bold tracking-tight">
           Événements de la zone
         </h2>
-        <p className="text-small text-(--text-2) mt-2 max-w-[68ch]">
+        <p className="text-small text-(--text-2) mt-1.5 leading-relaxed">
           <span className="mono">{events.length}</span> événement
           {events.length > 1 ? 's' : ''} {windowPhrase(DEFAULT_WINDOW_HOURS)}, au chargement de la
           page. Cette liste ne suit ni les déplacements de la carte ni la fenêtre que vous y
@@ -108,18 +132,18 @@ export default async function MapPage() {
           elle seule.
         </p>
 
-        <div className="mt-6">
+        <div className="mt-4">
           <EventList events={events} now={now} />
         </div>
-      </section>
 
-      <p className="text-micro text-(--text-3) mt-12 max-w-[68ch]">
-        Page générée le{' '}
-        <time dateTime={now.toISOString()} className="mono">
-          {generatedAt}
-        </time>
-        . Emprise initiale : territoires pilotes 06 et 83.
-      </p>
-    </div>
+        <p className="text-micro text-(--text-3) mt-6">
+          Page générée le{' '}
+          <time dateTime={now.toISOString()} className="mono">
+            {generatedAt}
+          </time>
+          . Emprise initiale : territoires pilotes 06 et 83.
+        </p>
+      </FloatingCard>
+    </CarteMapPanel>
   );
 }

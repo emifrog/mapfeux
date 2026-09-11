@@ -95,6 +95,23 @@ export const IGN_VECTOR_STYLES = {
 export type IgnVectorStyle = keyof typeof IGN_VECTOR_STYLES;
 
 /**
+ * Retire le suffixe haute densité d'une URL de sprite.
+ *
+ * MapLibre demande `…@2x.png` et `…@2x.json` dès que l'écran a plus d'un
+ * pixel physique par pixel CSS. La Géoplateforme ne publie que le 1x :
+ * sondé le 11 septembre 2026, `PlanIgn-Gris.png` et `.json` répondent 200,
+ * leurs variantes `@2x` répondent 404. Le sprite ne chargeait donc pas du
+ * tout sur un écran moderne, et avec lui aucun motif de surface — marais,
+ * sable, graviers, glacier.
+ *
+ * Le suffixe n'est retiré qu'en fin de nom de fichier, avant l'extension :
+ * une URL qui contiendrait `@2x` ailleurs n'est pas à réécrire.
+ */
+export function withoutRetinaSprite(url: string): string {
+  return url.replace(/@2x(?=\.[a-z]+(?:\?|$))/i, '');
+}
+
+/**
  * URL de style vectoriel, à passer telle quelle à MapLibre.
  *
  * MapLibre sait charger un style distant ; le construire à la main reviendrait

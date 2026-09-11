@@ -33,9 +33,10 @@ export function TimeBar({
   return (
     <section
       aria-labelledby="fenetre-temporelle"
-      // L'attribution IGN est obligatoire et permanente (§9.5) : la barre
-      // s'arrête au-dessus d'elle plutôt que de la recouvrir.
-      className="mono rounded-xl border p-3 text-[11px] shadow-lg max-sm:mt-3 sm:absolute sm:bottom-7 sm:left-3 sm:right-3 sm:z-10"
+      // La place lui vient de la grille de `carte-map-panel.tsx`, qui garde
+      // aussi son retrait du bas pour l'attribution IGN : obligatoire et
+      // permanente (§9.5), elle ne se recouvre pas.
+      className="mono rounded-xl border p-3 text-[11px] shadow-lg max-sm:order-1 sm:pointer-events-auto"
       style={{
         background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
         borderColor: 'var(--border)',

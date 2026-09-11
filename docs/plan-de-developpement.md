@@ -1,7 +1,20 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 11 septembre 2026 — **la carte a été reprise
-après comparaison**. La [veille GISFire](strategie.md) v1.3 a servi de
+**Dernière mise à jour** : 12 septembre 2026 — **`/carte` est devenue une
+coque d'application, et son fond suit le thème**. La page faisait 3,4
+écrans de haut et donnait 47 % du premier à la carte ; elle fait
+maintenant un écran, la carte le remplit, le reste flotte dessus — à
+gauche ce qui se lit, à droite ce qui se manipule. Le fond vectoriel est
+**dérivé en sombre** à partir de la feuille « gris » de l'IGN, qui n'en
+publie aucune : inversion de la clarté, bornée pour qu'un fond noir ne
+fasse pas des marqueurs orange des trous de lumière. Deux défauts
+antérieurs trouvés en vérifiant — le sprite de la Géoplateforme n'existe
+qu'en simple densité, si bien qu'aucun motif de surface ne se dessinait
+sur un écran moderne ; et le cadrage visait le centre de l'emprise quand
+les neuf événements du jour étaient groupés à son bord ouest, hors de
+vue. Le détail en [§14](#refonte-visuelle-).
+
+**11 septembre 2026** — **la carte a été reprise après comparaison**. La [veille GISFire](strategie.md) v1.3 a servi de
 miroir : leur carte est meilleure que la nôtre, et l'écart tenait à la
 finition, pas à la doctrine. Le lavis départemental cessait d'être un
 agrégat pour devenir un cache — il s'efface en fondu là où les marqueurs
@@ -117,14 +130,14 @@ posées dans `next.config.ts` ; la fonction SQL `fires_in_bbox` garde son nom,
 interne. Portes repassées après renommage : format, lint, typecheck, tests,
 build — vertes.
 
-### Portes de qualité — dernier passage (11 septembre, soir)
+### Portes de qualité — dernier passage (12 septembre)
 
 | Chaîne | Commande | Résultat |
 |---|---|---|
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 94 tests (46 domaine, 28 web, 12 map-style, 8 contrats) |
+| Web | `pnpm test` | ✅ 120 tests (46 domaine, 33 web, 33 map-style, 8 contrats) |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
@@ -1456,6 +1469,68 @@ le **build a échoué** sur `/_not-found` — une date invalide franchit
 toutes les comparaisons puisque `NaN` les fait toutes échouer, si bien
 qu'un `new Date(undefined)` devenait l'échéance retenue. Garde-fou posé
 dans la fonction pure du domaine, avec son test.
+
+#### La coque d'application et le fond sombre — 12 septembre 2026
+
+La comparaison reprise à froid : sur les quatre points travaillés la
+veille, GISFire et MapFeux se ressemblent. Sur les deux plus gros, non.
+Mesuré en 1280 × 800 avant la séance : leur page fait un écran de haut,
+la carte commence à y = 0 ; la nôtre faisait **3,4 écrans**, la carte
+commençait à **426 px** et n'occupait que **47 %** de l'écran à
+l'ouverture, coupée par le pli. Et notre coque sombre servait un fond de
+carte **blanc**.
+
+- ✅ **`/carte` est une coque d'application.** La carte prend l'écran
+  moins l'en-tête et le bandeau, tout le reste flotte dessus : identité
+  et liste à gauche, calques à droite, fenêtre temporelle en bas. Rien
+  n'est retiré — l'avertissement §2.4 ouvre le premier carton, la liste
+  textuelle §8.6 reste rendue par le serveur, l'attribution IGN reste
+  permanente (§9.5) — tout a changé de place, rien de statut. La règle
+  qui manquait est nommée : **à gauche ce qui se lit, à droite ce qui se
+  manipule**
+- ✅ **Les panneaux sont placés par une grille**, non par des décalages
+  calés un à un. La première version les posait chacun sur son coin ; ils
+  se chevauchaient dès que la barre temporelle passait à deux lignes, et
+  le panneau de calques recouvrait la commande de zoom de MapLibre — une
+  carte dont on ne peut plus cliquer le « + ». Contrôlé par mesure : zéro
+  chevauchement entre les six boîtes, commandes de MapLibre comprises
+- ✅ **Fond de carte sombre**, dérivé de la feuille « gris » de l'IGN.
+  La Géoplateforme n'en publie aucune : sondées le 11 septembre,
+  `standard`, `gris`, `attenue`, `classique`, `epure` et `accentue`
+  répondent 200, `sombre`, `dark` et `nuit` répondent 404. La
+  transformation **inverse la clarté** et ne touche à rien d'autre —
+  géométrie, seuils de zoom, épaisseurs, tiretés restent ceux de l'IGN.
+  Les 525 couleurs de la feuille sont des gris neutres, si bien que
+  l'inversion préserve exactement les écarts de contraste voulus. Deux
+  bornes plutôt qu'une inversion franche : le blanc devient `#121212` et
+  non du noir, le noir devient un gris clair et non du blanc — un fond
+  parfaitement noir ferait des marqueurs orange des trous de lumière
+- ✅ **La bascule de thème est suivie en direct**, attribut de racine et
+  préférence système. Les calques de MapFeux sont reposés à chaque
+  `style.load` plutôt qu'au seul `load` : `setStyle` remplace le style
+  entier. Vérifié sur quatre bascules — les cinq calques reviennent, la
+  couche air retrouve sa position sous les événements, et le nombre de
+  gestionnaires d'événements ne bouge pas
+
+⚠️ **Deux défauts trouvés en vérifiant**, tous deux antérieurs à la
+séance. Le **sprite** de la Géoplateforme n'existe qu'en simple densité —
+`@2x.png` et `@2x.json` répondent 404 — alors que MapLibre le demande dès
+qu'un écran a plus d'un pixel physique par pixel CSS : aucun motif de
+surface ne se dessinait sur un écran moderne. Réécrit à la requête,
+vérifié à densité 2 (sprite chargé, trente images). Et le **cadrage**
+visait le centre de l'emprise pilote quand les neuf événements du jour
+étaient groupés à son bord ouest, le plus occidental hors de l'écran : la
+page s'ouvrait sur une carte sans anomalie pendant que sa liste en
+annonçait neuf. Le centre suit désormais l'étendue des événements servis
+— le milieu, pas la moyenne, pour qu'une grappe ne tire pas le cadrage à
+elle. Le zoom, lui, ne bouge pas : l'ajuster aux données ferait remonter
+le lavis que la veille avait fait céder.
+
+La colonne de lecture se replie, enfin, et la caméra en tient compte
+(`padding`). Ce n'est pas un confort : elle couvre en permanence le tiers
+ouest de la carte, et rien ne garantit que les marqueurs du jour soient
+ailleurs. Ouverte par défaut — sans JavaScript elle reste là, et c'est le
+seul chemin d'accès textuel de la page.
 
 #### Une affirmation devenue fausse, trouvée en refondant
 

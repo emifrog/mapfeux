@@ -6,6 +6,7 @@ import {
   IGN_VECTOR_STYLES,
   ignTileUrl,
   ignVectorStyleUrl,
+  withoutRetinaSprite,
 } from './basemap';
 
 describe('ignTileUrl', () => {
@@ -64,5 +65,28 @@ describe('ignVectorStyleUrl', () => {
     for (const url of Object.values(IGN_VECTOR_STYLES)) {
       expect(url).toMatch(/^https:\/\/data\.geopf\.fr\//);
     }
+  });
+});
+
+describe('withoutRetinaSprite', () => {
+  const SPRITE =
+    'https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/sprite/PlanIgn-Gris';
+
+  it('retire le suffixe haute densité, que la Géoplateforme ne publie pas', () => {
+    // Sondé le 11 septembre 2026 : `.png` et `.json` répondent 200, leurs
+    // variantes `@2x` répondent 404. Sans cette réécriture, aucun motif de
+    // surface ne se dessine sur un écran moderne.
+    expect(withoutRetinaSprite(`${SPRITE}@2x.png`)).toBe(`${SPRITE}.png`);
+    expect(withoutRetinaSprite(`${SPRITE}@2x.json`)).toBe(`${SPRITE}.json`);
+  });
+
+  it('laisse intacte une URL qui n’en porte pas', () => {
+    expect(withoutRetinaSprite(`${SPRITE}.png`)).toBe(`${SPRITE}.png`);
+  });
+
+  it('ne touche qu’au nom de fichier', () => {
+    expect(withoutRetinaSprite('https://exemple.fr/@2x/sprite.png')).toBe(
+      'https://exemple.fr/@2x/sprite.png',
+    );
   });
 });

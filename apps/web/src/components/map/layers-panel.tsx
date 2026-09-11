@@ -16,8 +16,13 @@ import type { AirTilesInfo } from './air-layer';
  *
  * Le panneau porte les **commandes** et l'échelle de la couche active. Les
  * explications — provenance, run, heure de validité, avertissements — vivent
- * sous la carte : elles se lisent, elles ne se manipulent pas, et les loger
- * ici prenait la place des commandes (le défaut corrigé le 11 septembre).
+ * dans la colonne de lecture, à gauche : elles se lisent, elles ne se
+ * manipulent pas, et les loger ici prenait la place des commandes.
+ *
+ * Sa place lui est donnée par la grille de `carte-map-panel.tsx` ; il ne
+ * porte que sa largeur et son propre défilement. Il s'est calé lui-même sur
+ * un coin le temps d'une journée, jusqu'à ce qu'il chevauche la barre
+ * temporelle sur un écran plus court.
  */
 
 interface Band {
@@ -155,7 +160,7 @@ export function LayersPanel({
   return (
     <section
       aria-labelledby="calques"
-      className="mono rounded-xl border p-3 text-[11px] shadow-lg max-sm:mt-3 sm:absolute sm:right-3 sm:top-3 sm:z-10 sm:max-h-[calc(100%-1.5rem)] sm:w-64 sm:overflow-y-auto"
+      className="mono rounded-xl border p-3 text-[11px] shadow-lg max-sm:order-2 sm:pointer-events-auto sm:min-h-0 sm:overflow-y-auto"
       style={{
         background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
         borderColor: 'var(--border)',

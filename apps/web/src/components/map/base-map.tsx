@@ -1,12 +1,13 @@
 'use client';
 
-import { DEFAULT_VIEW, IGN_ATTRIBUTION, ignVectorStyleUrl } from '@mapfeux/map-style';
+import { DEFAULT_VIEW, IGN_ATTRIBUTION, withoutRetinaSprite } from '@mapfeux/map-style';
 import maplibregl from 'maplibre-gl';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { Protocol } from 'pmtiles';
 
 import { publicEnv } from '@/lib/env';
+import { applyBasemapStyle, isDarkTheme, subscribeTheme } from '@/lib/map/basemap-style';
 
 import { removeAirLayer, resolveAirTiles, setAirLayer, type AirTilesInfo } from './air-layer';
 import { removeRadarLayer, setRadarFrame, type RadarFrameDisplay } from './radar-layer';
@@ -105,6 +106,15 @@ export interface BaseMapProps {
   /** Recharge les événements lorsque l'emprise change. FR-007. */
   reloadOnMove?: boolean;
   /**
+   * Marges occupées par des panneaux posés sur la carte, en pixels.
+   *
+   * MapLibre place le centre demandé au centre de la zone **moins** ces
+   * marges : sans elles, une colonne de lecture de 336 px recouvre le tiers
+   * ouest de la carte, et la liste d'événements désigne des marqueurs
+   * qu'elle cache elle-même — constaté le 11 septembre 2026.
+   */
+  padding?: { top?: number; right?: number; bottom?: number; left?: number };
+  /**
    * Fenêtre temporelle demandée, en heures — `null` pour tout ce que
    * l'emprise porte. La carte recharge à chaque changement, sans attendre
    * un déplacement (FR-005).
@@ -140,6 +150,24 @@ export interface BaseMapProps {
    * qu'afficher la frame qu'on lui donne.
    */
   radarFrame?: RadarFrameDisplay | null;
+}
+
+/**
+ * MapLibre exige les quatre côtés ; l'appelant ne déclare que ceux qui
+ * portent un panneau.
+ */
+function fullPadding(padding: { top?: number; right?: number; bottom?: number; left?: number }): {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+} {
+  return {
+    top: padding.top ?? 0,
+    right: padding.right ?? 0,
+    bottom: padding.bottom ?? 0,
+    left: padding.left ?? 0,
+  };
 }
 
 function prefersReducedMotion(): boolean {
@@ -214,6 +242,7 @@ export default function BaseMap({
   events = [],
   perimeters = [],
   reloadOnMove = false,
+  padding,
   windowHours = null,
   onEventsLoaded,
   ageReference,
@@ -255,6 +284,21 @@ export default function BaseMap({
   // pendant le rendu rendrait le composant non réentrant.
   const eventsRef = useRef<MapEvent[]>(events);
   const perimetersRef = useRef<PerimeterShape[]>(perimeters);
+  const ageReferenceRef = useRef(ageReference);
+
+  // Ce que porte la carte au moment où le style change. Un changement de
+  // thème remplace le style entier — sources et couches comprises — et il
+  // faut tout reposer : ces refs disent quoi, sans redemander au réseau
+  // ce qui a déjà été résolu.
+  const tilesUrlRef = useRef<string | null>(null);
+  const airInfoRef = useRef<AirTilesInfo | null>(null);
+  const radarFrameRef = useRef<RadarFrameDisplay | null>(radarFrame);
+
+  // Les gestionnaires d'événements, eux, se posent **une fois**. Ils sont
+  // attachés à un identifiant de couche, pas à une couche : ils survivent
+  // au remplacement du style, et les reposer à chaque fois ferait ouvrir
+  // la fiche autant de fois que le thème a été basculé.
+  const handlersWiredRef = useRef(false);
 
   // Initialisation unique. Les changements de cadrage passent par l'effet
   // suivant : recréer la carte à chaque navigation rechargerait toutes les
@@ -264,6 +308,8 @@ export default function BaseMap({
     if (container === null || mapRef.current !== null) return;
 
     registerPmtilesProtocol();
+
+    let unsubscribeTheme: (() => void) | null = null;
 
     // `exactOptionalPropertyTypes` interdit de passer `maxBounds: undefined` :
     // la propriété est ajoutée seulement lorsqu'elle a une valeur.
@@ -276,13 +322,13 @@ export default function BaseMap({
         }
       : {};
 
+    // Le style n'est **pas** posé par le constructeur : il l'est juste
+    // après, par `applyBasemapStyle`. C'est le seul chemin qui accepte
+    // `transformStyle`, par où passe la dérivation sombre — voir
+    // `lib/map/basemap-style.ts`. Le constructeur ferait sinon une
+    // première requête pour un fond clair aussitôt remplacé.
     const map = new maplibregl.Map({
       container,
-      // Style vectoriel « gris » de la Géoplateforme : le fond se retire pour
-      // que l'orange des détections soit la seule couleur qui compte (§8.1).
-      // MapLibre charge l'URL lui-même ; `buildIgnBasemapStyle` reste le repli
-      // raster, et sert l'orthophotographie.
-      style: ignVectorStyleUrl('gris'),
       center: [center[0], center[1]],
       zoom,
       ...boundsOption,
@@ -300,17 +346,46 @@ export default function BaseMap({
       // complique la comparaison des distances.
       pitchWithRotate: false,
       dragRotate: false,
+      // Le sprite de la Géoplateforme n'existe qu'en simple densité ;
+      // MapLibre en demande une version `@2x` dès que l'écran a plus d'un
+      // pixel physique par pixel CSS, et reçoit un 404. Le sprite entier
+      // manquait alors — donc tous les motifs de surface. Constaté le
+      // 11 septembre 2026, antérieur au thème sombre.
+      transformRequest: (url, resourceType) =>
+        resourceType === 'SpriteImage' || resourceType === 'SpriteJSON'
+          ? { url: withoutRetinaSprite(url) }
+          : undefined,
     });
+
+    // Avant tout cadrage : la marge fait partie de la caméra, pas d'un
+    // ajustement d'après-coup qui ferait sauter la carte au montage.
+    if (padding !== undefined) map.setPadding(fullPadding(padding));
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
-    map.on('load', () => {
-      styleReadyRef.current = true;
-      // Les départements d'abord, les événements ensuite : les lavis
-      // d'agrégats restent sous les marqueurs.
-      void resolveTilesUrl().then((tilesUrl) => {
-        if (tilesUrl === null || mapRef.current === null) return;
+    /**
+     * Pose les calques de MapFeux sur le style courant.
+     *
+     * Appelée à chaque `style.load` : au premier chargement, et de nouveau
+     * après chaque bascule de thème, puisque `setStyle` remplace le style
+     * entier — sources et couches ajoutées comprises.
+     */
+    const buildLayers = (): void => {
+      // Les périmètres avant les événements : le contour encadre, les
+      // détections restent au premier plan.
+      if (perimetersRef.current.length > 0) {
+        addPerimeterLayer(map, perimetersRef.current);
+      }
+
+      const reference = ageReferenceRef.current;
+      addEventLayer(
+        map,
+        eventsRef.current,
+        reference === undefined ? undefined : new Date(reference),
+      );
+
+      const placeDepartments = (tilesUrl: string): void => {
         addDepartmentLayer(map, tilesUrl);
         // Sous les événements : chaque couche d'événements repasse au-dessus,
         // dans son ordre d'origine — traîne, halo, disque.
@@ -324,39 +399,55 @@ export default function BaseMap({
           }
         }
         void loadDepartmentAggregates(map);
+      };
 
-        // Un clic sur un département ouvert mène à sa page ; un département
-        // « à venir » n'est pas cliquable — pas de page à promettre (FR-015).
-        map.on('click', DEPARTMENTS_FILL_LAYER_ID, (event) => {
-          if (map.getZoom() >= 9) return;
-          const properties = event.features?.[0]?.properties ?? {};
-          const statut = properties['statut'];
-          const slug = properties['slug'];
-          if ((statut === 'pilot' || statut === 'active') && typeof slug === 'string') {
-            router.push(`/territoires/${slug}`);
-          }
+      // L'alias des tuiles n'est résolu qu'une fois : une bascule de thème
+      // repose les calques, elle ne redemande pas au réseau ce qu'il a déjà
+      // répondu.
+      if (tilesUrlRef.current !== null) {
+        placeDepartments(tilesUrlRef.current);
+      } else {
+        void resolveTilesUrl().then((tilesUrl) => {
+          if (tilesUrl === null || mapRef.current === null) return;
+          tilesUrlRef.current = tilesUrl;
+          placeDepartments(tilesUrl);
         });
-        map.on('mousemove', DEPARTMENTS_FILL_LAYER_ID, (event) => {
-          if (map.getZoom() >= 9) return;
-          const statut = event.features?.[0]?.properties?.['statut'];
-          map.getCanvas().style.cursor = statut === 'pilot' || statut === 'active' ? 'pointer' : '';
-        });
-        map.on('mouseleave', DEPARTMENTS_FILL_LAYER_ID, () => {
-          map.getCanvas().style.cursor = '';
-        });
-      });
-
-      // Les périmètres avant les événements : le contour encadre, les
-      // détections restent au premier plan.
-      if (perimetersRef.current.length > 0) {
-        addPerimeterLayer(map, perimetersRef.current);
       }
 
-      addEventLayer(
-        map,
-        eventsRef.current,
-        ageReference === undefined ? undefined : new Date(ageReference),
-      );
+      // Les calques appelés se reposent tels qu'ils étaient : ni l'archive
+      // d'air ni la frame radar ne sont redemandées, seule leur couche est
+      // reconstruite — elles s'insèrent d'elles-mêmes sous les événements.
+      if (airInfoRef.current !== null) setAirLayer(map, airInfoRef.current);
+      if (radarFrameRef.current !== null) setRadarFrame(map, radarFrameRef.current);
+    };
+
+    /**
+     * Gestionnaires posés une seule fois, pour la vie de la carte.
+     *
+     * MapLibre les attache à un **identifiant** de couche : ils survivent
+     * donc au remplacement du style, et les reposer à chaque bascule
+     * ouvrirait la fiche autant de fois que le thème a changé.
+     */
+    const wireHandlers = (): void => {
+      // Un clic sur un département ouvert mène à sa page ; un département
+      // « à venir » n'est pas cliquable — pas de page à promettre (FR-015).
+      map.on('click', DEPARTMENTS_FILL_LAYER_ID, (event) => {
+        if (map.getZoom() >= 9) return;
+        const properties = event.features?.[0]?.properties ?? {};
+        const statut = properties['statut'];
+        const slug = properties['slug'];
+        if ((statut === 'pilot' || statut === 'active') && typeof slug === 'string') {
+          router.push(`/territoires/${slug}`);
+        }
+      });
+      map.on('mousemove', DEPARTMENTS_FILL_LAYER_ID, (event) => {
+        if (map.getZoom() >= 9) return;
+        const statut = event.features?.[0]?.properties?.['statut'];
+        map.getCanvas().style.cursor = statut === 'pilot' || statut === 'active' ? 'pointer' : '';
+      });
+      map.on('mouseleave', DEPARTMENTS_FILL_LAYER_ID, () => {
+        map.getCanvas().style.cursor = '';
+      });
 
       // Un clic ouvre la fiche : la carte oriente vers l'événement, elle ne
       // prétend pas le décrire. Toute l'information sourcée est sur la fiche.
@@ -386,6 +477,18 @@ export default function BaseMap({
           });
         });
       }
+    };
+
+    // `style.load` et non `load` : le premier retire à chaque style, le
+    // second une seule fois dans la vie de la carte. C'est la même pose de
+    // calques qu'il faut rejouer après une bascule de thème.
+    map.on('style.load', () => {
+      styleReadyRef.current = true;
+      buildLayers();
+      if (!handlersWiredRef.current) {
+        handlersWiredRef.current = true;
+        wireHandlers();
+      }
     });
 
     mapRef.current = map;
@@ -396,8 +499,22 @@ export default function BaseMap({
       (window as unknown as { __mapfeuxMap?: maplibregl.Map }).__mapfeuxMap = map;
     }
 
+    // Le fond, enfin : `style.load` est déjà branché, il posera les calques
+    // dès que la feuille sera là — au premier chargement comme après une
+    // bascule de thème.
+    let dark = isDarkTheme();
+    applyBasemapStyle(map, dark);
+
+    unsubscribeTheme = subscribeTheme(() => {
+      const next = isDarkTheme();
+      if (next === dark) return;
+      dark = next;
+      applyBasemapStyle(map, next);
+    });
+
     return () => {
-      map.remove();
+      unsubscribeTheme?.();
+      mapRef.current?.remove();
       mapRef.current = null;
     };
     // Volontairement sans dépendances : la carte se crée une fois.
@@ -407,6 +524,7 @@ export default function BaseMap({
   // Mise à jour de la couche lorsque le serveur fournit un nouveau lot.
   useEffect(() => {
     eventsRef.current = events;
+    ageReferenceRef.current = ageReference;
     const map = mapRef.current;
     if (map !== null && map.isStyleLoaded()) {
       updateEventLayer(
@@ -434,12 +552,16 @@ export default function BaseMap({
 
     const apply = async (): Promise<void> => {
       if (airPollutant === null) {
+        airInfoRef.current = null;
         removeAirLayer(map);
         onAirInfoRef.current?.(null);
         return;
       }
       const info = await resolveAirTiles(airPollutant);
       if (cancelled || mapRef.current === null) return;
+      // Mémorisée pour la reposer après une bascule de thème, qui remplace
+      // le style et emporte la couche avec lui.
+      airInfoRef.current = info;
       if (info === null) {
         removeAirLayer(map);
       } else {
@@ -486,6 +608,7 @@ export default function BaseMap({
   // Couche radar (§19.3). Changer de frame ne touche que l'image de la
   // source : c'est ce qui rend l'animation fluide.
   useEffect(() => {
+    radarFrameRef.current = radarFrame;
     const map = mapRef.current;
     if (map === null) return;
 
@@ -504,6 +627,14 @@ export default function BaseMap({
       map.once('load', apply);
     }
   }, [radarFrame]);
+
+  // La marge suit la mise en page : les panneaux ne flottent qu'au-dessus de
+  // 640 px, en dessous ils s'empilent et ne couvrent plus rien.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map === null || padding === undefined) return;
+    map.setPadding(fullPadding(padding));
+  }, [padding]);
 
   // Recadrage lorsque le territoire consulté change.
   useEffect(() => {
