@@ -1,4 +1,4 @@
-import { dataAgeMs, formatDataAge, isInService } from '@mapfeux/domain';
+import { dataAgeMs, earliestUpcoming, formatDataAge, isInService } from '@mapfeux/domain';
 
 import { fetchSourceStatus } from '@/lib/sources';
 
@@ -8,10 +8,23 @@ import { fetchSourceStatus } from '@/lib/sources';
  * Référence : cahier §8.1, FR-005 et FR-150.
  *
  * L'utilisateur doit comprendre l'état de fraîcheur sans ouvrir de page
- * secondaire. La pastille dit trois choses et pas une de plus : combien de
- * sources répondent, sur combien, et depuis quand date la donnée la plus
- * récente. Elle ne résume jamais en un mot du type « opérationnel », qui
- * masquerait qu'une source structurante est tombée.
+ * secondaire. La pastille dit quatre choses et pas une de plus : combien de
+ * sources répondent, sur combien, depuis quand date la donnée la plus
+ * récente, et **quand la prochaine est attendue**. Elle ne résume jamais en
+ * un mot du type « opérationnel », qui masquerait qu'une source
+ * structurante est tombée.
+ *
+ * ## L'échéance est une attente, pas une prédiction
+ *
+ * « Prochaine vers 21:16 » vient du registre — dernière donnée reçue plus
+ * l'`expected_interval` déclaré, celui-là même qui sert à qualifier une
+ * source de `delayed`. MapFeux ne calcule aucune orbite et ne le laisse pas
+ * croire : le mot « vers » porte l'approximation, et une échéance déjà
+ * dépassée n'est pas affichée — le retard se lit sur la pastille et sur
+ * /statut, « prochaine il y a deux heures » n'apprendrait rien.
+ *
+ * L'heure est **absolue** et non relative : la page est mise en cache, et
+ * une durée y vieillit mal là où une heure reste vraie.
  *
  * ## Le décompte porte sur les sources **en service**
  *
@@ -25,6 +38,11 @@ import { fetchSourceStatus } from '@/lib/sources';
  * panne existe. Elles restent intégralement listées sur /statut, chacune avec
  * son qualificatif : on qualifie, on ne masque pas (FR-150).
  */
+const NEXT_DATA_TIME = new Intl.DateTimeFormat('fr-FR', {
+  timeStyle: 'short',
+  timeZone: 'Europe/Paris',
+});
+
 export async function SourceHealth() {
   const result = await fetchSourceStatus();
 
@@ -64,11 +82,21 @@ export async function SourceHealth() {
       ? null
       : timestamps.reduce((latest, current) => (current > latest ? current : latest));
 
+  // Par symétrie avec la fraîcheur — la donnée la plus récente de toutes
+  // les sources en service —, on retient l'échéance la plus proche : le
+  // moment où quelque chose bougera.
+  const nextData = earliestUpcoming(
+    inService.map((source) =>
+      source.next_data_expected_at === null ? null : new Date(source.next_data_expected_at),
+    ),
+    new Date(),
+  );
+
   const allHealthy = healthy === total && total > 0;
 
   return (
     <span
-      className="mono text-label flex items-center gap-2 rounded-full border px-3 py-1"
+      className="mono text-label flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-full border px-3 py-1"
       style={{
         background: allHealthy ? 'var(--surface-muted)' : 'var(--color-degraded-wash)',
         borderColor: 'var(--border)',
@@ -80,8 +108,25 @@ export async function SourceHealth() {
         className="size-1.75 block shrink-0 rounded-full"
         style={{ background: allHealthy ? 'var(--color-carto)' : 'var(--color-degraded)' }}
       />
-      {healthy}/{total} source{total > 1 ? 's' : ''} en service
-      {mostRecent !== null && <> · maj il y a {formatDataAge(dataAgeMs(mostRecent, new Date()))}</>}
+      {/* Chaque mention est un seul élément de la rangée flex, insécable :
+          sur un écran étroit la pastille passe à la ligne **entre** les
+          mentions et jamais au milieu de l'une d'elles — sans quoi l'heure,
+          qui est un élément à part entière, se détachait de « prochaine
+          vers » et flottait seule à droite (constaté en 375 px). */}
+      <span className="whitespace-nowrap">
+        {healthy}/{total} source{total > 1 ? 's' : ''} en service
+      </span>
+      {mostRecent !== null && (
+        <span className="whitespace-nowrap">
+          · maj il y a {formatDataAge(dataAgeMs(mostRecent, new Date()))}
+        </span>
+      )}
+      {nextData !== null && (
+        <span className="whitespace-nowrap">
+          · prochaine vers{' '}
+          <time dateTime={nextData.toISOString()}>{NEXT_DATA_TIME.format(nextData)}</time>
+        </span>
+      )}
     </span>
   );
 }

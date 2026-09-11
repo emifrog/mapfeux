@@ -124,3 +124,31 @@ export function formatDataAge(ageMs: number): string {
   const remainingHours = hours % 24;
   return remainingHours === 0 ? `${days} j` : `${days} j ${remainingHours} h`;
 }
+
+/**
+ * La plus proche échéance **encore à venir**, ou `null`.
+ *
+ * Le bandeau d'état dit depuis quand la donnée date ; cette fonction lui
+ * donne la suite — quand la prochaine est attendue. Par symétrie avec la
+ * fraîcheur affichée, qui retient la donnée la plus récente de toutes les
+ * sources en service, on retient ici l'échéance la plus proche : c'est le
+ * moment où quelque chose bougera.
+ *
+ * Une échéance déjà passée est écartée plutôt que présentée comme un
+ * retard : le retard se lit sur la pastille et sur /statut, et annoncer
+ * « prochaine il y a deux heures » n'apprendrait rien à personne.
+ */
+export function earliestUpcoming(dates: readonly (Date | null)[], now: Date): Date | null {
+  let earliest: Date | null = null;
+  for (const date of dates) {
+    if (date === null) continue;
+    // Une date invalide franchit toutes les comparaisons, puisque `NaN` les
+    // fait toutes échouer : sans ce test, `new Date(undefined)` — une colonne
+    // absente de la réponse — devenait l'échéance retenue et faisait lever
+    // `toISOString()`. Le build l'a attrapé sur /_not-found le 11 septembre.
+    const time = date.getTime();
+    if (Number.isNaN(time) || time <= now.getTime()) continue;
+    if (earliest === null || time < earliest.getTime()) earliest = date;
+  }
+  return earliest;
+}

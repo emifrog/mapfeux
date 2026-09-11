@@ -21,6 +21,12 @@ export interface SourceStatusRow {
   freshness: SourceFreshness;
   incident_message: string | null;
   incident_opened_at: string | null;
+  /**
+   * Échéance **déclarée** de la prochaine donnée : dernière donnée reçue
+   * plus l'intervalle attendu du registre. Jamais une prédiction orbitale —
+   * voir la migration `20260911150000`.
+   */
+  next_data_expected_at: string | null;
 }
 
 /**

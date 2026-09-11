@@ -4,6 +4,7 @@ import {
   computeEventFreshness,
   computeSourceFreshness,
   dataAgeMs,
+  earliestUpcoming,
   formatDataAge,
   HOUR_MS,
   isSnapshotStale,
@@ -170,5 +171,48 @@ describe('dataAgeMs et formatDataAge', () => {
     expect(formatDataAge(3 * HOUR_MS)).toBe('3 h');
     expect(formatDataAge(3 * HOUR_MS + 15 * MINUTE_MS)).toBe('3 h 15 min');
     expect(formatDataAge(50 * HOUR_MS)).toBe('2 j 2 h');
+  });
+});
+
+describe('earliestUpcoming', () => {
+  const now = new Date('2026-09-11T15:00:00Z');
+  const at = (iso: string) => new Date(iso);
+
+  it("retient l'échéance la plus proche parmi celles à venir", () => {
+    const result = earliestUpcoming(
+      [at('2026-09-12T00:00:00Z'), at('2026-09-11T19:16:00Z'), at('2026-09-12T02:00:00Z')],
+      now,
+    );
+    expect(result?.toISOString()).toBe('2026-09-11T19:16:00.000Z');
+  });
+
+  it('écarte les échéances passées plutôt que de les présenter comme un retard', () => {
+    // Le retard se lit sur la pastille et sur /statut : « prochaine il y a
+    // deux heures » n'apprendrait rien.
+    const result = earliestUpcoming([at('2026-09-11T14:35:00Z'), at('2026-09-11T19:16:00Z')], now);
+    expect(result?.toISOString()).toBe('2026-09-11T19:16:00.000Z');
+  });
+
+  it('ignore les sources sans échéance', () => {
+    expect(earliestUpcoming([null, null], now)).toBeNull();
+  });
+
+  it('toutes les échéances passées : rien à annoncer', () => {
+    expect(earliestUpcoming([at('2026-09-11T12:00:00Z')], now)).toBeNull();
+  });
+
+  it("l'instant présent n'est pas une échéance à venir", () => {
+    expect(earliestUpcoming([now], now)).toBeNull();
+  });
+
+  it('une date invalide est écartée, pas retenue', () => {
+    // `NaN` fait échouer toute comparaison : une date invalide passait donc
+    // les filtres et devenait l'échéance. C'est ce qui a fait échouer le
+    // build sur une colonne absente de la réponse.
+    expect(earliestUpcoming([new Date(undefined as unknown as string)], now)).toBeNull();
+    const valide = new Date('2026-09-11T19:16:00Z');
+    expect(earliestUpcoming([new Date('pas une date'), valide], now)?.toISOString()).toBe(
+      '2026-09-11T19:16:00.000Z',
+    );
   });
 });
