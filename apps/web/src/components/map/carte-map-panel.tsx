@@ -3,24 +3,30 @@
 import { MODELLED_VALUE_NOTICE } from '@mapfeux/domain';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
-import { POLLUTANT_LABELS } from '@/lib/air/labels';
 import { resolveRadarTimeline, type RadarTimeline } from '@/lib/radar/timeline';
 
 import type { AirTilesInfo } from './air-layer';
 import type { MapEvent } from './event-layer';
+import { LayersPanel } from './layers-panel';
 import { MapLegend } from './legend';
 import { MapView } from './map-view';
 
 /**
- * Carte nationale et sa colonne de légendes, avec la couche air commutable.
+ * Carte nationale, ses calques et ce qu'il faut lire pour les comprendre.
  *
- * Référence : cahier §19.1 et FR-121.
+ * Référence : cahier §19.1, §19.3, §21.3, FR-121.
  *
- * La couche est **éteinte par défaut** : la carte parle d'abord des
- * détections thermiques (§8.1), le champ modélisé est un contexte qu'on
- * appelle. Sa légende vient de l'alias publié — seuils, couleurs et version
- * de la palette qui a réellement coloré les tuiles — et porte l'heure de
- * validité, la résolution, l'unité et la nature modélisée (FR-121).
+ * ## Mise en page — refaite le 11 septembre 2026
+ *
+ * La carte occupe la hauteur de l'écran et les commandes se posent dessus.
+ * La version précédente la contraignait à un quart de page sous un mur de
+ * texte, avec une colonne de 320 px où trois paragraphes d'explication
+ * prenaient la place des commandes : on regardait des points minuscules en
+ * lisant ce qu'ils auraient signifié. Le partage est désormais net — le
+ * panneau porte ce qui se manipule, le dessous de carte ce qui se lit.
+ *
+ * Les couches restent **éteintes par défaut** : la carte parle d'abord des
+ * détections thermiques (§8.1), le reste est un contexte qu'on appelle.
  */
 
 const TIME = new Intl.DateTimeFormat('fr-FR', {
@@ -28,8 +34,6 @@ const TIME = new Intl.DateTimeFormat('fr-FR', {
   timeStyle: 'short',
   timeZone: 'Europe/Paris',
 });
-
-const CHOICES = [null, 'pm2_5', 'pm10'] as const;
 
 /** Rythme de l'animation radar : un pas toutes les 600 ms (§19.3). */
 const RADAR_STEP_MS = 600;
@@ -52,15 +56,6 @@ function usePrefersReducedMotion(): boolean {
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     () => false,
   );
-}
-
-/** « ≤ 20 », « 20–40 », « > 150 » — les bornes viennent de l'alias. */
-function bandRange(bands: AirTilesInfo['bands'], index: number): string {
-  const upper = bands[index]?.jusqu_a ?? null;
-  const previous = index > 0 ? (bands[index - 1]?.jusqu_a ?? null) : null;
-  if (previous === null) return `≤ ${upper ?? '∞'}`;
-  if (upper === null) return `> ${previous}`;
-  return `${previous}–${upper}`;
 }
 
 export function CarteMapPanel({
@@ -137,7 +132,7 @@ export function CarteMapPanel({
     return () => clearInterval(timer);
   }, [playing, radarTimeline]);
 
-  const missing = pollutant !== null && !loading && airInfo === null;
+  const airMissing = pollutant !== null && !loading && airInfo === null;
   const radarMissing = radarOn && !radarLoading && radarTimeline === null;
   const currentRadarFrame = radarTimeline?.frames[radarIndex];
   const radarFrame =
@@ -146,258 +141,106 @@ export function CarteMapPanel({
       : null;
 
   return (
-    <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
-      <div
-        className="sm:h-104 lg:h-136 h-96 overflow-hidden rounded-lg border"
-        style={{ borderColor: 'var(--border-strong)' }}
-      >
-        <MapView
-          center={center}
-          zoom={zoom}
-          className="h-full w-full"
-          events={events}
-          reloadOnMove
-          airPollutant={pollutant}
-          onAirInfo={(info) => {
-            setAirInfo(info);
-            setLoading(false);
+    <>
+      {/* Le conteneur porte la position du panneau ; la carte garde son
+          `overflow-hidden` pour que ses coins restent arrondis. */}
+      <div className="relative mt-8">
+        <div
+          className="h-[70vh] min-h-[26rem] overflow-hidden rounded-lg border"
+          style={{ borderColor: 'var(--border-strong)' }}
+        >
+          <MapView
+            center={center}
+            zoom={zoom}
+            className="h-full w-full"
+            events={events}
+            reloadOnMove
+            airPollutant={pollutant}
+            onAirInfo={(info) => {
+              setAirInfo(info);
+              setLoading(false);
+            }}
+            radarFrame={radarFrame}
+          />
+        </div>
+
+        <LayersPanel
+          pollutant={pollutant}
+          onPollutant={(choice) => {
+            setPollutant(choice);
+            setAirInfo(null);
+            setLoading(choice !== null);
           }}
-          radarFrame={radarFrame}
+          airInfo={airInfo}
+          airMissing={airMissing}
+          radarOn={radarOn}
+          onRadarOn={(on) => {
+            setRadarOn(on);
+            setRadarPlaying(false);
+            if (on) {
+              setRadarLoading(true);
+            } else {
+              setRadarTimeline(null);
+            }
+          }}
+          radarTimeline={radarTimeline}
+          radarMissing={radarMissing}
+          radarIndex={radarIndex}
+          onRadarIndex={setRadarIndex}
+          playing={playing}
+          onPlaying={setRadarPlaying}
+          reducedMotion={reducedMotion}
+          timeFormat={TIME}
         />
       </div>
 
-      <div className="grid gap-4">
+      {/* Sous la carte : ce qui se lit. La légende d'âge d'abord — c'est
+          elle qui décode les marqueurs —, puis la provenance des couches
+          appelées, qui n'existe que lorsqu'elles sont affichées. */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
         <MapLegend />
 
-        <section
-          aria-labelledby="legende-air"
-          className="mono rounded-xl border p-3 text-[11px]"
-          style={{
-            background: 'var(--surface)',
-            borderColor: 'var(--border)',
-            color: 'var(--text-2)',
-          }}
-        >
-          <h2
-            id="legende-air"
-            className="mb-2 text-[9.5px] font-medium uppercase tracking-[0.08em]"
-            style={{ color: 'var(--text)' }}
+        {(airInfo !== null || radarTimeline !== null) && (
+          <section
+            aria-labelledby="provenance-calques"
+            className="rounded-xl border p-4"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
           >
-            Qualité de l’air modélisée
-          </h2>
+            <h2
+              id="provenance-calques"
+              className="mono mb-2 text-[9.5px] font-medium uppercase tracking-[0.08em]"
+              style={{ color: 'var(--text)' }}
+            >
+              D’où viennent les calques affichés
+            </h2>
 
-          <fieldset>
-            <legend className="sr-only">Couche de qualité de l’air affichée</legend>
-            <div className="flex flex-wrap gap-1.5">
-              {CHOICES.map((choice) => (
-                <label
-                  key={choice ?? 'off'}
-                  className="cursor-pointer rounded-md border px-2 py-1"
-                  style={{
-                    borderColor: pollutant === choice ? 'var(--border-strong)' : 'var(--border)',
-                    background: pollutant === choice ? 'var(--surface-muted)' : 'transparent',
-                    color: pollutant === choice ? 'var(--text)' : 'var(--text-2)',
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="couche-air"
-                    className="sr-only"
-                    checked={pollutant === choice}
-                    onChange={() => {
-                      setPollutant(choice);
-                      setAirInfo(null);
-                      setLoading(choice !== null);
-                    }}
-                  />
-                  {choice === null ? 'Sans' : POLLUTANT_LABELS[choice]}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <div aria-live="polite">
-            {missing && (
-              <p className="mt-3 font-sans text-xs leading-relaxed">
-                Aucune donnée modélisée récente : la couche ne s’affiche pas.
-              </p>
-            )}
-
+            {/* FR-121 : résolution, unité, heure et nature modélisée visibles. */}
             {airInfo !== null && (
-              <>
-                <ul className="mt-3 flex flex-col gap-1.5">
-                  {airInfo.bands.map((band, index) => (
-                    <li key={band.libelle} className="flex items-center gap-2">
-                      <span
-                        aria-hidden="true"
-                        className="rounded-xs block size-2.5 shrink-0"
-                        style={{ backgroundColor: band.couleur }}
-                      />
-                      <span className="w-16 tabular-nums">{bandRange(airInfo.bands, index)}</span>
-                      <span className="font-sans text-xs">{band.libelle}</span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 tabular-nums">
-                  en {airInfo.unit} · grille {airInfo.resolution} · valide le{' '}
-                  <time dateTime={airInfo.validAt}>{TIME.format(new Date(airInfo.validAt))}</time>
-                </p>
-                <p className="mt-2 font-sans text-xs leading-relaxed">
-                  Prévision du modèle <span className="mono">{airInfo.model}</span>, run du{' '}
-                  <time dateTime={airInfo.runAt} className="mono">
-                    {TIME.format(new Date(airInfo.runAt))}
-                  </time>
-                  . {MODELLED_VALUE_NOTICE}
-                </p>
-              </>
-            )}
-          </div>
-        </section>
-
-        <section
-          aria-labelledby="legende-radar"
-          className="mono rounded-xl border p-3 text-[11px]"
-          style={{
-            background: 'var(--surface)',
-            borderColor: 'var(--border)',
-            color: 'var(--text-2)',
-          }}
-        >
-          <h2
-            id="legende-radar"
-            className="mb-2 text-[9.5px] font-medium uppercase tracking-[0.08em]"
-            style={{ color: 'var(--text)' }}
-          >
-            Radar de précipitations
-          </h2>
-
-          <fieldset>
-            <legend className="sr-only">Couche radar affichée</legend>
-            <div className="flex flex-wrap gap-1.5">
-              {[false, true].map((choice) => (
-                <label
-                  key={String(choice)}
-                  className="cursor-pointer rounded-md border px-2 py-1"
-                  style={{
-                    borderColor: radarOn === choice ? 'var(--border-strong)' : 'var(--border)',
-                    background: radarOn === choice ? 'var(--surface-muted)' : 'transparent',
-                    color: radarOn === choice ? 'var(--text)' : 'var(--text-2)',
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="couche-radar"
-                    className="sr-only"
-                    checked={radarOn === choice}
-                    onChange={() => {
-                      setRadarOn(choice);
-                      setRadarPlaying(false);
-                      if (choice) {
-                        setRadarLoading(true);
-                      } else {
-                        setRadarTimeline(null);
-                      }
-                    }}
-                  />
-                  {choice ? 'Lame d’eau' : 'Sans'}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <div aria-live="polite">
-            {radarMissing && (
-              <p className="mt-3 font-sans text-xs leading-relaxed">
-                Aucune frame radar récente : la couche ne s’affiche pas.
+              <p className="text-small text-(--text-2) max-w-[68ch]">
+                <strong>Qualité de l’air</strong> — prévision du modèle{' '}
+                <span className="mono">{airInfo.model}</span>, run du{' '}
+                <time dateTime={airInfo.runAt} className="mono">
+                  {TIME.format(new Date(airInfo.runAt))}
+                </time>
+                , valide le{' '}
+                <time dateTime={airInfo.validAt} className="mono">
+                  {TIME.format(new Date(airInfo.validAt))}
+                </time>
+                , grille de {airInfo.resolution} (~11 km), en {airInfo.unit}. Source : Copernicus
+                Atmosphere Monitoring Service (CAMS). {MODELLED_VALUE_NOTICE}
               </p>
             )}
 
-            {radarTimeline !== null && currentRadarFrame !== undefined && (
-              <>
-                {/* FR-123 : la frame et son heure d'acquisition, toujours. */}
-                <p className="mt-3 tabular-nums">
-                  frame{' '}
-                  <span>
-                    {radarIndex + 1}/{radarTimeline.frames.length}
-                  </span>{' '}
-                  · acquise le{' '}
-                  <time dateTime={currentRadarFrame.acquiredAt.toISOString()}>
-                    {TIME.format(currentRadarFrame.acquiredAt)}
-                  </time>
-                </p>
-
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    className="rounded-md border px-2 py-1"
-                    style={{ borderColor: 'var(--border)' }}
-                    onClick={() => {
-                      setRadarPlaying(false);
-                      setRadarIndex(
-                        (radarIndex - 1 + radarTimeline.frames.length) %
-                          radarTimeline.frames.length,
-                      );
-                    }}
-                  >
-                    ◀ précédente
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md border px-2 py-1"
-                    style={{ borderColor: 'var(--border)' }}
-                    onClick={() => {
-                      setRadarPlaying(false);
-                      setRadarIndex((radarIndex + 1) % radarTimeline.frames.length);
-                    }}
-                  >
-                    suivante ▶
-                  </button>
-                  {/* La lecture automatique n'existe pas quand la réduction
-                      des animations est demandée ; le pas-à-pas, si. */}
-                  {!reducedMotion && radarTimeline.frames.length > 1 && (
-                    <button
-                      type="button"
-                      className="rounded-md border px-2 py-1"
-                      style={{
-                        borderColor: playing ? 'var(--border-strong)' : 'var(--border)',
-                        background: playing ? 'var(--surface-muted)' : 'transparent',
-                      }}
-                      onClick={() => setRadarPlaying(!playing)}
-                    >
-                      {playing ? '⏸ pause' : '▶ lecture'}
-                    </button>
-                  )}
-                </div>
-
-                <ul className="mt-3 flex flex-col gap-1.5">
-                  {radarTimeline.bands.map((band, index) => (
-                    <li key={band.libelle} className="flex items-center gap-2">
-                      <span
-                        aria-hidden="true"
-                        className="rounded-xs block size-2.5 shrink-0"
-                        style={{ backgroundColor: band.couleur }}
-                      />
-                      <span className="w-16 tabular-nums">
-                        {index === 0
-                          ? `≤ ${band.jusqu_a ?? '∞'}`
-                          : band.jusqu_a === null
-                            ? `> ${radarTimeline.bands[index - 1]?.jusqu_a ?? ''}`
-                            : `${radarTimeline.bands[index - 1]?.jusqu_a ?? ''}–${band.jusqu_a}`}
-                      </span>
-                      <span className="font-sans text-xs">{band.libelle}</span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 font-sans text-xs leading-relaxed">
-                  Intensités en {radarTimeline.unit} ; {radarTimeline.quantityLabel}. Sous{' '}
-                  {radarTimeline.drawnFrom.toLocaleString('fr-FR')} {radarTimeline.unit}, rien n’est
-                  dessiné. {radarTimeline.attribution}.
-                </p>
-              </>
+            {radarTimeline !== null && (
+              <p className="text-small text-(--text-2) mt-3 max-w-[68ch]">
+                <strong>Radar</strong> — {radarTimeline.quantityLabel}. Sous{' '}
+                {radarTimeline.drawnFrom.toLocaleString('fr-FR')} {radarTimeline.unit}, rien n’est
+                dessiné. {radarTimeline.attribution}.
+              </p>
             )}
-          </div>
-        </section>
+          </section>
+        )}
       </div>
-    </div>
+    </>
   );
 }

@@ -14,14 +14,15 @@ import { fetchEventsInBbox } from '@/lib/data/events';
  *
  * ## Mise en page
  *
- * La carte occupe toute la largeur de la coque ; la liste et les textes
- * restent dans une colonne de lecture. Une carte étirée sur 1240 px se lit
- * mieux qu'une carte contrainte, alors qu'une ligne de texte de 1240 px ne se
- * lit pas du tout.
+ * La carte occupe toute la largeur de la coque et la hauteur de l'écran ;
+ * la liste et les textes restent dans une colonne de lecture. Une carte
+ * étirée sur 1240 px se lit mieux qu'une carte contrainte, alors qu'une
+ * ligne de texte de 1240 px ne se lit pas du tout.
  *
- * La légende est posée **à côté** de la carte sur grand écran, en dessous
- * sinon. Sous la carte à toutes les tailles, elle tombait hors de vue au
- * moment précis où l'on regarde les points sans savoir ce qu'ils veulent dire.
+ * Les commandes se posent **sur** la carte, les explications dessous : voir
+ * `carte-map-panel.tsx`. La légende d'âge était auparavant à côté, pour ne
+ * pas tomber hors de vue — elle y tombait quand même, puisque la carte
+ * elle-même n'occupait qu'un quart de page.
  */
 
 export const metadata: Metadata = {
@@ -67,8 +68,8 @@ export default async function MapPage() {
 
       <p className="text-lead text-(--text-2) mt-4 max-w-[68ch]">{MAP_DISCLAIMER}</p>
 
-      {/* La couche air (§19.1) et sa légende vivent dans le panneau client :
-          l'état du sélecteur est partagé entre la carte et la colonne. */}
+      {/* Carte, calques et légendes vivent dans le panneau client : l'état
+          des sélecteurs est partagé entre la carte et ce qui la commente. */}
       <CarteMapPanel
         center={[
           (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,

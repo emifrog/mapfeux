@@ -28,6 +28,18 @@ const SOURCE_LAYER = 'departements';
 const FILL_MAX_ZOOM = 9;
 const OUTLINE_MAX_ZOOM = 12;
 
+/**
+ * Le lavis s'efface en fondu à mesure que les événements prennent le relais.
+ *
+ * La stratégie de zoom (§21.3) donne l'agrégat départemental comme sujet aux
+ * zooms 4-6, puis les événements aux zooms 7 et au-delà. Sans ce fondu, un
+ * lavis monté à 50 % d'opacité restait peint jusqu'au zoom 9 **par-dessus**
+ * les marqueurs auxquels il devait céder : au zoom 8, cadrage par défaut de
+ * `/carte`, les disques disparaissaient dans le saumon. Un agrégat qui
+ * masque le détail qu'il annonce ne renseigne plus, il cache.
+ */
+const FILL_OPACITY_BY_ZOOM = ['interpolate', ['linear'], ['zoom'], 6, 1, 7, 0.3, 8, 0] as const;
+
 export interface DepartmentAggregate {
   departmentCode: string;
   departmentSlug: string;
@@ -56,6 +68,7 @@ export function addDepartmentLayer(map: MapLibreMap, tilesUrl: string): void {
     maxzoom: FILL_MAX_ZOOM,
     paint: {
       'fill-color': DEPARTMENT_EVENTS_FILL_EXPRESSION as unknown as ExpressionSpecification,
+      'fill-opacity': FILL_OPACITY_BY_ZOOM as unknown as ExpressionSpecification,
     },
   });
 
