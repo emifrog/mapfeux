@@ -8,6 +8,7 @@ import { Protocol } from 'pmtiles';
 
 import { publicEnv } from '@/lib/env';
 import { applyBasemapStyle, isDarkTheme, subscribeTheme } from '@/lib/map/basemap-style';
+import type { LoadedEventRow } from '@/lib/map/loaded-events';
 
 import { removeAirLayer, resolveAirTiles, setAirLayer, type AirTilesInfo } from './air-layer';
 import { removeRadarLayer, setRadarFrame, type RadarFrameDisplay } from './radar-layer';
@@ -115,17 +116,29 @@ export interface BaseMapProps {
    */
   padding?: { top?: number; right?: number; bottom?: number; left?: number };
   /**
+   * Étendue à faire tenir dans la zone visible au premier cadrage, si elle
+   * existe. Elle prime sur `center` : une marge place le centre au bon
+   * endroit mais laisse les extrêmes tomber où ils veulent — `fitBounds`
+   * est le seul à garantir que tout est visible, panneaux déduits.
+   *
+   * Le zoom n'augmente jamais au-delà de `zoom` : on ne veut pas qu'un feu
+   * isolé fasse basculer une carte de territoire en carte de quartier.
+   */
+  fitBounds?: readonly [readonly [number, number], readonly [number, number]];
+  /**
    * Fenêtre temporelle demandée, en heures — `null` pour tout ce que
    * l'emprise porte. La carte recharge à chaque changement, sans attendre
    * un déplacement (FR-005).
    */
   windowHours?: number | null;
   /**
-   * Reçoit le nombre d'événements du dernier chargement **client**, pour
-   * que la barre affiche ce que la carte montre réellement plutôt que le
-   * compte du rendu serveur, qui date d'avant le premier déplacement.
+   * Reçoit les événements du dernier chargement **client**.
+   *
+   * La carte vient de les demander pour dessiner ses marqueurs : les
+   * remonter permet à la liste textuelle de montrer exactement ce que la
+   * carte montre (§8.6), sans seconde requête et sans second compte.
    */
-  onEventsLoaded?: (count: number) => void;
+  onEventsLoaded?: (events: LoadedEventRow[]) => void;
   /**
    * Instant de référence pour la couleur d'âge des marqueurs, ISO 8601.
    * La relecture temporelle colore par l'âge **à l'instant rejoué** (FR-081) ;
@@ -176,15 +189,44 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
+ * L'emprise **réellement visible**, panneaux déduits.
+ *
+ * `getBounds()` rend celle de toute la toile, y compris le tiers que la
+ * colonne de lecture recouvre. Charger là-dessus revient à demander des
+ * événements qu'on ne montrera pas — et à en faire la liste, qui désigne
+ * alors des marqueurs cachés derrière elle-même : dix sur dix-neuf au
+ * relevé du 12 septembre 2026. La marge de la caméra dit exactement ce que
+ * les panneaux mangent ; il suffit de la retrancher.
+ *
+ * La rotation est désactivée sur cette carte, les deux coins suffisent donc
+ * à décrire le rectangle.
+ */
+function visibleBounds(map: maplibregl.Map): [number, number, number, number] {
+  // Les quatre côtés sont typés facultatifs par MapLibre, qui les remplit
+  // pourtant toujours : l'absence vaut « aucun panneau de ce côté ».
+  const padding = fullPadding(map.getPadding());
+  const canvas = map.getCanvas();
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+
+  const southWest = map.unproject([padding.left, height - padding.bottom]);
+  const northEast = map.unproject([width - padding.right, padding.top]);
+
+  return [southWest.lng, southWest.lat, northEast.lng, northEast.lat];
+}
+
+/**
  * Recharge les événements de l'emprise visible. FR-007.
  *
  * Un échec est silencieux côté carte : les marqueurs déjà affichés restent, ce
  * qui vaut mieux que de les effacer. La liste textuelle rendue par le serveur
  * porte, elle, l'horodatage de son propre chargement.
  */
-async function reload(map: maplibregl.Map, windowHours: number | null): Promise<number | null> {
-  const bounds = map.getBounds();
-  const bbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]
+async function reload(
+  map: maplibregl.Map,
+  windowHours: number | null,
+): Promise<LoadedEventRow[] | null> {
+  const bbox = visibleBounds(map)
     .map((value) => value.toFixed(4))
     .join(',');
 
@@ -200,17 +242,7 @@ async function reload(map: maplibregl.Map, windowHours: number | null): Promise<
     const response = await fetch(`/api/v1/events?bbox=${bbox}&limit=500${since}`);
     if (!response.ok) return null;
 
-    const payload = (await response.json()) as {
-      data: {
-        id: string;
-        freshnessStatus: string;
-        lastDetectedAt: string;
-        confidence: string;
-        detectionCount: number;
-        location: { coordinates: [number, number] };
-        nearestMunicipality: { name: string } | null;
-      }[];
-    };
+    const payload = (await response.json()) as { data: LoadedEventRow[] };
 
     updateEventLayer(
       map,
@@ -227,7 +259,7 @@ async function reload(map: maplibregl.Map, windowHours: number | null): Promise<
         nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
       })),
     );
-    return payload.data.length;
+    return payload.data;
   } catch {
     // Emprise trop large ou réseau coupé : on garde l'affichage précédent.
     return null;
@@ -243,6 +275,7 @@ export default function BaseMap({
   perimeters = [],
   reloadOnMove = false,
   padding,
+  fitBounds,
   windowHours = null,
   onEventsLoaded,
   ageReference,
@@ -361,6 +394,23 @@ export default function BaseMap({
     // ajustement d'après-coup qui ferait sauter la carte au montage.
     if (padding !== undefined) map.setPadding(fullPadding(padding));
 
+    // L'étendue prime sur le centre quand elle est donnée. `duration: 0` :
+    // au montage, il n'y a rien à animer depuis, et une animation d'ouverture
+    // sur une carte de feux est un ornement.
+    if (fitBounds !== undefined) {
+      map.fitBounds(
+        [
+          [fitBounds[0][0], fitBounds[0][1]],
+          [fitBounds[1][0], fitBounds[1][1]],
+        ],
+        {
+          ...(padding === undefined ? {} : { padding: fullPadding(padding) }),
+          maxZoom: zoom,
+          duration: 0,
+        },
+      );
+    }
+
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
@@ -472,8 +522,8 @@ export default function BaseMap({
 
       if (reloadOnMove) {
         map.on('moveend', () => {
-          void reload(map, windowHoursRef.current).then((count) => {
-            if (count !== null) onEventsLoadedRef.current?.(count);
+          void reload(map, windowHoursRef.current).then((loaded) => {
+            if (loaded !== null) onEventsLoadedRef.current?.(loaded);
           });
         });
       }
@@ -594,8 +644,8 @@ export default function BaseMap({
       return;
     }
     const run = (): void => {
-      void reload(map, windowHours).then((count) => {
-        if (count !== null) onEventsLoadedRef.current?.(count);
+      void reload(map, windowHours).then((loaded) => {
+        if (loaded !== null) onEventsLoadedRef.current?.(loaded);
       });
     };
     if (styleReadyRef.current) {

@@ -1,7 +1,7 @@
 # Plan de développement MapFeux
 
 **Dernière mise à jour** : 12 septembre 2026 — **`/carte` est devenue une
-coque d'application, et son fond suit le thème**. La page faisait 3,4
+coque d'application, son fond suit le thème, et sa liste suit la carte**. La page faisait 3,4
 écrans de haut et donnait 47 % du premier à la carte ; elle fait
 maintenant un écran, la carte le remplit, le reste flotte dessus — à
 gauche ce qui se lit, à droite ce qui se manipule. Le fond vectoriel est
@@ -12,7 +12,11 @@ antérieurs trouvés en vérifiant — le sprite de la Géoplateforme n'existe
 qu'en simple densité, si bien qu'aucun motif de surface ne se dessinait
 sur un écran moderne ; et le cadrage visait le centre de l'emprise quand
 les neuf événements du jour étaient groupés à son bord ouest, hors de
-vue. Le détail en [§14](#refonte-visuelle-).
+vue. Enfin, les trois imperfections énoncées en livrant la coque sont
+**soldées**, et tenaient à une seule cause : la carte chargeait toute sa
+toile alors qu'elle n'en montre que la bande centrale. Elle charge
+l'emprise visible, la liste la suit, et la page ne défile plus d'un pixel.
+Le détail en [§14](#refonte-visuelle-).
 
 **11 septembre 2026** — **la carte a été reprise après comparaison**. La [veille GISFire](strategie.md) v1.3 a servi de
 miroir : leur carte est meilleure que la nôtre, et l'écart tenait à la
@@ -137,7 +141,7 @@ build — vertes.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 120 tests (46 domaine, 33 web, 33 map-style, 8 contrats) |
+| Web | `pnpm test` | ✅ 134 tests (46 domaine, 47 web, 33 map-style, 8 contrats) |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
@@ -1531,6 +1535,47 @@ La colonne de lecture se replie, enfin, et la caméra en tient compte
 ouest de la carte, et rien ne garantit que les marqueurs du jour soient
 ailleurs. Ouverte par défaut — sans JavaScript elle reste là, et c'est le
 seul chemin d'accès textuel de la page.
+
+#### Les trois imperfections de la veille, soldées — 12 septembre 2026
+
+Elles avaient été énoncées en livrant la coque. Elles tenaient en fait à
+**une seule cause** : la carte chargeait et cadrait sur toute sa toile,
+panneaux compris, alors qu'elle n'en montre que la bande centrale.
+
+- ✅ **La liste suit la carte** (§8.6). Le mot « synchronisée » du cahier
+  n'était pas honoré : la liste venait du serveur pour l'emprise initiale
+  et n'en bougeait plus, pendant que la carte rechargeait à chaque
+  déplacement. La barre annonçait 19 événements et le carton voisin 8 ;
+  aucun ne mentait, ensemble ils étaient illisibles. La carte tient déjà
+  la réponse — elle vient de la demander pour ses marqueurs — et la liste
+  la lit. Aucune requête de plus. Le rendu serveur reste son premier
+  état : c'est le seul qui existe sans JavaScript, et le paragraphe
+  d'excuse a disparu avec le défaut
+- ✅ **Plus un marqueur sous un panneau.** `getBounds()` rend l'emprise de
+  toute la toile, y compris le tiers que la colonne recouvre : on chargeait
+  donc des événements qu'on ne montrerait pas, et la liste désignait des
+  marqueurs cachés derrière elle-même — dix sur dix-neuf au relevé. La
+  carte charge désormais l'emprise **visible**, marges déduites. Ce qu'elle
+  liste, elle le montre. Le premier cadrage, lui, ajuste l'étendue des
+  événements servis dans cette même bande
+- ✅ **La page ne défile plus** : 0 pixel, mesuré. C'est la répartition en
+  colonne du gabarit qui la mesure — `main` cesse de grandir avec son
+  contenu et prend ce qui reste entre l'en-tête et le pied de page. Aucune
+  hauteur n'est écrite à la main ; la version de la veille en réservait une
+  pour l'en-tête, qu'il aurait fallu corriger à chaque retouche. Le pied de
+  page **reste**, resserré : ses liens — mentions légales, confidentialité,
+  accessibilité — doivent être atteignables depuis toutes les pages. La
+  carte y perd 83 px et gagne de ne plus rien cacher sous le pli
+
+⚠️ **Les quatre nombres écrits à la main ont été retirés.** Les retraits de
+caméra recopiaient des largeurs CSS ; ils se sont trompés deux fois dans la
+même soirée — la barre temporelle avait grandi, et elle passe à deux lignes
+sur un écran étroit. Les panneaux se mesurent maintenant eux-mêmes
+(`overlay-padding.ts`, pur et testé ; un observateur de taille dans la
+coque), et c'est la **géométrie** qui dit s'ils recouvrent la carte : sous
+640 px ils s'empilent dessous et leur retrait tombe à zéro sans qu'aucun
+seuil ne soit écrit. Un nombre écrit à la main décrit une mise en page à un
+instant ; les panneaux, eux, continuent de vivre.
 
 #### Une affirmation devenue fausse, trouvée en refondant
 

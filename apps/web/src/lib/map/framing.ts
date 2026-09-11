@@ -60,3 +60,40 @@ export function framingCenter(
   if (minLon === Infinity) return [fallback[0], fallback[1]];
   return [(minLon + maxLon) / 2, (minLat + maxLat) / 2];
 }
+
+/** Coin sud-ouest puis coin nord-est, dans l'ordre attendu par MapLibre. */
+export type FramingBounds = [[number, number], [number, number]];
+
+/**
+ * Étendue des points, ou `null` s'il n'y en a aucun d'exploitable.
+ *
+ * Le centre suffit quand les événements tiennent dans la bande visible ;
+ * il ne suffit plus quand ils s'étalent. `framingCenter` place le milieu
+ * au bon endroit, ce qui laisse les extrêmes tomber où ils veulent — sous
+ * la colonne de lecture, par exemple. Cette étendue-ci se donne à
+ * `fitBounds`, qui est le seul à **garantir** que tout est dans la bande.
+ *
+ * Un seul point rend une étendue de largeur nulle : `fitBounds` la traite
+ * en la centrant, ce qui est exactement le comportement voulu — et le
+ * plafond de zoom empêche qu'elle mène à un agrandissement absurde.
+ */
+export function framingBounds(points: readonly FramingPoint[]): FramingBounds | null {
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+
+  for (const point of points) {
+    if (!Number.isFinite(point.longitude) || !Number.isFinite(point.latitude)) continue;
+    minLon = Math.min(minLon, point.longitude);
+    maxLon = Math.max(maxLon, point.longitude);
+    minLat = Math.min(minLat, point.latitude);
+    maxLat = Math.max(maxLat, point.latitude);
+  }
+
+  if (minLon === Infinity) return null;
+  return [
+    [minLon, minLat],
+    [maxLon, maxLat],
+  ];
+}

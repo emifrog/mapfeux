@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { framingCenter } from './framing';
+import { framingBounds, framingCenter } from './framing';
 
 const EMPRISE: readonly [number, number] = [6.6, 43.6];
 
@@ -48,5 +48,33 @@ describe('framingCenter', () => {
     expect(framingCenter([{ longitude: Number.NaN, latitude: Number.NaN }], EMPRISE)).toEqual([
       6.6, 43.6,
     ]);
+  });
+});
+
+describe('framingBounds', () => {
+  it('rend les deux coins, sud-ouest puis nord-est', () => {
+    const points = [
+      { longitude: 5.179, latitude: 43.547 },
+      { longitude: 6.024, latitude: 44.018 },
+      { longitude: 5.371, latitude: 43.305 },
+    ];
+    expect(framingBounds(points)).toEqual([
+      [5.179, 43.305],
+      [6.024, 44.018],
+    ]);
+  });
+
+  it('un seul point donne une étendue de largeur nulle, pas une erreur', () => {
+    // `fitBounds` la centre ; c'est le plafond de zoom qui empêche
+    // l'agrandissement absurde, pas une largeur minimale inventée ici.
+    expect(framingBounds([{ longitude: 5.5, latitude: 43.2 }])).toEqual([
+      [5.5, 43.2],
+      [5.5, 43.2],
+    ]);
+  });
+
+  it('rend null quand il n’y a rien à embrasser', () => {
+    expect(framingBounds([])).toBeNull();
+    expect(framingBounds([{ longitude: Number.NaN, latitude: 43 }])).toBeNull();
   });
 });

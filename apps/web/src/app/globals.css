@@ -304,3 +304,36 @@ body {
   outline: 2px solid var(--color-authority);
   outline-offset: 3px;
 }
+
+/*
+ * `/carte` est une coque d'application : la page tient dans l'écran.
+ *
+ * C'est la répartition en colonne du gabarit qui la mesure — `main` cesse
+ * de grandir avec son contenu et prend exactement ce qui reste entre
+ * l'en-tête et le pied de page. Aucune hauteur n'est écrite à la main : la
+ * première version en réservait une pour l'en-tête, et il aurait fallu la
+ * corriger à chaque retouche de celui-ci.
+ *
+ * Le pied de page reste. Ses liens — mentions légales, confidentialité,
+ * accessibilité — doivent être atteignables depuis **toutes** les pages ;
+ * il se resserre, il ne disparaît pas.
+ *
+ * La règle est portée par le gabarit plutôt que par la page parce qu'elle
+ * concerne des éléments frères, hors de portée d'un descendant. Sous
+ * 640 px, elle ne s'applique pas : la carte y redevient un bloc d'une page
+ * qui défile.
+ */
+@media (min-width: 640px) {
+  body:has([data-shell='carte']) {
+    height: 100%;
+  }
+
+  body:has([data-shell='carte']) > main {
+    min-height: 0;
+  }
+
+  body:has([data-shell='carte']) > footer {
+    margin-top: 0;
+    padding-block: 0.75rem;
+  }
+}

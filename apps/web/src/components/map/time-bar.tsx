@@ -36,6 +36,11 @@ export function TimeBar({
       // La place lui vient de la grille de `carte-map-panel.tsx`, qui garde
       // aussi son retrait du bas pour l'attribution IGN : obligatoire et
       // permanente (§9.5), elle ne se recouvre pas.
+      //
+      // Le bord déclaré sert à la caméra : la barre est mesurée, et la
+      // carte cesse de placer des marqueurs dessous. Sa hauteur change avec
+      // la largeur de la fenêtre — c'est bien pour cela qu'on la mesure.
+      data-overlay-side="bottom"
       className="mono rounded-xl border p-3 text-[11px] shadow-lg max-sm:order-1 sm:pointer-events-auto"
       style={{
         background: 'color-mix(in srgb, var(--surface) 92%, transparent)',

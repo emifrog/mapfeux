@@ -3,10 +3,9 @@ import type { Metadata } from 'next';
 
 import { CarteMapPanel } from '@/components/map/carte-map-panel';
 import { FloatingCard } from '@/components/map/floating-card';
-import { EventList } from '@/components/event-list';
 import { fetchEventsInBbox } from '@/lib/data/events';
-import { framingCenter } from '@/lib/map/framing';
-import { DEFAULT_WINDOW_HOURS, windowPhrase, windowSince } from '@/lib/map/time-windows';
+import { framingBounds, framingCenter } from '@/lib/map/framing';
+import { DEFAULT_WINDOW_HOURS, windowSince } from '@/lib/map/time-windows';
 
 /**
  * Carte nationale. Cahier §7.1, FR-001 à FR-007.
@@ -38,6 +37,10 @@ import { DEFAULT_WINDOW_HOURS, windowPhrase, windowSince } from '@/lib/map/time-
  * la règle qui manquait quand trois paragraphes d'explication occupaient la
  * colonne des commandes.
  *
+ * La liste vit dans la coque et non ici : elle **suit la carte** (§8.6), et
+ * ce que le serveur en rend n'est que son premier état — celui qui tient
+ * sans JavaScript.
+ *
  * Sous 640 px, rien ne flotte : la carte prend une hauteur franche et tout
  * s'empile dessous, dans l'ordre de lecture.
  */
@@ -67,27 +70,25 @@ export default async function MapPage() {
     ...(since === undefined ? {} : { since }),
   });
 
-  const generatedAt = new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'long',
-    timeStyle: 'short',
-    timeZone: 'Europe/Paris',
-  }).format(now);
-
   // Le cadrage suit ce qu'il y a à montrer : sans cela, une page intitulée
   // « anomalies thermiques observées » peut s'ouvrir sur une carte où l'on
   // n'en voit aucune, pendant que sa propre liste en annonce neuf.
-  const center = framingCenter(
-    events.map((event) => event.location),
-    [
-      (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
-      (INITIAL_BBOX.minLat + INITIAL_BBOX.maxLat) / 2,
-    ],
-  );
+  const locations = events.map((event) => event.location);
+  const center = framingCenter(locations, [
+    (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
+    (INITIAL_BBOX.minLat + INITIAL_BBOX.maxLat) / 2,
+  ]);
+  // L'étendue prend le relais côté client, où la largeur des panneaux est
+  // connue : elle seule garantit qu'aucun marqueur ne finit sous un carton.
+  const bounds = framingBounds(locations);
 
   return (
     <CarteMapPanel
       center={center}
       zoom={8}
+      now={now}
+      listEvents={events}
+      bounds={bounds}
       events={events.map((event) => ({
         publicId: event.publicId,
         freshnessStatus: event.freshnessStatus,
@@ -118,31 +119,6 @@ export default async function MapPage() {
 
         {/* §2.4 : l'avertissement précède tout ce qu'on pourrait conclure. */}
         <p className="text-small text-(--text-2) mt-2 leading-relaxed">{MAP_DISCLAIMER}</p>
-      </FloatingCard>
-
-      <FloatingCard labelledBy="liste">
-        <h2 id="liste" className="text-body font-bold tracking-tight">
-          Événements de la zone
-        </h2>
-        <p className="text-small text-(--text-2) mt-1.5 leading-relaxed">
-          <span className="mono">{events.length}</span> événement
-          {events.length > 1 ? 's' : ''} {windowPhrase(DEFAULT_WINDOW_HOURS)}, au chargement de la
-          page. Cette liste ne suit ni les déplacements de la carte ni la fenêtre que vous y
-          choisissez : elle décrit l’emprise et la période initiales, et son horodatage vaut pour
-          elle seule.
-        </p>
-
-        <div className="mt-4">
-          <EventList events={events} now={now} />
-        </div>
-
-        <p className="text-micro text-(--text-3) mt-6">
-          Page générée le{' '}
-          <time dateTime={now.toISOString()} className="mono">
-            {generatedAt}
-          </time>
-          . Emprise initiale : territoires pilotes 06 et 83.
-        </p>
       </FloatingCard>
     </CarteMapPanel>
   );

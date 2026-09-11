@@ -1,9 +1,14 @@
 'use client';
 
 import { MODELLED_VALUE_NOTICE } from '@mapfeux/domain';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
-import { DEFAULT_WINDOW_HOURS } from '@/lib/map/time-windows';
+import { EventList } from '@/components/event-list';
+import type { EventSummary } from '@/lib/data/events';
+import type { FramingBounds } from '@/lib/map/framing';
+import { toEventSummaries } from '@/lib/map/loaded-events';
+import { overlayPadding, type Inset, type OverlayPanel } from '@/lib/map/overlay-padding';
+import { DEFAULT_WINDOW_HOURS, windowPhrase } from '@/lib/map/time-windows';
 import { resolveRadarTimeline, type RadarTimeline } from '@/lib/radar/timeline';
 
 import type { AirTilesInfo } from './air-layer';
@@ -21,13 +26,12 @@ import { TimeBar } from './time-bar';
  *
  * ## Hauteur et plein bord
  *
- * La carte occupe l'écran moins la coque fixe du site — en-tête et bandeau
- * de positionnement, mesurés à 172 px le 11 septembre 2026 en 1024 de
- * large. La valeur est en dur parce qu'aucune règle CSS ne la donne sans
- * JavaScript, et l'écart est sans conséquence : trop courte, il reste un
- * filet de page sous la carte ; trop longue, on défile de quelques pixels.
- * Ce qui se paierait cher, c'est un observateur de taille dans le gabarit
- * de toutes les pages pour une seule d'entre elles.
+ * La carte prend tout ce que le gabarit lui laisse entre l'en-tête et le
+ * pied de page, et la page tient dans l'écran. `data-shell="carte"` est la
+ * prise par laquelle `globals.css` le règle, en répartition de colonne
+ * plutôt qu'en hauteur écrite à la main : une première version réservait
+ * 10,75 rem pour l'en-tête, mesurées un soir, qu'il aurait fallu corriger
+ * à chaque retouche de celui-ci.
  *
  * Sous 640 px, rien ne flotte : la carte prend une hauteur franche et les
  * panneaux s'empilent dessous. Une commande posée sur une carte de
@@ -35,10 +39,19 @@ import { TimeBar } from './time-bar';
  *
  * ## Ce qui se lit à gauche, ce qui se manipule à droite
  *
- * `children` porte ce que le serveur a rendu — identité de la page, liste
- * textuelle — et la colonne de gauche y ajoute ce qui dépend de l'état :
+ * `children` porte l'identité de la page, rendue par le serveur. La colonne
+ * y ajoute ce qui vit : la **liste textuelle**, qui suit la carte (§8.6),
  * la légende, puis la provenance des calques appelés. Le panneau de droite
  * ne porte que des commandes et leurs échelles.
+ *
+ * ## La liste suit la carte
+ *
+ * Elle ne le faisait pas, et la page s'en excusait par écrit. Le
+ * 12 septembre 2026, la barre annonçait 19 événements et le carton voisin
+ * en annonçait 8 : aucun ne mentait, ensemble ils étaient illisibles. La
+ * carte tient déjà la réponse — elle vient de la demander pour dessiner ses
+ * marqueurs. Le premier état de la liste reste celui du rendu serveur, qui
+ * est le seul à exister sans JavaScript.
  *
  * Les couches restent **éteintes par défaut** : la carte parle d'abord des
  * détections thermiques (§8.1), le reste est un contexte qu'on appelle.
@@ -66,44 +79,58 @@ function subscribeReducedMotion(callback: () => void): () => void {
 }
 
 /**
- * Le point de bascule des panneaux : 640 px, le `sm` de Tailwind.
+ * Surface de carte mangée par les panneaux, **mesurée**.
  *
- * Il est lu en JavaScript parce que la caméra de MapLibre a besoin d'un
- * nombre, pas d'une classe : au-dessus de ce seuil les panneaux flottent et
- * mangent de la carte, en dessous ils s'empilent et n'en mangent plus. Deux
- * sources pour un même seuil ; celle-ci le nomme.
- */
-const PANELS_FLOAT = '(min-width: 640px)';
-
-function subscribePanelsFloat(callback: () => void): () => void {
-  const query = window.matchMedia(PANELS_FLOAT);
-  query.addEventListener('change', callback);
-  return () => query.removeEventListener('change', callback);
-}
-
-function usePanelsFloat(): boolean {
-  return useSyncExternalStore(
-    subscribePanelsFloat,
-    () => window.matchMedia(PANELS_FLOAT).matches,
-    // Au rendu serveur, on suppose l'empilement : une marge posée sur un
-    // téléphone décalerait la carte vers un vide.
-    () => false,
-  );
-}
-
-/**
- * Surface de carte mangée par les panneaux, en pixels.
+ * La caméra de MapLibre a besoin de nombres ; la feuille de style n'en
+ * donne pas. Une première version les recopiait à la main et s'est trompée
+ * deux fois dans la même soirée — la barre temporelle avait grandi, et elle
+ * passe à deux lignes sur un écran étroit. Les panneaux se mesurent donc
+ * eux-mêmes, et c'est la géométrie qui dit s'ils recouvrent la carte : sous
+ * 640 px ils s'empilent dessous, leur retrait tombe à zéro sans qu'aucun
+ * seuil ne soit écrit ici.
  *
- * Ces nombres doublent des largeurs déclarées en CSS — 21 rem pour la
- * colonne de lecture, 16 rem pour les calques, 0,75 rem de gouttière — et
- * c'est le prix à payer : la caméra ne lit pas les feuilles de style. Les
- * mesurer à l'exécution demanderait un observateur de taille sur trois
- * panneaux pour gagner quelques pixels de justesse.
+ * L'observateur suit les trois panneaux **et** la carte : une fenêtre
+ * redimensionnée, une barre qui passe à deux lignes, une colonne repliée,
+ * une échelle de couche qui apparaît — tout cela change la zone utile, et
+ * tout cela est un changement de taille.
  */
-const PANEL_PADDING = { top: 12, right: 268, bottom: 100, left: 348 } as const;
+function useOverlayPadding(
+  hostRef: React.RefObject<HTMLElement | null>,
+  overlayRef: React.RefObject<HTMLElement | null>,
+  /** Change quand la composition des panneaux change — un repli, par exemple. */
+  layoutToken: unknown,
+): Inset | null {
+  const [inset, setInset] = useState<Inset | null>(null);
 
-/** La même chose, colonne de lecture repliée. */
-const PANEL_PADDING_FOLDED = { ...PANEL_PADDING, left: 56 } as const;
+  useEffect(() => {
+    const host = hostRef.current;
+    const overlay = overlayRef.current;
+    if (host === null || overlay === null) return;
+
+    const measure = (): void => {
+      const panels: OverlayPanel[] = [...overlay.querySelectorAll('[data-overlay-side]')].map(
+        (element) => ({
+          side: element.getAttribute('data-overlay-side') as OverlayPanel['side'],
+          rect: element.getBoundingClientRect(),
+        }),
+      );
+      setInset(overlayPadding(host.getBoundingClientRect(), panels));
+    };
+
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    for (const element of overlay.querySelectorAll('[data-overlay-side]')) {
+      observer.observe(element);
+    }
+    return () => observer.disconnect();
+    // Les panneaux observés changent avec le repli de la colonne : l'effet
+    // se rejoue pour rebrancher l'observateur sur ceux qui existent.
+  }, [hostRef, overlayRef, layoutToken]);
+
+  return inset;
+}
 
 function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(
@@ -117,18 +144,35 @@ export function CarteMapPanel({
   events,
   center,
   zoom,
+  listEvents: initialListEvents,
+  bounds,
+  now: initialNow,
   children,
 }: {
   events: MapEvent[];
   center: readonly [number, number];
   zoom: number;
+  /** Le même premier lot, sous la forme que lit la liste textuelle. */
+  listEvents: EventSummary[];
+  /** Étendue des événements servis, à faire tenir dans la zone visible. */
+  bounds: FramingBounds | null;
+  /** Instant du rendu serveur : l'âge du premier lot se mesure contre lui. */
+  now: Date;
   /** Cartons rendus par le serveur, en tête de la colonne de lecture. */
   children?: React.ReactNode;
 }) {
   // La fenêtre par défaut est celle du rendu serveur : le premier lot arrive
   // déjà filtré, la carte n'a rien à recharger au montage.
   const [windowHours, setWindowHours] = useState<number | null>(DEFAULT_WINDOW_HOURS);
-  const [eventCount, setEventCount] = useState(events.length);
+
+  // La liste **suit la carte** (§8.6). Elle part de ce que le serveur a rendu
+  // — c'est le seul état sans JavaScript — et se remplace à chaque
+  // chargement de la carte, qui a déjà demandé la réponse pour ses
+  // marqueurs. L'instant de référence suit le même chemin : recalculer un
+  // « il y a tant » au rendu ferait diverger serveur et client.
+  const [listEvents, setListEvents] = useState(initialListEvents);
+  const [listAt, setListAt] = useState(initialNow);
+  const [listFollowsMap, setListFollowsMap] = useState(false);
 
   const [pollutant, setPollutant] = useState<string | null>(null);
   const [airInfo, setAirInfo] = useState<AirTilesInfo | null>(null);
@@ -140,7 +184,9 @@ export function CarteMapPanel({
   const [radarIndex, setRadarIndex] = useState(0);
   const [radarPlaying, setRadarPlaying] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
-  const panelsFloat = usePanelsFloat();
+
+  const mapHostRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   // La colonne de lecture se replie. Ce n'est pas un confort : elle couvre
   // en permanence le tiers ouest de la carte, et les marqueurs d'une
@@ -149,6 +195,8 @@ export function CarteMapPanel({
   // Ouverte par défaut : sans JavaScript elle reste là, et c'est le seul
   // chemin d'accès textuel de la page (§8.6).
   const [readingOpen, setReadingOpen] = useState(true);
+
+  const padding = useOverlayPadding(mapHostRef, overlayRef, readingOpen);
 
   // Activation : la timeline se résout, la frame la plus récente s'affiche
   // d'abord (FR-123) — la lecture, elle, n'est jamais automatique. Les
@@ -213,20 +261,28 @@ export function CarteMapPanel({
       : null;
 
   return (
-    <div className="relative sm:h-[calc(100dvh-10.75rem)] sm:min-h-[30rem]">
+    <div data-shell="carte" className="relative sm:h-full sm:min-h-[24rem]">
       {/* La carte, à plein bord sous les cartons. Sur téléphone elle garde
           un cadre et des coins arrondis : elle y est un bloc de la page,
           pas la page. */}
-      <div className="overflow-hidden max-sm:mx-3 max-sm:h-[60dvh] max-sm:min-h-[20rem] max-sm:rounded-lg max-sm:border sm:absolute sm:inset-0">
+      <div
+        ref={mapHostRef}
+        className="overflow-hidden max-sm:mx-3 max-sm:h-[60dvh] max-sm:min-h-[20rem] max-sm:rounded-lg max-sm:border sm:absolute sm:inset-0"
+      >
         <MapView
           center={center}
           zoom={zoom}
           className="h-full w-full"
           events={events}
           reloadOnMove
-          {...(panelsFloat ? { padding: readingOpen ? PANEL_PADDING : PANEL_PADDING_FOLDED } : {})}
+          {...(padding === null ? {} : { padding })}
+          {...(bounds === null ? {} : { fitBounds: bounds })}
           windowHours={windowHours}
-          onEventsLoaded={setEventCount}
+          onEventsLoaded={(loaded) => {
+            setListEvents(toEventSummaries(loaded));
+            setListAt(new Date());
+            setListFollowsMap(true);
+          }}
           airPollutant={pollutant}
           onAirInfo={(info) => {
             setAirInfo(info);
@@ -251,10 +307,14 @@ export function CarteMapPanel({
         celui de la lecture : la fenêtre affichée, puis les calques, puis ce
         qu'il y a à lire.
       */}
-      <div className="flex flex-col gap-3 max-sm:mx-3 max-sm:mt-3 sm:pointer-events-none sm:absolute sm:inset-0 sm:z-10 sm:p-3 sm:pb-12">
+      <div
+        ref={overlayRef}
+        className="flex flex-col gap-3 max-sm:mx-3 max-sm:mt-3 sm:pointer-events-none sm:absolute sm:inset-0 sm:z-10 sm:p-3 sm:pb-12"
+      >
         <div className="flex min-h-0 flex-1 gap-3 max-sm:contents">
           <div
             id="colonne-lecture"
+            data-overlay-side="left"
             // `hidden` ne s'applique qu'au-dessus de 640 px : sous ce seuil
             // la colonne est la page, elle ne se replie pas.
             className={`pointer-events-auto flex flex-col gap-3 max-sm:order-3 sm:w-[21rem] sm:overflow-y-auto sm:pr-1 ${
@@ -262,6 +322,34 @@ export function CarteMapPanel({
             }`}
           >
             {children}
+
+            {/*
+              La liste textuelle (§8.6). Elle montre exactement ce que la
+              carte montre — même emprise, même fenêtre — parce qu'elle lit
+              la réponse que la carte vient d'obtenir. Tant que la carte n'a
+              rien rechargé, c'est le lot du rendu serveur, et la phrase le
+              dit : une liste qui prétendrait suivre avant de suivre serait
+              pire que celle qui ne suivait pas.
+            */}
+            <FloatingCard labelledBy="liste">
+              <h2 id="liste" className="text-body font-bold tracking-tight">
+                Événements de la zone
+              </h2>
+              <p className="text-small text-(--text-2) mt-1.5 leading-relaxed" aria-live="polite">
+                <span className="mono">{listEvents.length}</span> événement
+                {listEvents.length > 1 ? 's' : ''} {windowPhrase(windowHours)}
+                {listFollowsMap ? ', dans l’emprise affichée.' : ', au chargement de la page.'}{' '}
+                Relevé à{' '}
+                <time dateTime={listAt.toISOString()} className="mono">
+                  {TIME.format(listAt)}
+                </time>
+                .
+              </p>
+
+              <div className="mt-4">
+                <EventList events={listEvents} now={listAt} />
+              </div>
+            </FloatingCard>
 
             <MapLegend />
 
@@ -331,7 +419,10 @@ export function CarteMapPanel({
             MapLibre — 29 px à 10 px du bord —, qui était sinon recouverte :
             une carte dont on ne peut plus cliquer le « + ».
           */}
-          <div className="max-sm:contents sm:ml-auto sm:flex sm:min-h-0 sm:w-64 sm:flex-col sm:pt-11">
+          <div
+            data-overlay-side="right"
+            className="max-sm:contents sm:ml-auto sm:flex sm:min-h-0 sm:w-64 sm:flex-col sm:pt-11"
+          >
             <LayersPanel
               pollutant={pollutant}
               onPollutant={(choice) => {
@@ -363,7 +454,11 @@ export function CarteMapPanel({
           </div>
         </div>
 
-        <TimeBar windowHours={windowHours} onWindowHours={setWindowHours} eventCount={eventCount} />
+        <TimeBar
+          windowHours={windowHours}
+          onWindowHours={setWindowHours}
+          eventCount={listEvents.length}
+        />
       </div>
     </div>
   );
