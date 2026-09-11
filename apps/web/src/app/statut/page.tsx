@@ -1,4 +1,4 @@
-import { formatDataAge } from '@mapfeux/domain';
+import { formatDataRecency } from '@mapfeux/domain';
 import { SOURCE_FRESHNESS_LABELS } from '@mapfeux/ui';
 import type { Metadata } from 'next';
 
@@ -92,7 +92,7 @@ function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
               }).format(dataAt)}
             </time>
             <span className="text-micro text-(--text-3) mt-0.5 block">
-              il y a {formatDataAge(Math.max(0, now.getTime() - dataAt.getTime()))}
+              {formatDataRecency(dataAt, now)}
             </span>
           </>
         )}

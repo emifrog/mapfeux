@@ -4,11 +4,14 @@ import {
   computeEventFreshness,
   computeSourceFreshness,
   dataAgeMs,
+  CLOCK_TOLERANCE_MS,
   earliestUpcoming,
   formatDataAge,
+  formatDataRecency,
   HOUR_MS,
   isSnapshotStale,
   MINUTE_MS,
+  mostRecentPast,
 } from './freshness';
 
 const now = new Date('2026-07-27T15:00:00Z');
@@ -214,5 +217,67 @@ describe('earliestUpcoming', () => {
     expect(earliestUpcoming([new Date('pas une date'), valide], now)?.toISOString()).toBe(
       '2026-09-11T19:16:00.000Z',
     );
+  });
+});
+
+describe('mostRecentPast', () => {
+  const now = new Date('2026-09-11T19:30:00Z');
+
+  it('retient la plus récente parmi celles déjà là', () => {
+    const dates = [
+      new Date('2026-09-11T14:50:00Z'),
+      new Date('2026-09-11T00:00:00Z'),
+      new Date('2026-09-11T17:10:00Z'),
+    ];
+    expect(mostRecentPast(dates, now)?.toISOString()).toBe('2026-09-11T17:10:00.000Z');
+  });
+
+  it('écarte une donnée horodatée en avance', () => {
+    // Le niveau d'accès aux massifs du lendemain paraît la veille au soir.
+    // Retenu comme « le plus récent », il ferait dire au bandeau « maj il y
+    // a moins d'une minute » en permanence — la fausse assurance du §5.13.
+    const demain = new Date('2026-09-12T00:00:00Z');
+    const aujourdhui = new Date('2026-09-11T14:50:00Z');
+    expect(mostRecentPast([demain, aujourdhui], now)?.toISOString()).toBe(
+      '2026-09-11T14:50:00.000Z',
+    );
+  });
+
+  it('rend null quand tout est à venir ou absent', () => {
+    expect(mostRecentPast([new Date('2026-09-12T00:00:00Z')], now)).toBeNull();
+    expect(mostRecentPast([null, null], now)).toBeNull();
+    expect(mostRecentPast([], now)).toBeNull();
+  });
+
+  it('écarte une date invalide plutôt que de la retenir', () => {
+    // Toute comparaison avec `NaN` est fausse : sans garde explicite, une
+    // date invalide peut traverser un `if` et devenir la valeur retenue.
+    expect(mostRecentPast([new Date('pas une date')], now)).toBeNull();
+  });
+});
+
+describe('formatDataRecency', () => {
+  const now = new Date('2026-09-11T19:30:00Z');
+
+  it('dit l’âge quand la donnée est derrière nous', () => {
+    expect(formatDataRecency(new Date('2026-09-07T00:00:00Z'), now)).toBe('il y a 4 j 19 h');
+    expect(formatDataRecency(new Date('2026-09-11T19:29:30Z'), now)).toBe(
+      "il y a moins d'une minute",
+    );
+  });
+
+  it('dit l’avance plutôt que de la formater en « moins d’une minute »', () => {
+    expect(formatDataRecency(new Date('2026-09-12T00:00:00Z'), now)).toBe('dans 4 h 30 min');
+  });
+
+  it('tolère un écart d’horloge sans le commenter', () => {
+    // Les horloges d'un fournisseur et les nôtres ne sont pas synchronisées
+    // à la seconde ; annoncer « dans 12 s » serait du bruit.
+    const legerementEnAvance = new Date(now.getTime() + CLOCK_TOLERANCE_MS - 1_000);
+    expect(formatDataRecency(legerementEnAvance, now)).toBe("il y a moins d'une minute");
+  });
+
+  it('ne prétend pas dater ce qui n’a pas de date', () => {
+    expect(formatDataRecency(new Date('pas une date'), now)).toBe('date inconnue');
   });
 });

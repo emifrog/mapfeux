@@ -143,12 +143,12 @@ values
     'prefectures',
     'Préfectures — communiqués et actualités',
     'Préfectures (sites de l''État)',
-    -- Connecteur écrit le 26 août 2026 (ADR-026, liste blanche) ; reste
-    -- « disabled » tant que le cron n'a pas ses premières passes
-    -- planifiées — passer à 'active' est le geste de mise en service.
+    -- Connecteur écrit le 26 août 2026 (ADR-026, liste blanche), **en
+    -- service depuis le 11 septembre** après cent passes planifiées dont
+    -- quatre-vingt-quinze complètes (migration `official_sources_in_service`).
     -- Les intervalles portent sur l'âge de la donnée : une préfecture
     -- publie irrégulièrement — quotidien en crise, hebdomadaire l'hiver.
-    'disabled',
+    'active',
     interval '7 days',
     interval '30 days',
     'https://www.var.gouv.fr/Actualites',
@@ -161,10 +161,11 @@ values
     'massifs',
     'Préfectures — accès aux massifs forestiers',
     'Préfectures / risque-prevention-incendie.fr',
-    -- Connecteur écrit le 28 août 2026 (ADR-026) ; reste « disabled »
-    -- jusqu'aux premières passes planifiées — le geste de mise en service.
+    -- Connecteur écrit le 28 août 2026 (ADR-026), **en service depuis le
+    -- 11 septembre** après soixante-neuf passes planifiées dont soixante-huit
+    -- complètes (migration `official_sources_in_service`).
     -- La donnée est quotidienne, publiée vers 18 h pour le lendemain.
-    'disabled',
+    'active',
     interval '24 hours',
     interval '48 hours',
     'https://www.risque-prevention-incendie.fr/',

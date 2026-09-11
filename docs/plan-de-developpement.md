@@ -1,6 +1,16 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 11 septembre 2026, nuit — **`/carte` est
+**Dernière mise à jour** : 11 septembre 2026, nuit — **les deux dernières
+sources officielles sont en service**. `prefectures` et `massifs` passent
+`active` après contrôle de leurs passes réelles — 169 au total, 163
+complètes depuis fin août — et de la donnée servie ; le bandeau passe de
+« 3/6 sources en service » à « 5/8 ». La bascule a révélé une **fausse
+assurance** : `massifs` datait sa donnée du jour décrit, c'est-à-dire de
+demain, et le bandeau annonçait « maj il y a moins d'une minute » en
+permanence. Connecteur corrigé et deux garde-fous posés. J4 ne tient plus
+qu'à la mesure de son critère des trente minutes.
+
+**Plus tôt dans la soirée** — **`/carte` est
 devenue une coque d'application, son fond suit le thème, et sa liste suit
 la carte**. La page faisait 3,4 écrans de haut et donnait 47 % du premier
 à la carte ; elle fait maintenant un écran, la carte le remplit, le reste
@@ -143,12 +153,12 @@ build — vertes.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 134 tests (46 domaine, 47 web, 33 map-style, 8 contrats) |
+| Web | `pnpm test` | ✅ 142 tests (54 domaine, 47 web, 33 map-style, 8 contrats) |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
 | Worker | `pytest` | ✅ 459 tests |
-| Migrations | 43 migrations sur base vierge, en CI | ✅ CI verte sur les 42 du dernier push ; la 43ᵉ (`source_next_data`) appliquée **et rejouée** en production, et sa colonne vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
+| Migrations | 44 migrations sur base vierge, en CI | ✅ CI verte sur les 43 du dernier push ; la 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -157,20 +167,18 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J4, clôture : mise en service des trois sources et mesure du critère.**
+**J4, clôture : mesurer le critère des trente minutes.**
 
-Tout le contenu du jalon est construit et exercé — citations, massifs,
-rapprochement, contradictions. Restent deux gestes et une mesure : passer
-`prefectures` et `massifs` à `active` après leurs premières passes
-planifiées (les crons sont poussés — quart d'heure et trois heures) ;
-puis **mesurer le critère de sortie** — une information préfectorale
-visible sur la fiche en moins de trente minutes — sur les passes réelles :
-la cadence GitHub tranchera, et son verdict nourrira la décision
-d'ordonnancement (§8.1). Ensuite, J5 s'ouvre : administration,
-supervision, mode dégradé.
-
-Geste d'exploitation à venir : passer la source `prefectures` à `active`
-après ses premières passes planifiées, même doctrine que CAMS et radar.
+Tout le contenu du jalon est construit, exercé et **en service** : les
+deux dernières sources — `prefectures` et `massifs` — sont passées
+`active` le 11 septembre au soir, après contrôle de leurs passes réelles
+et de la donnée servie. Le jalon ne tient plus qu'à sa mesure : **une
+information préfectorale publiée visible sur la fiche en moins de trente
+minutes**, à constater sur les passes réelles. La cadence GitHub
+tranchera, et son verdict nourrira la décision d'ordonnancement (§8.1) —
+les cinq passes partielles de `prefectures`, toutes dues à des sites
+préfectoraux injoignables, font partie du tableau. Ensuite, J5 s'ouvre :
+administration, supervision, mode dégradé.
 
 Les deux clés attendues sont posées et vivantes — `COPERNICUS_KEY` en
 secret GitHub, la clé d'application radar dans l'environnement : au
@@ -1301,6 +1309,21 @@ sans jamais le réécrire.
   annulation, zéro trace. Production réelle : 0 divergence — exact,
   aucun statut officiel n'existe encore
 
+- ✅ **Les deux sources officielles sont en service** (11 septembre, nuit,
+  FR-110 et FR-150). Le geste était réservé aux « premières passes
+  planifiées » ; il est posé après contrôle des passes réellement
+  enregistrées — `massifs` 69 passes dont 68 complètes depuis le 28 août,
+  `prefectures` 100 dont 95 complètes depuis le 27 — et de la donnée
+  servie : 256 niveaux dans `app.massif_access_levels`, 23 publications
+  dans `app.official_feed_items`. Les cinq passes partielles de
+  `prefectures` sont des sites préfectoraux injoignables
+  (`RemoteProtocolError` sur le 06 et le 83) : l'amont, pas le connecteur,
+  et le mode partiel est fait pour ça. Migration idempotente **appliquée
+  et rejouée** (2 lignes puis 0). Le bandeau passe de « 3/6 sources en
+  service » à « 5/8 », `/statut` les dit « À jour », et la page du Var
+  porte le niveau d'accès verbatim et quatre publications préfectorales
+  liées à `var.gouv.fr`
+
 **Critère de sortie** : une information préfectorale publiée est visible sur la
 fiche de l'événement correspondant en moins de 30 minutes, attribuée et datée,
 sans réécriture.
@@ -1623,6 +1646,45 @@ jusqu'au premier déplacement. Sans panneau flottant il n'y a pas de marge
 posée, donc aucun mouvement de caméra pour déclencher un rechargement. La
 phrase le dit, et bascule sur « dans l'emprise affichée » au premier geste.
 
+#### Une fausse assurance, révélée par une mise en service — 11 septembre 2026
+
+Mettre `massifs` en service a fait dire au bandeau de **toutes les pages** :
+
+> 5/8 sources en service · **maj il y a moins d'une minute** · prochaine vers 22:50
+
+En permanence, et toujours par la même source. Le niveau d'accès aux
+massifs du lendemain paraît la veille au soir : le connecteur datait donc
+la donnée du **jour décrit**, c'est-à-dire de demain. `dataAgeMs` ramène
+tout écart négatif à zéro, zéro se formate en « moins d'une minute », et
+la source la plus en avance gagnait le concours du « plus récent ». Le
+service annonçait s'être mis à jour à l'instant, quoi qu'il arrive aux
+huit autres — exactement la fausse assurance que le §5.13 interdit.
+
+- ✅ **La cause** : `import-massifs.py` enregistre désormais l'instant où
+  il **lit**, non le jour décrit. C'est la convention du projet — CAMS
+  enregistre l'heure de son run, FIRMS celle de l'acquisition, jamais
+  l'échéance décrite. L'heure de publication de la préfecture n'étant pas
+  connue, le moment de la passe est le meilleur ancrage honnête ; la
+  deviner serait l'inventer. Le jour décrit reste où il a un sens,
+  `app.massif_access_levels.valide_le`
+- ✅ **La ceinture** : `mostRecentPast` écarte du concours toute donnée
+  horodatée en avance, symétrique d'`earliestUpcoming` qui écarte les
+  échéances passées. Aucune source, présente ou à venir, ne peut plus
+  faire dire au bandeau qu'il vient d'être à jour
+- ✅ **L'aveu** : `formatDataRecency` dit « dans 4 h 28 min » là où
+  l'ancienne formule disait « il y a moins d'une minute ». Une tolérance
+  de deux minutes absorbe les écarts d'horloge sans les commenter
+
+Vérifié après correction : le bandeau annonce « maj il y a 2 h 21 min » —
+le radar, qui est effectivement la donnée la plus récente déjà là.
+
+Les anciennes lignes d'`ingest.import_runs` gardent leur date de validité
+et n'ont **pas** été réécrites : le `max()` de la vue les laisse derrière
+dès la première passe postérieure à minuit, et corriger des
+enregistrements historiques pour gagner quelques heures d'affichage —
+déjà honnête depuis l'aveu — serait payer cher un bénéfice qui vient tout
+seul.
+
 #### Une affirmation devenue fausse, trouvée en refondant
 
 `/commune/[insee]` annonçait que « les détections thermiques satellitaires ne
@@ -1704,6 +1766,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar (préfixe `radar/`) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
 | Cadence radar étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme | §8.1 / J5 |
 | Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |
+| Une source peut dater sa donnée en avance | `massifs` enregistrait `source_data_at` au **jour décrit** — le niveau du lendemain paraît la veille au soir — et non à l'instant de lecture. La fraîcheur en tirait un âge négatif, ramené à zéro puis formaté en « moins d'une minute » : le bandeau de toutes les pages a annoncé « maj il y a moins d'une minute » en permanence dès la mise en service (11 septembre). Connecteur corrigé, et deux garde-fous posés dans le domaine — `mostRecentPast` écarte du concours ce qui est horodaté en avance, `formatDataRecency` dit « dans 4 h 28 min » plutôt que de faire passer une avance pour une fraîcheur. **À vérifier à chaque nouveau connecteur** : `source_data_at` est l'instant de production, jamais l'échéance décrite | Continu |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |

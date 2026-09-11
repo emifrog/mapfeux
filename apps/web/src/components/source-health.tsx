@@ -1,4 +1,4 @@
-import { dataAgeMs, earliestUpcoming, formatDataAge, isInService } from '@mapfeux/domain';
+import { earliestUpcoming, formatDataRecency, isInService, mostRecentPast } from '@mapfeux/domain';
 
 import { fetchSourceStatus } from '@/lib/sources';
 
@@ -73,14 +73,17 @@ export async function SourceHealth() {
   // La fraîcheur affichée est celle des sources en service. Une source à venir
   // n'a par définition aucune donnée, et une source en maintenance en a de
   // vieilles : ni l'une ni l'autre ne renseigne sur ce que le site montre.
-  const timestamps = inService
-    .map((source) => source.last_data_at)
-    .filter((value): value is string => value !== null)
-    .map((value) => new Date(value));
-  const mostRecent =
-    timestamps.length === 0
-      ? null
-      : timestamps.reduce((latest, current) => (current > latest ? current : latest));
+  //
+  // Une donnée horodatée **en avance** est écartée du concours : elle ferait
+  // dire « maj il y a moins d'une minute » en permanence, et toujours par la
+  // même source. Voir `mostRecentPast`.
+  const now = new Date();
+  const mostRecent = mostRecentPast(
+    inService.map((source) =>
+      source.last_data_at === null ? null : new Date(source.last_data_at),
+    ),
+    now,
+  );
 
   // Par symétrie avec la fraîcheur — la donnée la plus récente de toutes
   // les sources en service —, on retient l'échéance la plus proche : le
@@ -89,7 +92,7 @@ export async function SourceHealth() {
     inService.map((source) =>
       source.next_data_expected_at === null ? null : new Date(source.next_data_expected_at),
     ),
-    new Date(),
+    now,
   );
 
   const allHealthy = healthy === total && total > 0;
@@ -117,9 +120,7 @@ export async function SourceHealth() {
         {healthy}/{total} source{total > 1 ? 's' : ''} en service
       </span>
       {mostRecent !== null && (
-        <span className="whitespace-nowrap">
-          · maj il y a {formatDataAge(dataAgeMs(mostRecent, new Date()))}
-        </span>
+        <span className="whitespace-nowrap">· maj {formatDataRecency(mostRecent, now)}</span>
       )}
       {nextData !== null && (
         <span className="whitespace-nowrap">

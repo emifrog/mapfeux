@@ -126,6 +126,56 @@ export function formatDataAge(ageMs: number): string {
 }
 
 /**
+ * La donnée la plus récente **déjà là**, ou `null`.
+ *
+ * Symétrique d'`earliestUpcoming` : celle-ci écarte le passé, celle-là
+ * écarte l'avenir.
+ *
+ * Une source peut horodater sa donnée en avance — le niveau d'accès aux
+ * massifs du lendemain paraît la veille au soir. Retenue comme « la plus
+ * récente », une telle donnée ferait dire au bandeau « maj il y a moins
+ * d'une minute » en permanence, quoi qu'il arrive aux autres sources :
+ * constaté le 11 septembre 2026, à la mise en service de `massifs`. C'est
+ * la fausse assurance que le §5.13 interdit, et elle est d'autant plus
+ * trompeuse qu'elle vient de la source la plus en avance, donc toujours
+ * la même.
+ *
+ * Le connecteur a été corrigé pour dater ses passes de l'instant où il
+ * lit ; cette fonction est la ceinture — aucune source, présente ou à
+ * venir, ne peut plus faire dire au bandeau qu'il vient d'être à jour.
+ */
+export function mostRecentPast(dates: readonly (Date | null)[], now: Date): Date | null {
+  let latest: Date | null = null;
+  for (const date of dates) {
+    if (date === null) continue;
+    const time = date.getTime();
+    if (Number.isNaN(time) || time > now.getTime()) continue;
+    if (latest === null || time > latest.getTime()) latest = date;
+  }
+  return latest;
+}
+
+/**
+ * « il y a 4 j 19 h », ou « dans 4 h 30 » quand l'horodatage est en avance.
+ *
+ * L'âge seul ne peut pas le dire : `dataAgeMs` ramène tout écart négatif à
+ * zéro, qui se formate en « moins d'une minute » — un horodatage de demain
+ * se lisait donc comme une donnée de l'instant.
+ *
+ * Une petite avance est tolérée sans commentaire : les horloges d'un
+ * fournisseur et les nôtres ne sont pas synchronisées à la seconde, et
+ * annoncer « dans 12 s » serait du bruit.
+ */
+export const CLOCK_TOLERANCE_MS = 2 * MINUTE_MS;
+
+export function formatDataRecency(dataAt: Date, now: Date): string {
+  const ahead = dataAt.getTime() - now.getTime();
+  if (Number.isNaN(ahead)) return 'date inconnue';
+  if (ahead > CLOCK_TOLERANCE_MS) return `dans ${formatDataAge(ahead)}`;
+  return `il y a ${formatDataAge(dataAgeMs(dataAt, now))}`;
+}
+
+/**
  * La plus proche échéance **encore à venir**, ou `null`.
  *
  * Le bandeau d'état dit depuis quand la donnée date ; cette fonction lui

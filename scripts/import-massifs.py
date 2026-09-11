@@ -128,9 +128,26 @@ def main(argv: list[str]) -> int:
                         total_updated += updated
                         counters.artifact_path = f"{BUCKET_RAW}/massifs/{department}/{stamp}.json"
                         counters.checksum = checksum
-                        counters.source_data_at = datetime.combine(
-                            day, datetime.min.time(), tzinfo=UTC
-                        )
+                        # L'instant où la donnée a été **obtenue**, non le jour
+                        # qu'elle décrit.
+                        #
+                        # Le niveau du lendemain paraît la veille au soir : y
+                        # mettre `day` datait la donnée de demain, et la vue de
+                        # fraîcheur, qui mesure l'âge par `now() - source_data_at`,
+                        # en tirait un âge négatif. Mis en service le
+                        # 11 septembre 2026, le bandeau de toutes les pages
+                        # annonçait « maj il y a moins d'une minute » en
+                        # permanence — la fausse assurance que le §5.13 interdit,
+                        # servie par la source la plus en avance.
+                        #
+                        # La convention du projet est l'instant de production :
+                        # CAMS enregistre l'heure de son run, FIRMS celle de
+                        # l'acquisition, jamais l'échéance décrite. Faute de
+                        # connaître l'heure de publication de la préfecture, le
+                        # moment de la passe est le meilleur ancrage honnête —
+                        # la deviner serait l'inventer. Le jour décrit reste où
+                        # il a un sens : `app.massif_access_levels.valide_le`.
+                        counters.source_data_at = datetime.now(UTC)
                         print(
                             f"{department} {day} : {len(assembled)} massif(s), "
                             f"{inserted} créé(s), {updated} mis à jour"
