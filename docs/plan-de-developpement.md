@@ -1,17 +1,21 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 28 août 2026 — **J4 est construit en entier** :
-les niveaux d'accès aux massifs sont captés du site interservices (9
-massifs du Var, 7 du 06, libellés officiels verbatim au vocabulaire
-propre de chaque département) et affichés sur les pages territoire, à
-côté des citations préfectorales, du rapprochement et des contradictions
-livrés le 26. Le **contrôle des migrations** du jour : 42 en dépôt, 20
-objets matériels sondés tous présents, registre `supabase_migrations`
-inexistant — la voie réelle est l'application directe idempotente. Reste
-au jalon : la mise en service des sources `prefectures` et `massifs`
-après leurs passes planifiées, et la mesure du critère des trente
-minutes. Veille concurrentielle en [stratégie](strategie.md) v1.2. Total
-restant ≈ 24 semaines.
+**Dernière mise à jour** : 11 septembre 2026 — **la carte a été reprise
+après comparaison**. La [veille GISFire](strategie.md) v1.3 a servi de
+miroir : leur carte est meilleure que la nôtre, et l'écart tenait à la
+finition, pas à la doctrine. Le lavis départemental cessait d'être un
+agrégat pour devenir un cache — il s'efface en fondu là où les marqueurs
+prennent le relais ; la carte occupe la hauteur de l'écran et les
+commandes se posent dessus ; une **barre temporelle** (FR-005) borne
+enfin ce qui est montré, sept jours par défaut, la frontière que §17.4
+donne à l'archivage — 198 événements affichés sans le dire, 8 désormais,
+annoncés. Le bandeau d'état dit la **prochaine donnée attendue**, tirée
+de l'`expected_interval` du registre et non d'une prédiction orbitale
+(43ᵉ migration, appliquée et rejouée). Trouvée en chemin : l'attribution
+IGN de la carte était **vide** depuis un moment, la porte verte portant
+sur le style raster de repli et non sur le vectoriel servi. Reste à J4 :
+la mise en service de `prefectures` et `massifs`, et la mesure du critère
+des trente minutes. Total restant ≈ 24 semaines.
 
 Ce fichier est la **source unique de l'avancement** et le **seul** endroit où
 vit le découpage en jalons.
@@ -113,19 +117,19 @@ posées dans `next.config.ts` ; la fonction SQL `fires_in_bbox` garde son nom,
 interne. Portes repassées après renommage : format, lint, typecheck, tests,
 build — vertes.
 
-### Portes de qualité — dernier passage (26 août, matin)
+### Portes de qualité — dernier passage (11 septembre, soir)
 
 | Chaîne | Commande | Résultat |
 |---|---|---|
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 76 tests |
+| Web | `pnpm test` | ✅ 94 tests (46 domaine, 28 web, 12 map-style, 8 contrats) |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
-| Worker | `ruff check` / `ruff format --check` | ✅ 109 fichiers (78 worker + 31 scripts) |
+| Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
 | Worker | `pytest` | ✅ 459 tests |
-| Migrations | 42 migrations sur base vierge, en CI | ✅ CI verte sur les 41 du dernier push ; la 42ᵉ (`massif_access`) appliquée **et rejouée** en production. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
+| Migrations | 43 migrations sur base vierge, en CI | ✅ CI verte sur les 42 du dernier push ; la 43ᵉ (`source_next_data`) appliquée **et rejouée** en production, et sa colonne vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -149,17 +153,21 @@ supervision, mode dégradé.
 Geste d'exploitation à venir : passer la source `prefectures` à `active`
 après ses premières passes planifiées, même doctrine que CAMS et radar.
 
-Restent aussi, hors critères : le coup d'œil réel sur les couches air et
-radar depuis un navigateur qui composite (réserve de J9), et les décisions
-ouvertes — formulation du panache (§22.5), ADR du vent historique, §8.5 —
-plus l'**ordonnancement (§8.1)**.
+Les deux clés attendues sont posées et vivantes — `COPERNICUS_KEY` en
+secret GitHub, la clé d'application radar dans l'environnement : au
+contrôle du 11 septembre, `cams`, `radar`, `firms` et `vigilance` lisent
+toutes « à jour ». `arome` lit « en retard » — donnée de 09 h UTC quand le
+run de 12 h devrait être entré ; **cause non établie**, la cadence Actions
+en est la première suspecte, à instruire avant d'accuser.
 
-Deux actions d'exploitation en parallèle, côté auteur : poser
-`COPERNICUS_KEY` en **secret GitHub** pour que le cron quotidien de 08 h 45
-vive (la source ne se dira « en service » qu'après ses premières passes
-planifiées) ; et créer la **clé d'application radar** sur le portail
-Météo-France (une clé PAR application — celle de la vigilance produirait un
-403 sans motif).
+Restent aussi, hors critères : le coup d'œil réel sur les couches air et
+radar depuis un navigateur qui composite (réserve de J9 — **toujours
+ouvert** : le panneau d'aperçu de septembre affiche la page mais ne
+composite pas la toile MapLibre ; ce qui a pu être vérifié à l'écran l'a
+été par l'arbre d'accessibilité et les mesures du DOM), et les décisions
+ouvertes — formulation du panache (§22.5), ADR du vent historique, §8.5 —
+plus l'**ordonnancement (§8.1)**, que le bandeau d'état rend maintenant
+lisible du public.
 
 Décisions toujours ouvertes, sans changement : formulation du panache
 (§22.5), ADR du vent historique, validation humaine des informations
@@ -1361,10 +1369,13 @@ en linéale.
   fichiers de test sortent du balayage Tailwind — sans quoi le test engendrait
   lui-même les règles qu'il proscrit, ses exemples étant lus comme des classes
 - ✅ **Carte et liste.** La carte prend toute la largeur de la coque, la lecture
-  reste en colonne ; la légende passe à côté d'elle sur grand écran, au lieu de
-  tomber hors de vue sous la carte. La liste emprunte les symboles de la carte
-  — disque plein pour un événement étayé, anneau creux pour une observation
-  isolée — plutôt que d'inventer un second vocabulaire pour la même distinction
+  reste en colonne. La liste emprunte les symboles de la carte — disque plein
+  pour un événement étayé, anneau creux pour une observation isolée — plutôt
+  que d'inventer un second vocabulaire pour la même distinction. *(La légende
+  était alors posée à côté de la carte pour ne pas tomber hors de vue ; la
+  passe du 11 septembre l'a ramenée dessous, la carte occupant désormais la
+  hauteur de l'écran et les clés de lecture essentielles étant montées dans la
+  barre temporelle, au contact des points qu'elles décodent.)*
 - ✅ **Gabarit `Prose`**, qui porte six pages de contenu d'un coup. Surtitre
   classant — « légal », « méthode », « provenance » — parce que six pages au
   même gabarit ne se distinguaient qu'en lisant leur titre
@@ -1385,6 +1396,66 @@ en linéale.
   zéro déclaration de la forme `propriété: --jeton`. Le défaut n'a pas
   reparu au déploiement, et ce contrôle-là est rejouable sur l'URL publique,
   contrairement à un coup d'œil
+
+#### La carte reprise après comparaison — 11 septembre 2026
+
+La [veille GISFire](strategie.md#veille-du-11-septembre-2026--gisfire-re-sondé--la-torchère-a-sa-page)
+a servi de miroir : leur carte est meilleure que la nôtre, et l'essentiel
+de l'écart n'était pas doctrinal mais de finition. Trois séances, toutes
+**regardées dans un navigateur** avant d'être déclarées faites.
+
+- ✅ **Le lavis départemental cesse d'écraser les marqueurs.** Il montait à
+  50 % d'opacité et restait peint jusqu'au zoom 9, par-dessus les
+  événements auxquels la stratégie de zoom (§21.3) lui demande de céder :
+  au zoom 8, cadrage par défaut de `/carte`, les disques disparaissaient
+  dans le saumon. Il s'efface en fondu — plein à z6 où il est le sujet,
+  0,3 à z7 où les deux coexistent, nul à z8. Un agrégat qui masque le
+  détail qu'il annonce ne renseigne plus, il cache
+- ✅ **La carte prend la hauteur de l'écran**, et les commandes se posent
+  dessus. Elle occupait un quart de page sous un mur de texte, avec une
+  colonne de 320 px où trois paragraphes d'explication prenaient la place
+  des commandes. Le partage est net : `layers-panel.tsx` porte ce qui se
+  manipule — calques groupés par famille, l'observation **sans
+  interrupteur** puisqu'elle est le sujet —, le dessous de carte ce qui se
+  lit. Les mentions obligatoires n'ont pas bougé : FR-121 garde résolution,
+  unité, heure, nature modélisée et l'avertissement, désormais lisibles
+- ✅ **Barre temporelle** (FR-005) — fenêtres 12 h / 24 h / 48 h / 7 j /
+  Tout, le compte de ce qui est montré, et la clé de lecture des couleurs
+  au contact des points qu'elle décode (paliers exportés de la légende :
+  une définition, deux présentations). Toute la mécanique existait —
+  `fires_in_bbox` et la route acceptent `since`, et le catalogue
+  `/evenements` filtre par période depuis le 9 août ; la carte, seule,
+  ne le proposait pas. C'était de la mise en scène. **Le défaut vient du
+  cahier** : §17.4 tient `archived` pour « hors fenêtre d'affichage
+  courant » et le cycle de vie archive au septième jour ; la carte servait pourtant tout l'historique de l'emprise — 198
+  événements en septembre, l'été varois entier. Elle en montre 8, ceux des
+  sept derniers jours, et le dit ; « Tout » reste à un clic. Filtrer en
+  l'annonçant n'est pas masquer (§17.7). Le rendu serveur applique la même
+  fenêtre : carte et liste comptent enfin pareil
+- ✅ **Le bandeau d'état annonce la prochaine donnée** — « prochaine vers
+  21:16 », depuis `next_data_expected_at` posé dans `api.source_status`
+  (migration `20260911150000`). C'est une **attente, pas une prédiction** :
+  dernière donnée plus l'`expected_interval` du registre, celui qui
+  qualifie déjà une source de `delayed` ; « vers » porte l'approximation,
+  l'heure est absolue parce qu'une durée vieillit mal dans une page en
+  cache, et une échéance dépassée n'est pas affichée
+
+⚠️ **L'attribution de la carte était vide** — `maplibregl-attrib-empty`,
+0 × 0 pixel, constaté le 11 septembre. Le style **vectoriel** de la
+Géoplateforme ne déclare pas d'attribution sur ses sources ; le test de
+`map-style` vérifiait bien qu'elle existe, mais sur le style **raster**,
+qui n'est que le repli — une porte verte sur le chemin qu'on n'emprunte
+pas, exactement le motif des 86 classes. Rétablie par `customAttribution`
+et vérifiée à l'écran (« © IGN — Géoplateforme »), la barre temporelle
+s'arrêtant au-dessus d'elle plutôt que de la recouvrir (§9.5). Une
+obligation de licence ne tenait plus depuis un moment.
+
+Deux défauts encore, attrapés en vérifiant plutôt qu'en supposant : en
+375 px l'heure du bandeau se détachait de sa phrase pour flotter seule, et
+le **build a échoué** sur `/_not-found` — une date invalide franchit
+toutes les comparaisons puisque `NaN` les fait toutes échouer, si bien
+qu'un `new Date(undefined)` devenait l'échéance retenue. Garde-fou posé
+dans la fonction pure du domaine, avec son test.
 
 #### Une affirmation devenue fausse, trouvée en refondant
 
@@ -1465,7 +1536,8 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
 | Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar (préfixe `radar/`) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
-| Cadence radar étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes | §8.1 / J5 |
+| Cadence radar étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme | §8.1 / J5 |
+| Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
