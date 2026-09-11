@@ -3,6 +3,7 @@
 import { MODELLED_VALUE_NOTICE } from '@mapfeux/domain';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
+import { DEFAULT_WINDOW_HOURS } from '@/lib/map/time-windows';
 import { resolveRadarTimeline, type RadarTimeline } from '@/lib/radar/timeline';
 
 import type { AirTilesInfo } from './air-layer';
@@ -10,6 +11,7 @@ import type { MapEvent } from './event-layer';
 import { LayersPanel } from './layers-panel';
 import { MapLegend } from './legend';
 import { MapView } from './map-view';
+import { TimeBar } from './time-bar';
 
 /**
  * Carte nationale, ses calques et ce qu'il faut lire pour les comprendre.
@@ -67,6 +69,11 @@ export function CarteMapPanel({
   center: readonly [number, number];
   zoom: number;
 }) {
+  // La fenêtre par défaut est celle du rendu serveur : le premier lot arrive
+  // déjà filtré, la carte n'a rien à recharger au montage.
+  const [windowHours, setWindowHours] = useState<number | null>(DEFAULT_WINDOW_HOURS);
+  const [eventCount, setEventCount] = useState(events.length);
+
   const [pollutant, setPollutant] = useState<string | null>(null);
   const [airInfo, setAirInfo] = useState<AirTilesInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -155,6 +162,8 @@ export function CarteMapPanel({
             className="h-full w-full"
             events={events}
             reloadOnMove
+            windowHours={windowHours}
+            onEventsLoaded={setEventCount}
             airPollutant={pollutant}
             onAirInfo={(info) => {
               setAirInfo(info);
@@ -163,6 +172,8 @@ export function CarteMapPanel({
             radarFrame={radarFrame}
           />
         </div>
+
+        <TimeBar windowHours={windowHours} onWindowHours={setWindowHours} eventCount={eventCount} />
 
         <LayersPanel
           pollutant={pollutant}

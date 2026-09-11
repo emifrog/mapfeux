@@ -1,6 +1,6 @@
 'use client';
 
-import { DEFAULT_VIEW, ignVectorStyleUrl } from '@mapfeux/map-style';
+import { DEFAULT_VIEW, IGN_ATTRIBUTION, ignVectorStyleUrl } from '@mapfeux/map-style';
 import maplibregl from 'maplibre-gl';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
@@ -105,6 +105,18 @@ export interface BaseMapProps {
   /** Recharge les événements lorsque l'emprise change. FR-007. */
   reloadOnMove?: boolean;
   /**
+   * Fenêtre temporelle demandée, en heures — `null` pour tout ce que
+   * l'emprise porte. La carte recharge à chaque changement, sans attendre
+   * un déplacement (FR-005).
+   */
+  windowHours?: number | null;
+  /**
+   * Reçoit le nombre d'événements du dernier chargement **client**, pour
+   * que la barre affiche ce que la carte montre réellement plutôt que le
+   * compte du rendu serveur, qui date d'avant le premier déplacement.
+   */
+  onEventsLoaded?: (count: number) => void;
+  /**
    * Instant de référence pour la couleur d'âge des marqueurs, ISO 8601.
    * La relecture temporelle colore par l'âge **à l'instant rejoué** (FR-081) ;
    * absent, l'âge se mesure contre maintenant, comme sur la carte vivante.
@@ -142,15 +154,23 @@ function prefersReducedMotion(): boolean {
  * qui vaut mieux que de les effacer. La liste textuelle rendue par le serveur
  * porte, elle, l'horodatage de son propre chargement.
  */
-async function reload(map: maplibregl.Map): Promise<void> {
+async function reload(map: maplibregl.Map, windowHours: number | null): Promise<number | null> {
   const bounds = map.getBounds();
   const bbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]
     .map((value) => value.toFixed(4))
     .join(',');
 
+  // FR-005 : la fenêtre est un filtre **annoncé**, porté par le même
+  // paramètre `since` que le catalogue — carte et liste comptent donc la
+  // même chose, et l'URL de l'API dit ce qui a été demandé.
+  const since =
+    windowHours === null
+      ? ''
+      : `&since=${new Date(Date.now() - windowHours * 3_600_000).toISOString()}`;
+
   try {
-    const response = await fetch(`/api/v1/events?bbox=${bbox}&limit=500`);
-    if (!response.ok) return;
+    const response = await fetch(`/api/v1/events?bbox=${bbox}&limit=500${since}`);
+    if (!response.ok) return null;
 
     const payload = (await response.json()) as {
       data: {
@@ -179,8 +199,10 @@ async function reload(map: maplibregl.Map): Promise<void> {
         nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
       })),
     );
+    return payload.data.length;
   } catch {
     // Emprise trop large ou réseau coupé : on garde l'affichage précédent.
+    return null;
   }
 }
 
@@ -192,6 +214,8 @@ export default function BaseMap({
   events = [],
   perimeters = [],
   reloadOnMove = false,
+  windowHours = null,
+  onEventsLoaded,
   ageReference,
   airPollutant = null,
   onAirInfo,
@@ -207,6 +231,15 @@ export default function BaseMap({
   useEffect(() => {
     onAirInfoRef.current = onAirInfo;
   }, [onAirInfo]);
+
+  // Même motif pour la fenêtre et son rappel : le gestionnaire `moveend`
+  // est posé une fois pour toutes et doit lire la fenêtre **courante**,
+  // pas celle qui avait cours à sa pose.
+  const windowHoursRef = useRef(windowHours);
+  const onEventsLoadedRef = useRef(onEventsLoaded);
+  useEffect(() => {
+    onEventsLoadedRef.current = onEventsLoaded;
+  }, [onEventsLoaded]);
 
   // « Le style a fini de charger » se mémorise ici : `isStyleLoaded()` peut
   // répondre faux transitoirement bien après l'événement `load` (pendant un
@@ -253,8 +286,16 @@ export default function BaseMap({
       center: [center[0], center[1]],
       zoom,
       ...boundsOption,
-      // L'attribution IGN est obligatoire et ne doit pas être repliée. §9.5
-      attributionControl: { compact: false },
+      // L'attribution IGN est obligatoire et ne doit pas être repliée (§9.5).
+      //
+      // `customAttribution` n'est pas une ceinture de sécurité : c'est la
+      // seule attribution servie. Le style **vectoriel** de la Géoplateforme
+      // ne déclare pas d'attribution sur ses sources, si bien que le contrôle
+      // restait vide (`maplibregl-attrib-empty`, 0 × 0) — constaté le
+      // 11 septembre 2026. Le test de `map-style` couvrait le style raster,
+      // qui la porte bien, mais c'est le vectoriel qui est affiché : une
+      // porte verte sur le chemin qu'on n'emprunte pas.
+      attributionControl: { compact: false, customAttribution: IGN_ATTRIBUTION },
       // Le relief incliné n'apporte rien à la lecture d'une détection et
       // complique la comparaison des distances.
       pitchWithRotate: false,
@@ -339,7 +380,11 @@ export default function BaseMap({
       }
 
       if (reloadOnMove) {
-        map.on('moveend', () => void reload(map));
+        map.on('moveend', () => {
+          void reload(map, windowHoursRef.current).then((count) => {
+            if (count !== null) onEventsLoadedRef.current?.(count);
+          });
+        });
       }
     });
 
@@ -412,6 +457,31 @@ export default function BaseMap({
       cancelled = true;
     };
   }, [airPollutant]);
+
+  // Changement de fenêtre : rechargement immédiat, sans attendre un
+  // déplacement. Le premier rendu vient du serveur avec la même fenêtre —
+  // le montage ne recharge donc rien, il n'y aurait qu'un aller-retour pour
+  // le même résultat.
+  const windowSettledRef = useRef(false);
+  useEffect(() => {
+    windowHoursRef.current = windowHours;
+    const map = mapRef.current;
+    if (map === null) return;
+    if (!windowSettledRef.current) {
+      windowSettledRef.current = true;
+      return;
+    }
+    const run = (): void => {
+      void reload(map, windowHours).then((count) => {
+        if (count !== null) onEventsLoadedRef.current?.(count);
+      });
+    };
+    if (styleReadyRef.current) {
+      run();
+    } else {
+      map.once('load', run);
+    }
+  }, [windowHours]);
 
   // Couche radar (§19.3). Changer de frame ne touche que l'image de la
   // source : c'est ce qui rend l'animation fluide.

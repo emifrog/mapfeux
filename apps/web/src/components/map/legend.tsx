@@ -10,12 +10,20 @@ import { PALETTE } from '@mapfeux/map-style';
  * Chaque entrée a une pastille **et** un libellé : jamais la couleur seule.
  */
 
-const ENTRIES = [
+/**
+ * Les paliers d'âge, exportés : la barre temporelle en affiche la version
+ * compacte au contact de la carte, ce bloc la version complète. Une seule
+ * définition pour deux présentations — deux listes divergeraient au premier
+ * ajustement de seuil.
+ */
+export const AGE_LEGEND_ENTRIES = [
   { color: PALETTE.thermal.new, label: 'moins de 3 h' },
   { color: PALETTE.thermal.recent, label: '3 à 12 h' },
   { color: PALETTE.thermal.notRecent, label: '12 à 24 h' },
   { color: PALETTE.thermal.archived, label: 'plus de 24 h' },
 ] as const;
+
+const ENTRIES = AGE_LEGEND_ENTRIES;
 
 export function MapLegend() {
   return (

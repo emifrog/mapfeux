@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { CarteMapPanel } from '@/components/map/carte-map-panel';
 import { EventList } from '@/components/event-list';
 import { fetchEventsInBbox } from '@/lib/data/events';
+import { DEFAULT_WINDOW_HOURS, windowPhrase, windowSince } from '@/lib/map/time-windows';
 
 /**
  * Carte nationale. Cahier §7.1, FR-001 à FR-007.
@@ -39,8 +40,16 @@ export const revalidate = 120;
 const INITIAL_BBOX = { minLon: 5.2, minLat: 42.6, maxLon: 8.0, maxLat: 44.6 };
 
 export default async function MapPage() {
-  const events = await fetchEventsInBbox(INITIAL_BBOX, { limit: 500 });
   const now = new Date();
+  // Le premier lot arrive déjà dans la fenêtre par défaut : la carte et sa
+  // liste montrent la même chose, et le §17.4 tient — un événement archivé
+  // est « hors fenêtre d'affichage courant », pas un point de plus sur la
+  // carte du jour. La barre temporelle permet d'élargir jusqu'à « tout ».
+  const since = windowSince(DEFAULT_WINDOW_HOURS, now);
+  const events = await fetchEventsInBbox(INITIAL_BBOX, {
+    limit: 500,
+    ...(since === undefined ? {} : { since }),
+  });
 
   const generatedAt = new Intl.DateTimeFormat('fr-FR', {
     dateStyle: 'long',
@@ -93,8 +102,9 @@ export default async function MapPage() {
         </h2>
         <p className="text-small text-(--text-2) mt-2 max-w-[68ch]">
           <span className="mono">{events.length}</span> événement
-          {events.length > 1 ? 's' : ''} au chargement de la page. Cette liste ne suit pas les
-          déplacements de la carte : elle décrit l’emprise initiale, et son horodatage vaut pour
+          {events.length > 1 ? 's' : ''} {windowPhrase(DEFAULT_WINDOW_HOURS)}, au chargement de la
+          page. Cette liste ne suit ni les déplacements de la carte ni la fenêtre que vous y
+          choisissez : elle décrit l’emprise et la période initiales, et son horodatage vaut pour
           elle seule.
         </p>
 
