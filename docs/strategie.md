@@ -1,10 +1,15 @@
 # MapFeux — Stratégie
 
-**Version 1.2 — 25 août 2026** — veille concurrentielle du §2 : deux entrants
-examinés sur pièces (GISFire, Climate Innov), thèse confirmée, frontière des
-moyens aériens rappelée. Version 1.1 : 6 août 2026 — décision D-0 (option A)
-répercutée au §4, autorisation de cumul obtenue (§3.1, point d'arrêt du §7
-levé), calendrier tranché (§8.2). Version 1.0 : 28 juillet 2026.
+**Version 1.3 — 11 septembre 2026** — re-sonde GISFire (§2) : le concurrent
+est passé au monde entier, aux fiches indexées en quatre langues et à
+l'abonnement payant ; les torchères de Fos et Grande-Synthe y sont
+devenues des **pages titrées « Feu de »**, et le bilan départemental des
+Bouches-du-Rhône n'est composé que d'elles. Version 1.2 : 25 août 2026 —
+veille concurrentielle du §2, deux entrants examinés sur pièces (GISFire,
+Climate Innov), thèse confirmée, frontière des moyens aériens rappelée.
+Version 1.1 : 6 août 2026 — décision D-0 (option A) répercutée au §4,
+autorisation de cumul obtenue (§3.1, point d'arrêt du §7 levé), calendrier
+tranché (§8.2). Version 1.0 : 28 juillet 2026.
 
 Ce document porte les décisions qui ne bougent pas d'une semaine sur l'autre :
 positionnement, périmètre, préalables juridiques, modèle économique, conditions
@@ -47,7 +52,7 @@ publier une position de moyens, se substituer à une alerte officielle.
 | suivi-feu-medoc | Rendu spectaculaire, ADS-B, imagerie Meteosat | Rigueur sémantique, statuts séparés, pas de confusion avec l'officiel |
 | feuxdeforet.fr, feux.net | Volume de pages, SEO | Traçabilité vérifiable, absence d'affirmation non sourcée |
 | FIRMS, EFFIS | Données brutes de référence | Maille communale, langue française, lisibilité grand public |
-| GISFire (gisfire.saro.app) | Le concurrent le plus complet : FIRMS multi-produits regroupés en événements, fiches, rejeu 7 j, panache du vent prévu, ADS-B et largages, foudre, Europe entière, pédagogie remarquable | Masque des sources statiques (leurs « feux » de Fos et Grande-Synthe, sondés le 25 août), identifiants opaques, statuts de vérification, information officielle contre fil de presse, surfaces avec méthode, rendu sans JavaScript |
+| GISFire (gisfire.saro.app) | Le concurrent le plus complet, et il accélère : cinq produits FIRMS dont GOES, monde entier (26 666 feux actifs), fiches **rendues serveur** et indexées en quatre langues, pages départementales, rejeu de propagation, panache, ADS-B et largages, foudre, `/api/status` détaillé, abonnement Pro (alertes courriel/SMS, API) | Masque des sources statiques — **re-sondé le 11 septembre : Fos et Grande-Synthe sont devenues des pages « Feu de », 1 042 et 1 189 ha** —, identifiants opaques, statut officiel jamais posé par un automate, surfaces avec méthode, provenance attribuée plutôt que rapprochement de presse |
 | Climate Innov (ensemblepourlaforet.fr) | Risque de départ de feu horaire, 3 km, 36 h, météo satellitaire (Spire), partenaire EDHEC | Pas un concurrent : le risque avant le feu, MapFeux l'observation pendant et après — leur propre avertissement renvoie ailleurs pour les feux en cours. SecuFire Action (Balbi, gratuit pour les SDIS) concurrence PREVIFEU, pas MapFeux |
 
 ### Veille du 25 août 2026 — deux entrants, examinés sur pièces
@@ -95,6 +100,76 @@ s'interdit, et c'est un choix, pas un retard.
 Entretien : re-sonder Fos chez GISFire et revisiter les deux acteurs avant
 l'ouverture publique ; toute nouvelle fonction chez eux s'évalue contre la
 thèse, pas contre la peur de manquer.
+
+### Veille du 11 septembre 2026 — GISFire re-sondé : la torchère a sa page
+
+Dix-sept jours après, l'entretien prescrit ci-dessus a été exécuté. Le
+concurrent a beaucoup avancé, et **le défaut de fond s'est aggravé en
+devenant durable**.
+
+Ce qu'ils ont gagné : GOES ajouté (83 137 lignes/24 h, le plus gros
+volume), passage de l'Europe au **monde entier** — 262 847 détections sur
+24 h, 26 666 feux actifs ; des **fiches rendues serveur** et indexées,
+`/feux/foyer/<lieu>-<lat>n<lon>e`, doublées de pages départementales
+`/feux/<departement>`, le tout en **quatre langues** (652 URL au sitemap) ;
+un `/api/status` par source avec `stalenessS` et drapeau `degraded` ; un
+**abonnement Pro** (alertes courriel et SMS sur zones surveillées, API,
+historique). Ils ont aussi commencé J4 à leur manière : presse et sources
+officielles « rapprochées automatiquement », avec historique de qui a
+annoncé quoi.
+
+Ce qu'ils ont perdu en le gardant. Les torchères ne sont plus seulement
+servies sur la carte : elles ont des **pages permanentes, titrées, en
+quatre langues**.
+
+- `/feux/foyer/fos-sur-mer-43.45n4.89e` — « **Feu de Fos-sur-Mer du
+  10 août 2026** », 850 détections sur 29 jours, **1 042 ha d'emprise**.
+- `/feux/foyer/grande-synthe-51.04n2.29e` — « **Feu de Grande-Synthe du
+  11 août 2026** », 748 détections sur 30 jours, **1 189 ha**.
+- Et surtout `/feux/bouches-du-rhone` : « **2 foyers détectés au cours des
+  30 derniers jours, pour 1 426 hectares d'emprise cumulée** » — les deux
+  foyers étant Fos (1 042 ha) et Martigues (384 ha, raffinerie de Lavéra).
+  **Le bilan départemental d'un département méditerranéen est composé à
+  100 % de sites industriels.**
+
+Justice leur soit rendue : la nuance est dans le corps du texte — « le feu
+**ou la source de chaleur** peut être plus ancien », « seules la préfecture
+et le SDIS font foi », et une distinction fine entre orbites polaires (qui
+mesurent une surface) et géostationnaires (trop grossières pour une
+géométrie). Ils savent. Mais **le titre, l'URL, le H1 et l'agrégat
+départemental disent « feu »** — et c'est le titre qui part dans Google,
+dans un partage, dans une reprise de presse. La leçon est nette et vaut
+pour nous : **un avertissement ne corrige pas une structure**. Là où nous
+avons payé un registre spatial de 45 sources et une mesure (10 août), ils
+ont payé une phrase.
+
+Deuxième écart de doctrine, nouveau : leurs fiches affichent une
+chronologie avec **statuts affirmés** — « Éteint … éteint le 9 septembre à
+05:00 » sur la torchère de Fos, qui brûle en continu. Un automate y pose
+un statut d'extinction ; chez nous, FR-047 l'interdit en base et dans le
+domaine, et l'observation postérieure à un statut officiel déclenche une
+alerte de cohérence sans jamais écraser (FR-145, livré le 26 août).
+
+Trois conséquences pour nous, aucune en panique.
+
+1. **La thèse ne bouge pas, elle se vérifie.** Le couloir « observation
+   attribuée, permanente, avec la parole officielle » reste vide : ils ont
+   pris la surface, l'échelle et maintenant le SEO — pas la profondeur.
+   L'histoire racontable est désormais adossée à des URL publiques.
+2. **J4 était le bon pari.** Ils rapprochent de la presse ; nous
+   republions de l'autorité en liste blanche, verbatim et attribuée
+   (ADR-026), plus les niveaux d'accès aux massifs. C'est la différence
+   entre « on en a parlé » et « la préfecture a écrit ».
+3. **Ce qui mérite d'être copié, et rien d'autre** : `stalenessS` et le
+   drapeau `degraded` de leur `/api/status` (à verser au mode dégradé de
+   J5, FR-115), et `nextDataAt` — l'heure du prochain passage satellite,
+   déjà notée le 25 août. Les fiches indexées multilingues, l'abonnement
+   payant et les moyens aériens ne s'évaluent pas ici : l'i18n est déjà
+   cadrée (FR-166, français seul activé), le modèle économique est au §6,
+   et la position des moyens reste interdite par la thèse.
+
+Entretien : re-sonder avant l'ouverture publique, en vérifiant d'abord si
+le bilan des Bouches-du-Rhône a changé de composition.
 
 ### Qui lira réellement MapFeux
 
