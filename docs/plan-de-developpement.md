@@ -1,7 +1,13 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 13 septembre 2026 — **le critère de J4 est
-mesuré : non tenu, et non tenable sous le déclencheur actuel.** Sur sept
+**Dernière mise à jour** : 13 septembre 2026, soir — **le déclencheur est
+passé au planificateur Windows**. Sept tâches aux cadences qu'Actions
+déclarait sans les tenir, crons retirés, première passe par le déclencheur
+lui-même à 16 h 43 ; S4U refusé sans élévation, donc session ouverte
+requise — verrouillée suffit. Reste à remesurer sept jours de cadence.
+
+**Plus tôt le même jour** — **le critère de J4 est
+mesuré : non tenu, et non tenable sous le déclencheur Actions.** Sur sept
 jours et toutes les sources, seul le cron quotidien tourne comme déclaré ;
 tout le sous-quotidien est ramené à une passe toutes les trois à cinq
 heures, FIRMS compris. Le contenu du jalon est entier et en service — la
@@ -177,20 +183,18 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Choisir le déclencheur (§8.1) — J4 est bloqué là, et seulement là.**
+**J4 : remesurer le critère des trente minutes sous le nouveau déclencheur,
+puis ouvrir J5.**
 
-La cadence GitHub a tranché, dans le mauvais sens. Mesurée sur sept jours
-et toutes les sources : seul le cron quotidien tourne comme déclaré, tout
-ce qui est sous-quotidien est ramené à une passe toutes les trois à cinq
-heures. Le critère de J4 — trente minutes — n'est pas tenable ainsi, et
-FIRMS lui-même lisait douze heures de retard au moment de la mesure. Le
-contenu du jalon est entier et en service ; ce qui manque est **une
-ligne**, celle que §8.1 avait prévue remplaçable : cron sur une machine
-allumée, tâche planifiée Windows, minuterie systemd ou APScheduler
-résident. C'est une décision d'exploitation — qu'accepte-t-on de faire
-tourner en permanence, et chez qui — et elle est à prendre par l'auteur.
-Une fois le déclencheur posé, le critère se remesure sur la première
-publication réelle, et J5 s'ouvre : administration, supervision, mode
+Le déclencheur est tranché et posé : le planificateur Windows porte les
+sept cadences depuis le 13 septembre à 16 h 43, les crons Actions sont
+retirés. Ce qui manquait à J4 n'était pas du travail mais cette ligne ; le
+jalon se ferme le jour où une publication préfectorale réelle est visible
+sur la fiche en moins de trente minutes — et d'ici là, la cadence réelle se
+remesure sur sept jours, comme la précédente, pour vérifier que le poste
+tient ce qu'Actions ne tenait pas. Une contrainte d'exploitation nouvelle
+et assumée : la machine doit rester allumée et la session ouverte
+(verrouillée suffit). Ensuite, J5 : administration, supervision, mode
 dégradé.
 
 Les deux clés attendues sont posées et vivantes — `COPERNICUS_KEY` en
@@ -1741,6 +1745,36 @@ signifie pas qu'il ne s'en produit pas.
 jour où l'attente cesse.** Il en reste probablement d'autres, écrites quand une
 brique manquait, à relire à chaque mise en service.
 
+### Déclencheur d'ingestion ✅
+
+Tranché le 13 septembre 2026 après mesure ([stratégie §8.1](strategie.md)) :
+le planificateur Windows remplace le cron GitHub Actions pour tout ce qui
+est sous-quotidien et quotidien ; seule la réconciliation FIRMS
+trimestrielle reste sur Actions.
+
+- ✅ **Sept tâches** `\MapFeux\MapFeux-*` — Ingestion (10 min), Radar
+  (5 min), Prefectures (15 min), Vigilance (:20), Massifs (:20 toutes les
+  trois heures), Cams (10 h 45), AromeArchive (12 h 45) — déclarées une fois
+  dans `ops/windows/tasks.psd1`, lues par l'enregistrement et par
+  l'exécution : deux listes divergeraient à la première retouche
+- ✅ **Sondé avant d'écrire** : S4U refusé sans élévation, interactif
+  accepté et exécuté (résultat 0). Aucun mot de passe demandé ni stocké.
+  Contrepartie assumée : session ouverte, verrouillée suffit
+- ✅ **Console masquée** par `launch.vbs` — la leçon du 6 août : une tâche
+  interactive garde une console sur le bureau, et un Ctrl-C y reste
+  possible. Le VBS attend la fin et rend le vrai code de sortie
+- ✅ **Première passe par le déclencheur lui-même** à 16 h 43, une minute
+  après l'enregistrement, avant tout lancement manuel : FIRMS sur quatre
+  satellites, AROME, radar, préfectures — succès, en base
+- ✅ **Journaux** `logs/<tâche>.log`, bornés à 2 Mo sur deux générations,
+  hors dépôt. Première lecture en mojibake (« mosa├»que ») : PowerShell 5.1
+  relit la sortie native en page 850. Réglé aux deux bouts — python forcé
+  en UTF-8, console lue en UTF-8 — et vérifié à la passe suivante
+- ✅ **Les crons retirés des sept workflows**, note posée dans chacun ; le
+  `workflow_dispatch` demeure en secours pour une panne du poste
+- ⬜ **Remesurer la cadence sur sept jours**, comme celle qui a condamné
+  Actions — c'est la seule façon de dire que le poste tient
+
 ### Archivage AROME 🟡
 
 Champs météo archivés au fil de l'eau, la donnée étant périssable — un jour non
@@ -1805,7 +1839,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
 | Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar (préfixe `radar/`) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
-| Cadence de **toutes** les sources sous-quotidiennes étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme. **Mesuré le 13 septembre sur sept jours** : médiane réelle entre passes — firms 111 min (déclaré 10), radar 213 (5), vigilance 244 (60), prefectures 181 (15), arome 1 431 (180, soit une fois par jour) ; seul cams, quotidien, tient (1 436 pour 1 440). Tableau complet en stratégie §8.1. **Bloque le critère de sortie de J4** | §8.1 — décision à prendre |
+| Cadence de **toutes** les sources sous-quotidiennes étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme. **Mesuré le 13 septembre sur sept jours** : médiane réelle entre passes — firms 111 min (déclaré 10), radar 213 (5), vigilance 244 (60), prefectures 181 (15), arome 1 431 (180, soit une fois par jour) ; seul cams, quotidien, tient (1 436 pour 1 440). Tableau complet en stratégie §8.1. **Bloquait le critère de sortie de J4** — tranché le 13 septembre : planificateur Windows, sept tâches, crons Actions retirés (§14). Reste à remesurer sur sept jours | §8.1 — tranché, à remesurer |
 | Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |
 | Une source peut dater sa donnée en avance | `massifs` enregistrait `source_data_at` au **jour décrit** — le niveau du lendemain paraît la veille au soir — et non à l'instant de lecture. La fraîcheur en tirait un âge négatif, ramené à zéro puis formaté en « moins d'une minute » : le bandeau de toutes les pages a annoncé « maj il y a moins d'une minute » en permanence dès la mise en service (11 septembre). Connecteur corrigé, et deux garde-fous posés dans le domaine — `mostRecentPast` écarte du concours ce qui est horodaté en avance, `formatDataRecency` dit « dans 4 h 28 min » plutôt que de faire passer une avance pour une fraîcheur. **À vérifier à chaque nouveau connecteur** : `source_data_at` est l'instant de production, jamais l'échéance décrite | Continu |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |

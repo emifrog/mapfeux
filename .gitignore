@@ -56,3 +56,6 @@ Thumbs.db
 coverage/
 playwright-report/
 test-results/
+
+# Journaux des taches planifiees Windows (ops/windows/run-task.ps1)
+logs/

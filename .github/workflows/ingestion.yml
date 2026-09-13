@@ -46,9 +46,13 @@
 
 name: Ingestion
 
+# Plus de cron ici depuis le 13 septembre 2026 : le déclencheur est la tâche
+# planifiée Windows `MapFeux-Ingestion` (ops/windows/tasks.psd1). Mesuré sur
+# sept jours, le cron Actions n'a jamais tenu sa cadence sous-quotidienne —
+# une passe toutes les trois à cinq heures quel que soit l'intervalle demandé
+# (stratégie §8.1). Le déclenchement manuel reste, pour reprendre la main le
+# temps d'une panne du poste.
 on:
-  schedule:
-    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 # Le verrou en base empêche déjà deux passes de se marcher dessus ; ceci évite

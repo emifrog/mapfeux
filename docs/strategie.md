@@ -1,6 +1,7 @@
 # MapFeux — Stratégie
 
-**Version 1.4 — 13 septembre 2026** — le déclencheur GitHub Actions mesuré sur
+**Version 1.5 — 13 septembre 2026** — le déclencheur passe au planificateur
+Windows (§8.1), après mesure. Version 1.4, même jour : le déclencheur GitHub Actions mesuré sur
 sept jours et toutes les sources (§8.1) : seul le cron quotidien tient, le
 critère de J4 n'est pas tenable sous ce déclencheur. Version 1.3 :
 11 septembre 2026 — re-sonde GISFire (§2) : le concurrent
@@ -387,7 +388,7 @@ Le projet s'arrête ou change de forme si :
 À trancher explicitement. Tant qu'elles ne le sont pas, le plan d'exécution les
 signale comme bloquantes pour le jalon concerné.
 
-### 8.1 Ordonnancement — tranché le 28 juillet 2026
+### 8.1 Ordonnancement — tranché le 28 juillet 2026, le déclencheur retranché le 13 septembre
 
 **La question était mal posée.** Elle demandait « faut-il revenir à Celery et
 Redis ? », alors que le besoin réel est un **déclencheur**, pas un ordonnanceur
@@ -470,6 +471,28 @@ faut maintenant choisir. Les candidats sont ceux qu'elle nommait : cron
 sur une machine qui reste allumée, tâche planifiée Windows, minuterie
 systemd, APScheduler dans un processus résident. Le choix est ouvert ; il
 dépend de ce qu'on accepte de faire tourner en permanence, et de chez qui.
+
+**Tranché le 13 septembre 2026 : le planificateur Windows du poste de
+développement.** Sept tâches `\MapFeux\MapFeux-*` déclarées dans
+`ops/windows/tasks.psd1`, aux cadences que les workflows déclaraient sans
+les tenir ; les crons ont été retirés des sept workflows, dont le
+déclenchement manuel reste en secours. Seule la réconciliation FIRMS,
+trimestrielle, demeure sur Actions : un runner neuf convient à un gros lot
+et la cadence n'y souffre pas.
+
+Ce qui a été sondé avant de choisir, sur ce poste et sans élévation :
+l'ouverture de session S4U — « exécuter que l'utilisateur soit connecté ou
+non », sans mot de passe stocké — est **refusée** ; l'ouverture interactive
+est acceptée. Les tâches tournent donc sous la session ouverte : la machine
+doit rester allumée et la session connectée — verrouillée suffit,
+déconnectée non. C'est la contrepartie de ne confier aucun mot de passe au
+planificateur, et elle est assumée ; un jour où le poste ne peut pas
+rester ouvert, le `workflow_dispatch` reprend la main.
+
+Première passe par le déclencheur lui-même à 16 h 43, une minute après
+l'enregistrement : FIRMS sur quatre satellites, AROME, radar, préfectures —
+toutes en succès, enregistrées en base. La cadence réelle se remesurera
+sur sept jours, comme la précédente.
 
 ### 8.2 Calendrier et saison — tranché le 5 août 2026 (D-0)
 
