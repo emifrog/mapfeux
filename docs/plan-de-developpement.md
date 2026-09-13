@@ -3,8 +3,9 @@
 **Dernière mise à jour** : 13 septembre 2026, soir — **l'accueil s'ouvre
 sur la carte nationale vivante et trois chiffres réels**, la recherche est
 sur la carte, la coque au-dessus de `/carte` passe de 172 à 96 px, les
-contours et les marqueurs se lisent à l'échelle nationale, et une lueur
-dit ce qui a moins de vingt-quatre heures. Comparaison faite au même
+contours et les marqueurs se lisent à l'échelle nationale, une lueur dit
+ce qui a moins de vingt-quatre heures, et **une carte au survol** dit d'un
+marqueur ce que la liste en dit, sans cliquer. Comparaison faite au même
 format contre ensemblepourlaforet.fr et GISFire : l'écart était d'abord sur
 l'accueil. Le VPS attend sa souscription — le kit est prêt (`ops/vps/`),
 la bascule est décrite en §2. Les Canadair sont écartés.
@@ -178,7 +179,7 @@ build — vertes.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 142 tests (54 domaine, 47 web, 33 map-style, 8 contrats) |
+| Web | `pnpm test` | ✅ 149 tests (54 domaine, 54 web, 33 map-style, 8 contrats) |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
@@ -1777,6 +1778,18 @@ nationale.
   couleur d'âge, deux fois le rayon. L'orange reste le seul propos chaud de
   la carte (§8.1) : il n'est posé que là où quelque chose vient d'être
   observé, et un événement archivé n'a pas de lueur
+
+- ✅ **Une carte au survol d'un marqueur** — commune, identifiant, statut,
+  nombre d'observations, fiabilité, dernière observation et son âge, dans
+  les **mêmes mots que la liste textuelle**, sans cliquer. Ancrée sur le
+  marqueur et non sur le curseur, une seule fenêtre réutilisée, disparaît
+  en quittant le point ; le clic ouvre toujours la fiche. L'âge se compte
+  **au survol**, depuis maintenant — l'`ageHours` de la couche est figé à
+  sa construction et ne sert qu'à la couleur. Contenu pur et testé
+  (`hover-card.ts`, sept tests), tout ce qui vient des données passe par
+  l'échappement HTML. Vérifié : « Les Mées · MPF-SZQH9K1Z — Pas de nouvelle
+  observation · 1 détection · fiabilité faible — Dernière observation
+  10/09/2026 14:14 (il y a 3 j 8 h) », et rien une fois le marqueur quitté
 
 Ce qui n'a pas bougé, et c'est voulu : le titre de l'accueil — formulation
 publique, validation métier avant toute retouche —, l'avertissement du §2.4

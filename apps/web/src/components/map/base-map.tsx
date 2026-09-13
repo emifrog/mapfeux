@@ -8,6 +8,7 @@ import { Protocol } from 'pmtiles';
 
 import { publicEnv } from '@/lib/env';
 import { applyBasemapStyle, isDarkTheme, subscribeTheme } from '@/lib/map/basemap-style';
+import { hoverCardHtml, type HoverCardData } from '@/lib/map/hover-card';
 import type { LoadedEventRow } from '@/lib/map/loaded-events';
 
 import { removeAirLayer, resolveAirTiles, setAirLayer, type AirTilesInfo } from './air-layer';
@@ -521,6 +522,18 @@ export default function BaseMap({
       //
       // La traîne est cliquable au même titre que le reste : elle est rendue
       // discrète, pas inaccessible.
+      // La carte au survol : une seule fenêtre, réutilisée, ancrée sur le
+      // marqueur et non sur le curseur — elle suit la carte, pas la souris.
+      // Sans bouton de fermeture ni fermeture au clic : elle disparaît quand
+      // on quitte le marqueur, et le clic ouvre la fiche.
+      const hover = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 14,
+        maxWidth: '20rem',
+        className: 'mapfeux-hover',
+      });
+
       for (const layerId of CLICKABLE_LAYER_IDS) {
         map.on('click', layerId, (event) => {
           const publicId = event.features?.[0]?.properties?.['publicId'];
@@ -532,8 +545,30 @@ export default function BaseMap({
         map.on('mouseenter', layerId, () => {
           map.getCanvas().style.cursor = 'pointer';
         });
+        // `mousemove` et non `mouseenter` seul : deux marqueurs qui se
+        // touchent partagent un même `mouseenter`, et la carte doit suivre
+        // celui qui est sous la souris.
+        map.on('mousemove', layerId, (event) => {
+          const feature = event.features?.[0];
+          if (feature === undefined || feature.geometry.type !== 'Point') return;
+          const properties = feature.properties as Record<string, unknown>;
+          const data: HoverCardData = {
+            publicId: String(properties['publicId'] ?? ''),
+            municipality: String(properties['municipality'] ?? ''),
+            lastDetectedAt: String(properties['lastDetectedAt'] ?? ''),
+            detectionCount: Number(properties['detectionCount'] ?? 0),
+            confidence: String(properties['confidence'] ?? ''),
+            freshness: String(properties['freshness'] ?? ''),
+          };
+          const [longitude, latitude] = feature.geometry.coordinates as [number, number];
+          hover
+            .setLngLat([longitude, latitude])
+            .setHTML(hoverCardHtml(data, new Date()))
+            .addTo(map);
+        });
         map.on('mouseleave', layerId, () => {
           map.getCanvas().style.cursor = '';
+          hover.remove();
         });
       }
 

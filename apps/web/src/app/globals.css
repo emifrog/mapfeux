@@ -356,3 +356,87 @@ body {
     max-width: none;
   }
 }
+
+/*
+ * La carte au survol d'un marqueur — même carton flottant que les panneaux
+ * de `/carte` : fond translucide, flou, bordure, chasse fixe pour ce qui se
+ * mesure. MapLibre pose ses propres classes ; on les habille, on ne les
+ * remplace pas — la pointe reste la sienne, recolorée pour se fondre dans
+ * le carton.
+ */
+.mapfeux-hover {
+  pointer-events: none;
+  z-index: 15;
+}
+
+.mapfeux-hover .maplibregl-popup-content {
+  padding: 0.6rem 0.75rem 0.55rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.5);
+  backdrop-filter: blur(6px);
+}
+
+/* La pointe prend la couleur du carton, quel que soit son ancrage. */
+.mapfeux-hover .maplibregl-popup-tip {
+  border-top-color: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-left-color: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-right-color: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+
+.mapfeux-hover .maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.mapfeux-hover .maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.mapfeux-hover .maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+
+.mapfeux-hover .maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.mapfeux-hover .maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.mapfeux-hover .maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+
+.mapfeux-hover .maplibregl-popup-anchor-left .maplibregl-popup-tip,
+.mapfeux-hover .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.mapfeux-hover__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mapfeux-hover__id {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.mapfeux-hover__line {
+  margin-top: 0.15rem;
+}
+
+.mapfeux-hover__when {
+  margin-top: 0.1rem;
+  color: var(--text-3);
+}
+
+.mapfeux-hover__hint {
+  margin-top: 0.4rem;
+  font-size: 11px;
+  color: var(--text-3);
+}

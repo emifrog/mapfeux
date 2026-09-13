@@ -71,6 +71,10 @@ export function toFeatureCollection(events: MapEvent[], now = new Date()): Featu
         ),
         detectionCount: event.detectionCount,
         municipality: event.nearestMunicipalityName ?? '',
+        // Pour la carte au survol, qui compte l'âge depuis **maintenant** :
+        // `ageHours` ci-dessus est figé à la construction de la couche et
+        // ne sert qu'à la couleur.
+        lastDetectedAt: event.lastDetectedAt,
       },
     })),
   };
