@@ -23,6 +23,15 @@ export const EVENTS_SOURCE_ID = 'mapfeux-events';
 export const EVENTS_CIRCLE_LAYER_ID = 'mapfeux-events-circle';
 export const EVENTS_HALO_LAYER_ID = 'mapfeux-events-halo';
 export const EVENTS_TAIL_LAYER_ID = 'mapfeux-events-tail';
+/** Lueur sous les événements récents : la couleur d'âge, diffuse. */
+export const EVENTS_GLOW_LAYER_ID = 'mapfeux-events-glow';
+
+/**
+ * Moins de vingt-quatre heures : les trois premiers paliers de la légende,
+ * ceux qui portent une couleur chaude. Un événement archivé n'a pas de
+ * lueur — il n'a rien à annoncer.
+ */
+const RECENT_FILTER = ['<', ['get', 'ageHours'], 24] as const;
 
 export interface MapEvent {
   publicId: string;
@@ -90,6 +99,28 @@ export function addEventLayer(map: MapLibreMap, events: MapEvent[], now = new Da
       'circle-stroke-width': 1.4,
       'circle-stroke-color': FRESHNESS_COLOR_EXPRESSION as unknown as ExpressionSpecification,
       'circle-stroke-opacity': 0.7,
+    },
+  });
+
+  // La lueur, sous le halo : un disque flou dans la couleur d'âge, deux
+  // fois le rayon. C'est ce qui fait qu'un événement de la nuit se voit
+  // de loin sur le fond sombre, et que l'orange reste le seul propos
+  // chaud de la carte (§8.1) — il n'est posé que là où quelque chose
+  // vient d'être observé.
+  map.addLayer({
+    id: EVENTS_GLOW_LAYER_ID,
+    type: 'circle',
+    source: EVENTS_SOURCE_ID,
+    filter: ['all', SUBSTANTIATED_FILTER, RECENT_FILTER] as unknown as ExpressionSpecification,
+    paint: {
+      'circle-radius': [
+        '*',
+        DETECTION_COUNT_RADIUS_EXPRESSION,
+        2.2,
+      ] as unknown as ExpressionSpecification,
+      'circle-color': FRESHNESS_COLOR_EXPRESSION as unknown as ExpressionSpecification,
+      'circle-opacity': 0.35,
+      'circle-blur': 1,
     },
   });
 

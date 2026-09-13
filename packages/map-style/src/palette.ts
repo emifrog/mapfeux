@@ -123,7 +123,12 @@ export const DEPARTMENT_EVENTS_FILL_EXPRESSION = [
 
 /** Contour départemental : neutre et discret, le fond IGN reste lisible. */
 export const DEPARTMENT_OUTLINE_COLOR = PALETTE.boundary;
-export const DEPARTMENT_OUTLINE_OPACITY = 0.6;
+/**
+ * 0,6 à l'origine. À l'échelle nationale sur le fond sombre, les limites
+ * départementales ne se lisaient plus : la carte n'avait plus de squelette,
+ * seulement un trait de côte — constaté le 13 septembre 2026 en 1280 × 800.
+ */
+export const DEPARTMENT_OUTLINE_OPACITY = 0.85;
 
 /** Bucket d'âge d'une observation, pour la légende et la liste textuelle. */
 export function ageBucket(hours: number): 'new' | 'recent' | 'notRecent' | 'archived' {
@@ -144,12 +149,15 @@ export const DETECTION_COUNT_RADIUS_EXPRESSION = [
   'interpolate',
   ['linear'],
   ['get', 'detectionCount'],
+  // Rayons relevés d'un cran le 13 septembre 2026 : à 5 px, un événement
+  // étayé se confondait avec un anneau isolé, et la carte semblait vide
+  // avec treize événements dessus.
   1,
-  5,
+  6,
   10,
-  9,
+  11,
   50,
-  14,
+  16,
   500,
   20,
 ] as const;
@@ -182,4 +190,4 @@ export const LONG_TAIL_FILTER = [
 ] as const;
 
 /** Rayon fixe et discret pour la traîne : sa taille ne doit rien suggérer. */
-export const LONG_TAIL_RADIUS = 3.5;
+export const LONG_TAIL_RADIUS = 4.5;

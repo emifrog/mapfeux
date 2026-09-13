@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 
 import { CarteMapPanel } from '@/components/map/carte-map-panel';
 import { FloatingCard } from '@/components/map/floating-card';
+import { MunicipalitySearch } from '@/components/municipality-search';
 import { fetchEventsInBbox } from '@/lib/data/events';
 import { framingBounds, framingCenter } from '@/lib/map/framing';
 import { DEFAULT_WINDOW_HOURS, windowSince } from '@/lib/map/time-windows';
@@ -119,6 +120,16 @@ export default async function MapPage() {
 
         {/* §2.4 : l'avertissement précède tout ce qu'on pourrait conclure. */}
         <p className="text-small text-(--text-2) mt-2 leading-relaxed">{MAP_DISCLAIMER}</p>
+
+        {/*
+          La recherche, sur la carte : c'est là qu'on cherche. Elle vivait
+          sur l'accueil seulement ; les deux références regardées le
+          13 septembre la posent sur la carte, et c'est le seul geste qu'on
+          vient faire ici hors regarder.
+        */}
+        <div className="mt-4">
+          <MunicipalitySearch />
+        </div>
       </FloatingCard>
     </CarteMapPanel>
   );

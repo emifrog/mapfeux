@@ -337,3 +337,22 @@ body {
     padding-block: 0.75rem;
   }
 }
+
+/*
+ * Sur `/carte`, la coque fixe se resserre : 172 px d'en-tête et de bandeau
+ * au-dessus d'une carte qui est la page, c'est un cinquième de l'écran en
+ * 1280 × 800 (mesuré le 13 septembre 2026). Le bandeau de positionnement
+ * reste — il est dû sur toutes les pages (§1, §22.5) — mais tient sur une
+ * ligne, en corps réduit. Même mécanique que le pied de page ci-dessus.
+ */
+@media (min-width: 640px) {
+  body:has([data-shell='carte']) .stance > .shell {
+    padding-block: 0.4rem;
+  }
+
+  body:has([data-shell='carte']) .stance p {
+    font-size: 0.78rem;
+    line-height: 1.35;
+    max-width: none;
+  }
+}

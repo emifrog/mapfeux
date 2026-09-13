@@ -22,6 +22,7 @@ import {
   addEventLayer,
   CLICKABLE_LAYER_IDS,
   EVENTS_CIRCLE_LAYER_ID,
+  EVENTS_GLOW_LAYER_ID,
   EVENTS_HALO_LAYER_ID,
   EVENTS_TAIL_LAYER_ID,
   updateEventLayer,
@@ -94,6 +95,13 @@ export interface BaseMapProps {
   zoom?: number;
   /** Restreint le déplacement. Par défaut, la France métropolitaine et la Corse. */
   bounded?: boolean;
+  /**
+   * `false` : une carte qui se regarde et ne se manipule pas — l'accueil la
+   * montre comme une image vivante qui mène à `/carte`. Ni zoom, ni
+   * déplacement, ni commandes ; l'attribution IGN reste, elle est due quelle
+   * que soit la forme (§9.5).
+   */
+  interactive?: boolean;
   className?: string;
   /** Événements à afficher. Le premier lot vient du rendu serveur. */
   events?: MapEvent[];
@@ -270,6 +278,7 @@ export default function BaseMap({
   center = DEFAULT_VIEW.center,
   zoom = DEFAULT_VIEW.zoom,
   bounded = true,
+  interactive = true,
   className,
   events = [],
   perimeters = [],
@@ -364,6 +373,7 @@ export default function BaseMap({
       container,
       center: [center[0], center[1]],
       zoom,
+      interactive,
       ...boundsOption,
       // L'attribution IGN est obligatoire et ne doit pas être repliée (§9.5).
       //
@@ -411,8 +421,14 @@ export default function BaseMap({
       );
     }
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+    // Une carte qui ne se manipule pas n'a pas de commandes à montrer ; le
+    // curseur dit qu'elle mène quelque part.
+    if (interactive) {
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+    } else {
+      map.getCanvas().style.cursor = 'pointer';
+    }
 
     /**
      * Pose les calques de MapFeux sur le style courant.
@@ -438,9 +454,10 @@ export default function BaseMap({
       const placeDepartments = (tilesUrl: string): void => {
         addDepartmentLayer(map, tilesUrl);
         // Sous les événements : chaque couche d'événements repasse au-dessus,
-        // dans son ordre d'origine — traîne, halo, disque.
+        // dans son ordre d'origine — traîne, lueur, halo, disque.
         for (const layerId of [
           EVENTS_TAIL_LAYER_ID,
+          EVENTS_GLOW_LAYER_ID,
           EVENTS_HALO_LAYER_ID,
           EVENTS_CIRCLE_LAYER_ID,
         ]) {

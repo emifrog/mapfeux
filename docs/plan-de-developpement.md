@@ -1,10 +1,13 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 13 septembre 2026, soir — **le déclencheur ira
-sur un VPS Hostinger, le kit est prêt** (`ops/vps/`), le planificateur
-Windows n'étant qu'une étape ; registre des cadences commun aux deux, en
-UTC. La bascule est un geste de l'auteur, décrit en §2. Les Canadair sont
-écartés.
+**Dernière mise à jour** : 13 septembre 2026, soir — **l'accueil s'ouvre
+sur la carte nationale vivante et trois chiffres réels**, la recherche est
+sur la carte, la coque au-dessus de `/carte` passe de 172 à 96 px, les
+contours et les marqueurs se lisent à l'échelle nationale, et une lueur
+dit ce qui a moins de vingt-quatre heures. Comparaison faite au même
+format contre ensemblepourlaforet.fr et GISFire : l'écart était d'abord sur
+l'accueil. Le VPS attend sa souscription — le kit est prêt (`ops/vps/`),
+la bascule est décrite en §2. Les Canadair sont écartés.
 
 **Le même soir, un peu avant** — **le déclencheur est
 passé au planificateur Windows**. Sept tâches aux cadences qu'Actions
@@ -168,7 +171,7 @@ posées dans `next.config.ts` ; la fonction SQL `fires_in_bbox` garde son nom,
 interne. Portes repassées après renommage : format, lint, typecheck, tests,
 build — vertes.
 
-### Portes de qualité — dernier passage (11 septembre, nuit)
+### Portes de qualité — dernier passage (13 septembre, soir)
 
 | Chaîne | Commande | Résultat |
 |---|---|---|
@@ -1735,6 +1738,51 @@ dès la première passe postérieure à minuit, et corriger des
 enregistrements historiques pour gagner quelques heures d'affichage —
 déjà honnête depuis l'aveu — serait payer cher un bénéfice qui vient tout
 seul.
+
+#### L'accueil s'ouvre sur la carte — 13 septembre 2026, soir
+
+Nouvelle comparaison, trois captures au même format — ensemblepourlaforet.fr,
+GISFire, nous. Le plus gros écart n'était pas sur `/carte` mais sur
+**l'accueil** : les deux références s'ouvrent sur une carte et trois grands
+chiffres, le nôtre sur de la prose, et « ouvrir la carte » était un lien
+texte. Sur la carte elle-même, quatre défauts de finition à l'échelle
+nationale.
+
+- ✅ **La carte nationale en tête de l'accueil**, vivante et non manipulable
+  — un lien vers `/carte`, pas une carte. Les lavis départementaux des sept
+  derniers jours se chargent d'eux-mêmes, au zoom pour lequel ils ont été
+  dessinés (§21.3) : vérifié, 129 départements chargés, 94 avec agrégat.
+  `interactive={false}` sur `BaseMap` : ni zoom, ni déplacement, ni
+  commandes ; l'attribution IGN reste, elle est due quelle que soit la forme
+  (§9.5), et le bouton « Ouvrir la carte » a été déplacé en haut à droite
+  parce qu'il la recouvrait
+- ✅ **Trois chiffres lus en base à l'instant du rendu** — 86 événements sur
+  24 h, 76 départements et 646 événements sur 7 j, 6/8 sources à jour au
+  moment du contrôle. Ils ne disent pas « combien de feux », que MapFeux ne
+  sait pas, mais ce qu'un service d'observation peut affirmer sans mentir.
+  Revalidation à cinq minutes, comme l'API. Mesuré : ils tiennent dans le
+  premier écran d'un 1280 × 800 (bas à 791 px), après deux marges
+  resserrées
+- ✅ **La recherche sur la carte**, dans le carton d'identité — c'est là
+  qu'on cherche, et c'est le seul geste qu'on vient faire ici hors regarder
+- ✅ **La coque au-dessus de la carte passe de 172 à 96 px** : le bandeau de
+  positionnement, dû sur toutes les pages (§1, §22.5), tient sur une ligne
+  en corps réduit sur `/carte` seulement — même mécanique `:has()` que le
+  pied de page
+- ✅ **Lisibilité à l'échelle nationale** : contours départementaux de 0,6 à
+  0,85 — la carte n'avait plus de squelette, seulement un trait de côte ;
+  rayons des marqueurs relevés d'un cran (6/11/16, traîne 4,5) — à 5 px un
+  événement étayé se confondait avec un anneau isolé ; et une **lueur** sous
+  les événements de moins de vingt-quatre heures, disque flou dans la
+  couleur d'âge, deux fois le rayon. L'orange reste le seul propos chaud de
+  la carte (§8.1) : il n'est posé que là où quelque chose vient d'être
+  observé, et un événement archivé n'a pas de lueur
+
+Ce qui n'a pas bougé, et c'est voulu : le titre de l'accueil — formulation
+publique, validation métier avant toute retouche —, l'avertissement du §2.4
+et son filet orange, aucune couleur chaude en décoration. Les deux
+références tirent une part de leur effet d'un fond de feu ou de satellite ;
+ce n'est pas notre axe, et ce n'est pas ce qui manquait.
 
 #### Une affirmation devenue fausse, trouvée en refondant
 
