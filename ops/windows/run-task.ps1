@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  Exécute une tâche MapFeux du registre `tasks.psd1`, journal à l'appui.
+  Exécute une tâche MapFeux du registre `ops/tasks.json`, journal à l'appui.
 
 .DESCRIPTION
   Point d'entrée unique des tâches planifiées Windows (stratégie §8.1).
@@ -19,7 +19,7 @@
   échec, comme le workflow qu'elle remplace.
 
 .PARAMETER Task
-  Le nom d'une entrée de `tasks.psd1` (Ingestion, Radar, Prefectures, …).
+  Le nom d'une entrée de `ops/tasks.json` (Ingestion, Radar, Prefectures, …).
 #>
 [CmdletBinding()]
 param(
@@ -31,11 +31,13 @@ $ErrorActionPreference = 'Stop'
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = (Resolve-Path (Join-Path $here '..\..')).Path
-$registry = Import-PowerShellDataFile (Join-Path $here 'tasks.psd1')
+# Le registre est commun aux deux déclencheurs — ce planificateur et les
+# minuteries systemd du VPS (ops/vps) : une seule liste de cadences.
+$registry = Get-Content -Raw -Encoding UTF8 (Join-Path $root 'ops/tasks.json') | ConvertFrom-Json
 
-$entry = $registry.Tasks | Where-Object { $_.Name -eq $Task }
+$entry = $registry.tasks | Where-Object { $_.name -eq $Task }
 if ($null -eq $entry) {
-  Write-Error "Tâche inconnue : $Task. Voir tasks.psd1."
+  Write-Error "Tâche inconnue : $Task. Voir ops/tasks.json."
   exit 2
 }
 
@@ -77,7 +79,7 @@ Write-Log ("=== {0} : début ===" -f $Task)
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $exit = 0
 
-foreach ($script in $entry.Scripts) {
+foreach ($script in $entry.scripts) {
   Write-Log ("> {0}" -f $script)
   # `2>&1` sur un exécutable natif : en PowerShell 5.1 chaque ligne d'erreur
   # devient un ErrorRecord, ce qui ferait de `$?` un faux. On passe par cmd

@@ -1,6 +1,8 @@
 # MapFeux — Stratégie
 
-**Version 1.5 — 13 septembre 2026** — le déclencheur passe au planificateur
+**Version 1.6 — 13 septembre 2026, soir** — le déclencheur ira sur un VPS
+Hostinger (§8.1), kit `ops/vps` prêt, planificateur Windows transitoire ;
+les Canadair écartés. Version 1.5, même jour : le déclencheur passe au planificateur
 Windows (§8.1), après mesure. Version 1.4, même jour : le déclencheur GitHub Actions mesuré sur
 sept jours et toutes les sources (§8.1) : seul le cron quotidien tient, le
 critère de J4 n'est pas tenable sous ce déclencheur. Version 1.3 :
@@ -493,6 +495,30 @@ Première passe par le déclencheur lui-même à 16 h 43, une minute après
 l'enregistrement : FIRMS sur quatre satellites, AROME, radar, préfectures —
 toutes en succès, enregistrées en base. La cadence réelle se remesurera
 sur sept jours, comme la précédente.
+
+**Et le soir même, le poste n'est qu'une étape : un VPS Hostinger.** Le
+planificateur Windows règle la cadence mais lie l'ingestion à une session
+ouverte sur une machine de travail ; ce n'est pas une infrastructure. Le
+kit est prêt dans `ops/vps/` — minuteries systemd, un service `oneshot`
+par tâche, `Persistent=true` pour le rattrapage, pas de chevauchement sans
+réglage, journal dans journald — et le registre des cadences est devenu
+**commun** aux deux déclencheurs (`ops/tasks.json`, en UTC comme les crons
+qu'il remplace ; le côté Windows le lit aussi et convertit en local à
+l'enregistrement). `install.sh` est rejouable et refuse d'écrire un
+secret : il s'arrête pour qu'on remplisse `.env` — avec la chaîne du rôle
+`mapfeux_ingest`, celle des secrets GitHub, et non celle du propriétaire
+qui sert au poste. Vérifié ici : syntaxe des scripts, sept paires d'unités
+engendrées aux expressions attendues (`*:0/5:00 UTC`, `0/3:20:00 UTC`,
+`08:45:00 UTC`), et le côté Windows réenregistré depuis le JSON avec une
+passe réelle en succès.
+
+La bascule est un geste de l'auteur, dans cet ordre : provisionner (KVM 1,
+Ubuntu 24.04, IPv6 si l'option existe, clé SSH), remplir `.env`, lancer
+`install.sh` deux fois, **désactiver** les tâches Windows sans les retirer,
+lire `ingest.import_runs` — le VPS écrit `environment: production`, le
+poste `local` —, puis retirer les tâches Windows après sept jours tenus.
+Les Canadair sont écartés, définitivement : l'axe opérationnel n'est pas
+le nôtre.
 
 ### 8.2 Calendrier et saison — tranché le 5 août 2026 (D-0)
 

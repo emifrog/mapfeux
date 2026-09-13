@@ -1,0 +1,73 @@
+{
+  "_": [
+    "Registre des tâches d'ingestion — une seule définition, lue par les deux déclencheurs :",
+    "ops/windows (planificateur Windows, transitoire) et ops/vps (minuteries systemd).",
+    "Deux listes divergeraient à la première retouche de cadence.",
+    "",
+    "Les heures sont en UTC, comme les crons GitHub Actions qu'elles remplacent : un",
+    "déclencheur ne doit pas dépendre du fuseau de la machine qui le porte. Windows",
+    "convertit en heure locale à l'enregistrement — à rejouer aux changements d'heure.",
+    "",
+    "`time_limit_min` : au-delà, le déclencheur tue le processus. Un processus tué",
+    "n'exécute aucun `finally` ; le verrou d'exclusion est un verrou de session",
+    "PostgreSQL et tombe avec la connexion, la file en base reprend à la passe suivante."
+  ],
+  "tasks": [
+    {
+      "name": "Ingestion",
+      "unit": "ingestion",
+      "description": "FIRMS : import, regroupement, instantanés (run-ingestion.py)",
+      "scripts": ["scripts/run-ingestion.py"],
+      "schedule": { "kind": "every", "minutes": 10 },
+      "time_limit_min": 30
+    },
+    {
+      "name": "Radar",
+      "unit": "radar",
+      "description": "Mosaïque lame d'eau vers la timeline (import-radar.py)",
+      "scripts": ["scripts/import-radar.py"],
+      "schedule": { "kind": "every", "minutes": 5 },
+      "time_limit_min": 10
+    },
+    {
+      "name": "Prefectures",
+      "unit": "prefectures",
+      "description": "Pages d'actualités préfectorales vers les citations (import-prefectures.py)",
+      "scripts": ["scripts/import-prefectures.py"],
+      "schedule": { "kind": "every", "minutes": 15 },
+      "time_limit_min": 10
+    },
+    {
+      "name": "Vigilance",
+      "unit": "vigilance",
+      "description": "Dernier bulletin Météo-France (import-vigilance.py)",
+      "scripts": ["scripts/import-vigilance.py"],
+      "schedule": { "kind": "every", "minutes": 60, "minute": 20 },
+      "time_limit_min": 10
+    },
+    {
+      "name": "Massifs",
+      "unit": "massifs",
+      "description": "Niveaux d'accès aux massifs vers le registre (import-massifs.py)",
+      "scripts": ["scripts/import-massifs.py"],
+      "schedule": { "kind": "every", "minutes": 180, "minute": 20 },
+      "time_limit_min": 15
+    },
+    {
+      "name": "Cams",
+      "unit": "cams",
+      "description": "PM2,5 et PM10 : import puis dérivation COG et tuiles (§19.1)",
+      "scripts": ["scripts/import-cams.py", "scripts/build-cams-rasters.py"],
+      "schedule": { "kind": "daily", "at_utc": "08:45" },
+      "time_limit_min": 90
+    },
+    {
+      "name": "AromeArchive",
+      "unit": "arome-archive",
+      "description": "Extraction FWI et dépôt en stockage froid (archive-arome.py)",
+      "scripts": ["scripts/archive-arome.py"],
+      "schedule": { "kind": "daily", "at_utc": "10:45" },
+      "time_limit_min": 60
+    }
+  ]
+}

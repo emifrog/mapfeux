@@ -1,6 +1,12 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 13 septembre 2026, soir — **le déclencheur est
+**Dernière mise à jour** : 13 septembre 2026, soir — **le déclencheur ira
+sur un VPS Hostinger, le kit est prêt** (`ops/vps/`), le planificateur
+Windows n'étant qu'une étape ; registre des cadences commun aux deux, en
+UTC. La bascule est un geste de l'auteur, décrit en §2. Les Canadair sont
+écartés.
+
+**Le même soir, un peu avant** — **le déclencheur est
 passé au planificateur Windows**. Sept tâches aux cadences qu'Actions
 déclarait sans les tenir, crons retirés, première passe par le déclencheur
 lui-même à 16 h 43 ; S4U refusé sans élévation, donc session ouverte
@@ -183,18 +189,18 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J4 : remesurer le critère des trente minutes sous le nouveau déclencheur,
-puis ouvrir J5.**
+**Basculer le déclencheur sur le VPS — un geste de l'auteur, le kit est
+prêt.**
 
-Le déclencheur est tranché et posé : le planificateur Windows porte les
-sept cadences depuis le 13 septembre à 16 h 43, les crons Actions sont
-retirés. Ce qui manquait à J4 n'était pas du travail mais cette ligne ; le
-jalon se ferme le jour où une publication préfectorale réelle est visible
-sur la fiche en moins de trente minutes — et d'ici là, la cadence réelle se
-remesure sur sept jours, comme la précédente, pour vérifier que le poste
-tient ce qu'Actions ne tenait pas. Une contrainte d'exploitation nouvelle
-et assumée : la machine doit rester allumée et la session ouverte
-(verrouillée suffit). Ensuite, J5 : administration, supervision, mode
+Le planificateur Windows tient la cadence depuis 16 h 43 mais lie
+l'ingestion à une session ouverte sur une machine de travail. Le kit VPS
+(`ops/vps/`, Hostinger KVM 1, Ubuntu 24.04) est écrit et vérifié ; ce
+qu'il reste ne peut pas être fait d'ici : provisionner, remplir `.env`
+avec la chaîne `mapfeux_ingest`, lancer `install.sh` deux fois,
+**désactiver** les tâches Windows, constater `environment: production`
+dans `ingest.import_runs`. Le runbook est `ops/vps/README.md`. Ensuite :
+sept jours de cadence mesurée, le critère des trente minutes de J4 sur la
+première publication réelle, et J5 — administration, supervision, mode
 dégradé.
 
 Les deux clés attendues sont posées et vivantes — `COPERNICUS_KEY` en
@@ -1772,8 +1778,19 @@ trimestrielle reste sur Actions.
   en UTF-8, console lue en UTF-8 — et vérifié à la passe suivante
 - ✅ **Les crons retirés des sept workflows**, note posée dans chacun ; le
   `workflow_dispatch` demeure en secours pour une panne du poste
+- ✅ **Le kit VPS, le soir même** (`ops/vps/`) — le poste n'est qu'une
+  étape. Minuteries systemd engendrées depuis un registre devenu **commun**
+  aux deux déclencheurs, `ops/tasks.json`, en UTC comme les crons remplacés
+  (`tasks.psd1` a disparu ; le côté Windows lit le JSON et convertit en
+  local, réenregistré et exercé). `install.sh` rejouable, qui refuse
+  d'écrire un secret et teste l'IPv6 pour dire s'il faut le pooler ;
+  `env.template` sans secret ; `status.sh` ; runbook avec la bascule et le
+  retour arrière. Vérifié ici : syntaxe, sept paires d'unités aux
+  expressions attendues, scripts marqués exécutables dans git
+- ⬜ **Basculer** — provisionner, `.env`, installer, désactiver Windows,
+  constater `environment: production` en base (geste de l'auteur)
 - ⬜ **Remesurer la cadence sur sept jours**, comme celle qui a condamné
-  Actions — c'est la seule façon de dire que le poste tient
+  Actions — sur le VPS cette fois
 
 ### Archivage AROME 🟡
 
