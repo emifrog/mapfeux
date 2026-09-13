@@ -1,6 +1,9 @@
 # MapFeux — Stratégie
 
-**Version 1.3 — 11 septembre 2026** — re-sonde GISFire (§2) : le concurrent
+**Version 1.4 — 13 septembre 2026** — le déclencheur GitHub Actions mesuré sur
+sept jours et toutes les sources (§8.1) : seul le cron quotidien tient, le
+critère de J4 n'est pas tenable sous ce déclencheur. Version 1.3 :
+11 septembre 2026 — re-sonde GISFire (§2) : le concurrent
 est passé au monde entier, aux fiches indexées en quatre langues et à
 l'abonnement payant ; les torchères de Fos et Grande-Synthe y sont
 devenues des **pages titrées « Feu de »**, et le bilan départemental des
@@ -428,6 +431,45 @@ Le déclencheur est **remplaçable en une ligne**, puisque la file, le
 verrouillage et l'idempotence vivent en base : cron, tâche planifiée Windows,
 minuterie systemd ou APScheduler appellent le même point d'entrée. C'est ce qui
 rend la décision peu coûteuse à défaire.
+
+#### Mesure du 13 septembre 2026 — le déclencheur a failli, pas l'architecture
+
+La décision tenait sur une phrase : « toutes les dix minutes ». Mesuré sur
+sept jours de tâches enregistrées, écart entre passes successives :
+
+| source | déclaré | médiane réelle | p90 | max | passes dans la tolérance |
+|---|---|---|---|---|---|
+| firms | 10 min | **111 min** (rafales, puis 5 h de silence) | 276 min | 336 min | — |
+| radar | 5 min | **213 min** | 279 min | 347 min | 0 / 49 |
+| vigilance | 60 min | **244 min** | 303 min | 337 min | 0 / 43 |
+| prefectures | 15 min | **181 min** | 296 min | 336 min | 0 / 49 |
+| massifs | 180 min | 311 min | 401 min | 471 min | 10 / 33 |
+| arome | 180 min | **1 431 min** — une fois par jour | 1 442 min | 1 442 min | 0 / 5 |
+| cams | 1 440 min | 1 436 min | 1 506 min | 1 506 min | 6 / 6 |
+
+Seul le cron **quotidien** tourne comme déclaré. Tout ce qui est
+sous-quotidien est ramené à une passe toutes les trois à cinq heures, quel
+que soit l'intervalle demandé : GitHub Actions n'est pas un ordonnanceur,
+c'est un déclencheur de bonne volonté. FIRMS, la source du cœur du service,
+lisait « en retard » à l'instant de la mesure — douze heures de données de
+retard un samedi de septembre.
+
+Le critère de sortie de J4 — une publication préfectorale visible en moins
+de trente minutes — en découle sans appel : avec une médiane de 181 minutes
+entre deux passes, la latence médiane d'une publication est d'une heure et
+demie, et un seul écart sur 113 depuis fin août tient sous les trente
+minutes. **Le critère n'est pas tenable sous ce déclencheur**, et ce n'est
+pas le travail de J4 qui manque.
+
+Ce que la mesure **ne** remet pas en cause : la file en base, le verrou de
+session, l'idempotence. Elles ont absorbé deux semaines de passes
+irrégulières sans une tâche perdue ni un doublon. La décision de juillet
+avait raison sur l'architecture et tort sur le déclencheur ; elle avait
+prévu ce cas — « remplaçable en une ligne » — et c'est cette ligne qu'il
+faut maintenant choisir. Les candidats sont ceux qu'elle nommait : cron
+sur une machine qui reste allumée, tâche planifiée Windows, minuterie
+systemd, APScheduler dans un processus résident. Le choix est ouvert ; il
+dépend de ce qu'on accepte de faire tourner en permanence, et de chez qui.
 
 ### 8.2 Calendrier et saison — tranché le 5 août 2026 (D-0)
 

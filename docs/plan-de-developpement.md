@@ -1,6 +1,16 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 11 septembre 2026, nuit — **les deux dernières
+**Dernière mise à jour** : 13 septembre 2026 — **le critère de J4 est
+mesuré : non tenu, et non tenable sous le déclencheur actuel.** Sur sept
+jours et toutes les sources, seul le cron quotidien tourne comme déclaré ;
+tout le sous-quotidien est ramené à une passe toutes les trois à cinq
+heures, FIRMS compris. Le contenu du jalon est entier et en service — la
+mise en service du 11 a tenu, le connecteur `massifs` corrigé date bien ses
+passes de l'instant de lecture depuis. Ce qui manque est la ligne que §8.1
+avait prévue remplaçable, et c'est une décision d'exploitation à prendre.
+Détail en [§2](#2-prochaine-action) et [stratégie §8.1](strategie.md).
+
+**11 septembre 2026, nuit** — **les deux dernières
 sources officielles sont en service**. `prefectures` et `massifs` passent
 `active` après contrôle de leurs passes réelles — 169 au total, 163
 complètes depuis fin août — et de la donnée servie ; le bandeau passe de
@@ -167,18 +177,21 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**J4, clôture : mesurer le critère des trente minutes.**
+**Choisir le déclencheur (§8.1) — J4 est bloqué là, et seulement là.**
 
-Tout le contenu du jalon est construit, exercé et **en service** : les
-deux dernières sources — `prefectures` et `massifs` — sont passées
-`active` le 11 septembre au soir, après contrôle de leurs passes réelles
-et de la donnée servie. Le jalon ne tient plus qu'à sa mesure : **une
-information préfectorale publiée visible sur la fiche en moins de trente
-minutes**, à constater sur les passes réelles. La cadence GitHub
-tranchera, et son verdict nourrira la décision d'ordonnancement (§8.1) —
-les cinq passes partielles de `prefectures`, toutes dues à des sites
-préfectoraux injoignables, font partie du tableau. Ensuite, J5 s'ouvre :
-administration, supervision, mode dégradé.
+La cadence GitHub a tranché, dans le mauvais sens. Mesurée sur sept jours
+et toutes les sources : seul le cron quotidien tourne comme déclaré, tout
+ce qui est sous-quotidien est ramené à une passe toutes les trois à cinq
+heures. Le critère de J4 — trente minutes — n'est pas tenable ainsi, et
+FIRMS lui-même lisait douze heures de retard au moment de la mesure. Le
+contenu du jalon est entier et en service ; ce qui manque est **une
+ligne**, celle que §8.1 avait prévue remplaçable : cron sur une machine
+allumée, tâche planifiée Windows, minuterie systemd ou APScheduler
+résident. C'est une décision d'exploitation — qu'accepte-t-on de faire
+tourner en permanence, et chez qui — et elle est à prendre par l'auteur.
+Une fois le déclencheur posé, le critère se remesure sur la première
+publication réelle, et J5 s'ouvre : administration, supervision, mode
+dégradé.
 
 Les deux clés attendues sont posées et vivantes — `COPERNICUS_KEY` en
 secret GitHub, la clé d'application radar dans l'environnement : au
@@ -1328,6 +1341,34 @@ sans jamais le réécrire.
 fiche de l'événement correspondant en moins de 30 minutes, attribuée et datée,
 sans réécriture.
 
+⚠️ **Mesuré le 13 septembre 2026 : non tenu, et non tenable sous le
+déclencheur actuel.** Le cron de `prefectures` est déclaré toutes les quinze
+minutes ; sur 114 passes enregistrées depuis le 27 août, l'écart médian
+entre deux passes est de **209 minutes** (moyenne 212, p90 327, maximum 573),
+et **un seul écart sur 113** tient sous les trente minutes. La latence
+médiane d'une publication est donc d'une heure et demie avant même la
+revalidation de la fiche (deux minutes), et ce n'est pas le travail de J4 qui
+manque — tout le jalon est construit et en service. La mesure, étendue à
+toutes les sources, est consignée en [stratégie §8.1](strategie.md#81-ordonnancement--tranché-le-28-juillet-2026)
+: seul le cron quotidien tourne comme déclaré.
+
+Deux constats de mesure, à connaître :
+
+- **La préfecture publie un jour, pas une heure.** `published_on` est une
+  date : une latence en minutes ne peut pas se lire dans la donnée
+  elle-même, seulement se déduire de la cadence. Et `published_on` est
+  **réécrite à chaque passe** — par construction (« sans réécriture » veut
+  dire qu'on reflète la date que la préfecture affiche, y compris quand
+  elle la change) ; `first_seen_at` est le seul ancrage de capture honnête.
+  La seule publication parue depuis la naissance du connecteur, vue le
+  1ᵉʳ septembre, porte aujourd'hui la date du 7 : la préfecture l'a mise à
+  jour, et nous l'avons suivie
+- **Il n'y a presque rien à mesurer.** Une publication nouvelle en dix-sept
+  jours sur le Var, aucune sur les Alpes-Maritimes depuis le 8 juin ; 3
+  publications sur 23 rapprochées d'une commune. Le critère se mesurera
+  pour de bon le jour d'un feu, sur une préfecture qui publie — et ce
+  jour-là, il tiendra ou non selon le déclencheur choisi.
+
 ---
 
 ## 12. J5 — Administration et exploitation ⬜
@@ -1764,7 +1805,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
 | Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar (préfixe `radar/`) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
-| Cadence radar étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme | §8.1 / J5 |
+| Cadence de **toutes** les sources sous-quotidiennes étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme. **Mesuré le 13 septembre sur sept jours** : médiane réelle entre passes — firms 111 min (déclaré 10), radar 213 (5), vigilance 244 (60), prefectures 181 (15), arome 1 431 (180, soit une fois par jour) ; seul cams, quotidien, tient (1 436 pour 1 440). Tableau complet en stratégie §8.1. **Bloque le critère de sortie de J4** | §8.1 — décision à prendre |
 | Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |
 | Une source peut dater sa donnée en avance | `massifs` enregistrait `source_data_at` au **jour décrit** — le niveau du lendemain paraît la veille au soir — et non à l'instant de lecture. La fraîcheur en tirait un âge négatif, ramené à zéro puis formaté en « moins d'une minute » : le bandeau de toutes les pages a annoncé « maj il y a moins d'une minute » en permanence dès la mise en service (11 septembre). Connecteur corrigé, et deux garde-fous posés dans le domaine — `mostRecentPast` écarte du concours ce qui est horodaté en avance, `formatDataRecency` dit « dans 4 h 28 min » plutôt que de faire passer une avance pour une fraîcheur. **À vérifier à chaque nouveau connecteur** : `source_data_at` est l'instant de production, jamais l'échéance décrite | Continu |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
