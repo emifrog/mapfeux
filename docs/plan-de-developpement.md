@@ -4,8 +4,9 @@
 sur la carte nationale vivante et trois chiffres réels**, la recherche est
 sur la carte, la coque au-dessus de `/carte` passe de 172 à 96 px, les
 contours et les marqueurs se lisent à l'échelle nationale, une lueur dit
-ce qui a moins de vingt-quatre heures, et **une carte au survol** dit d'un
-marqueur ce que la liste en dit, sans cliquer. Comparaison faite au même
+ce qui a moins de vingt-quatre heures, **une carte au survol** dit d'un
+marqueur ce que la liste en dit sans cliquer, et le zoom intermédiaire a
+ses **grappes** et ses **noms de départements**. Comparaison faite au même
 format contre ensemblepourlaforet.fr et GISFire : l'écart était d'abord sur
 l'accueil. Le VPS attend sa souscription — le kit est prêt (`ops/vps/`),
 la bascule est décrite en §2. Les Canadair sont écartés.
@@ -179,7 +180,7 @@ build — vertes.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 149 tests (54 domaine, 54 web, 33 map-style, 8 contrats) |
+| Web | `pnpm test` | ✅ 157 tests (54 domaine, 58 web, 37 map-style, 8 contrats) |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
@@ -1790,6 +1791,25 @@ nationale.
   l'échappement HTML. Vérifié : « Les Mées · MPF-SZQH9K1Z — Pas de nouvelle
   observation · 1 détection · fiabilité faible — Dernière observation
   10/09/2026 14:14 (il y a 3 j 8 h) », et rien une fois le marqueur quitté
+
+- ✅ **Le zoom intermédiaire (7–8), regardé avec les données du jour.** Au
+  zoom 7, la carte n'était qu'un trait de côte, des contours sans nom et
+  des marqueurs qui se recouvraient — trois événements de Fos dans dix
+  pixels. Deux réponses. **Des grappes sous le zoom 9** (§21.3) : la source
+  regroupe, une grappe porte son compte, prend la **couleur de son membre
+  le plus récent** — une grappe qui contient une détection de la nuit doit
+  le dire —, compte ses étayés, et s'ouvre au clic jusqu'au zoom où elle
+  se défait ; jamais une fiche, une grappe n'en a pas. Au survol, la même
+  carte que les marqueurs, dans le même vocabulaire : « 5 événements · dont
+  aucun étayé · 5 observations isolées · le plus récent il y a 6 h 7 min ».
+  Et **les noms de départements** en petites capitales du zoom 6 au zoom
+  8,5, effacés devant tout marqueur, dans les glyphes que la Géoplateforme
+  sert avec son style. Vérifié au zoom 7 : trois grappes (5, 3 en orange
+  à moins de huit heures ; 2 en gris), treize marqueurs isolés, quatorze
+  noms rendus ; un clic sur la grappe de cinq passe au zoom 8 et la défait
+  en marqueurs. Aucun nombre nouveau écrit en double : la couleur des
+  grappes sort de la même expression que celle des marqueurs, paramétrée
+  sur la propriété
 
 Ce qui n'a pas bougé, et c'est voulu : le titre de l'accueil — formulation
 publique, validation métier avant toute retouche —, l'avertissement du §2.4

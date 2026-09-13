@@ -21,6 +21,8 @@ import type { ExpressionSpecification, Map as MapLibreMap } from 'maplibre-gl';
 export const DEPARTMENTS_SOURCE_ID = 'mapfeux-territoires';
 export const DEPARTMENTS_FILL_LAYER_ID = 'mapfeux-departements-remplissage';
 export const DEPARTMENTS_OUTLINE_LAYER_ID = 'mapfeux-departements-contour';
+/** Les noms, du zoom 6 au zoom 8,5 : le squelette a besoin d'être nommé. */
+export const DEPARTMENTS_LABEL_LAYER_ID = 'mapfeux-departements-noms';
 
 const SOURCE_LAYER = 'departements';
 
@@ -82,6 +84,36 @@ export function addDepartmentLayer(map: MapLibreMap, tilesUrl: string): void {
       'line-color': DEPARTMENT_OUTLINE_COLOR,
       'line-opacity': DEPARTMENT_OUTLINE_OPACITY,
       'line-width': 1,
+    },
+  });
+
+  // Les noms, entre le lavis national et la carte de quartier. Au zoom 7,
+  // regardé le 13 septembre 2026, la carte n'était qu'un trait de côte et
+  // des contours sans nom : on ne savait pas où l'on était. Petites
+  // capitales grises, jamais en concurrence avec un marqueur — pas de
+  // superposition autorisée, le nom s'efface devant le point. Le fond IGN
+  // garde ses propres toponymes ; ceux-ci s'arrêtent où les siens
+  // commencent à suffire.
+  map.addLayer({
+    id: DEPARTMENTS_LABEL_LAYER_ID,
+    type: 'symbol',
+    source: DEPARTMENTS_SOURCE_ID,
+    'source-layer': SOURCE_LAYER,
+    minzoom: 6,
+    maxzoom: 8.5,
+    layout: {
+      'text-field': ['upcase', ['get', 'nom']],
+      'text-font': ['Source Sans Pro Regular'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 6, 9, 8, 12],
+      'text-letter-spacing': 0.12,
+      'text-allow-overlap': false,
+      'text-padding': 8,
+    },
+    paint: {
+      'text-color': DEPARTMENT_OUTLINE_COLOR,
+      'text-opacity': 0.75,
+      'text-halo-color': 'rgba(0, 0, 0, 0.35)',
+      'text-halo-width': 1,
     },
   });
 }

@@ -83,16 +83,51 @@ export const SMOKE_OUTLINE_DASH: readonly [number, number] = [2, 2];
  * rendu. Elle doit rester identique entre la carte, la légende et tout futur
  * export.
  */
-export const FRESHNESS_COLOR_EXPRESSION = [
+/**
+ * La couleur d'âge, en expression MapLibre, sur la propriété qu'on veut.
+ *
+ * Un marqueur porte `ageHours` ; une grappe porte `minAge`, l'âge de son
+ * membre le plus récent — c'est lui qui décide de sa couleur, parce qu'une
+ * grappe qui contient une détection de la nuit doit le dire. Les seuils
+ * sont ceux de la légende, une seule fois.
+ */
+export function freshnessColorExpression(property: string) {
+  return [
+    'step',
+    ['get', property],
+    PALETTE.thermal.new,
+    AGE_BUCKETS_HOURS.new,
+    PALETTE.thermal.recent,
+    AGE_BUCKETS_HOURS.recent,
+    PALETTE.thermal.notRecent,
+    AGE_BUCKETS_HOURS.notRecent,
+    PALETTE.thermal.archived,
+  ] as const;
+}
+
+export const FRESHNESS_COLOR_EXPRESSION = freshnessColorExpression('ageHours');
+
+/**
+ * Regroupement des marqueurs proches sous le zoom 9 (§21.3).
+ *
+ * Au zoom 7, trois événements de Fos tiennent dans dix pixels et se
+ * recouvrent : on ne sait plus s'il y en a un ou trois. Une grappe dit le
+ * compte, prend la couleur de son membre le plus récent, et s'ouvre au
+ * clic. Au zoom 9 et au-delà, les marqueurs redeviennent individuels : la
+ * carte de quartier n'a rien à regrouper.
+ */
+export const CLUSTER_MAX_ZOOM = 8;
+export const CLUSTER_RADIUS_PX = 28;
+
+/** Rayon d'une grappe selon son compte, en pixels. */
+export const CLUSTER_RADIUS_EXPRESSION = [
   'step',
-  ['get', 'ageHours'],
-  PALETTE.thermal.new,
-  AGE_BUCKETS_HOURS.new,
-  PALETTE.thermal.recent,
-  AGE_BUCKETS_HOURS.recent,
-  PALETTE.thermal.notRecent,
-  AGE_BUCKETS_HOURS.notRecent,
-  PALETTE.thermal.archived,
+  ['get', 'point_count'],
+  12,
+  5,
+  15,
+  20,
+  19,
 ] as const;
 
 /**

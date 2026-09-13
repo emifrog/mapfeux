@@ -8,7 +8,7 @@ import { Protocol } from 'pmtiles';
 
 import { publicEnv } from '@/lib/env';
 import { applyBasemapStyle, isDarkTheme, subscribeTheme } from '@/lib/map/basemap-style';
-import { hoverCardHtml, type HoverCardData } from '@/lib/map/hover-card';
+import { clusterCardHtml, hoverCardHtml, type HoverCardData } from '@/lib/map/hover-card';
 import type { LoadedEventRow } from '@/lib/map/loaded-events';
 
 import { removeAirLayer, resolveAirTiles, setAirLayer, type AirTilesInfo } from './air-layer';
@@ -22,10 +22,10 @@ import {
 import {
   addEventLayer,
   CLICKABLE_LAYER_IDS,
-  EVENTS_CIRCLE_LAYER_ID,
-  EVENTS_GLOW_LAYER_ID,
-  EVENTS_HALO_LAYER_ID,
-  EVENTS_TAIL_LAYER_ID,
+  CLUSTERS_CIRCLE_LAYER_ID,
+  CLUSTERS_COUNT_LAYER_ID,
+  EVENT_LAYER_IDS,
+  EVENTS_SOURCE_ID,
   updateEventLayer,
   type MapEvent,
 } from './event-layer';
@@ -455,13 +455,8 @@ export default function BaseMap({
       const placeDepartments = (tilesUrl: string): void => {
         addDepartmentLayer(map, tilesUrl);
         // Sous les événements : chaque couche d'événements repasse au-dessus,
-        // dans son ordre d'origine — traîne, lueur, halo, disque.
-        for (const layerId of [
-          EVENTS_TAIL_LAYER_ID,
-          EVENTS_GLOW_LAYER_ID,
-          EVENTS_HALO_LAYER_ID,
-          EVENTS_CIRCLE_LAYER_ID,
-        ]) {
+        // dans son ordre d'origine — grappes, puis traîne, lueur, halo, disque.
+        for (const layerId of EVENT_LAYER_IDS) {
           if (map.getLayer(layerId) !== undefined) {
             map.moveLayer(layerId);
           }
@@ -569,6 +564,47 @@ export default function BaseMap({
         map.on('mouseleave', layerId, () => {
           map.getCanvas().style.cursor = '';
           hover.remove();
+        });
+      }
+
+      // Les grappes : au survol, combien et depuis quand ; au clic, on
+      // rapproche jusqu'au zoom où elles s'ouvrent — jamais une fiche, une
+      // grappe n'en a pas.
+      for (const layerId of [CLUSTERS_CIRCLE_LAYER_ID, CLUSTERS_COUNT_LAYER_ID]) {
+        map.on('mouseenter', layerId, () => {
+          map.getCanvas().style.cursor = 'zoom-in';
+        });
+        map.on('mousemove', layerId, (event) => {
+          const feature = event.features?.[0];
+          if (feature === undefined || feature.geometry.type !== 'Point') return;
+          const properties = feature.properties as Record<string, unknown>;
+          const [longitude, latitude] = feature.geometry.coordinates as [number, number];
+          hover
+            .setLngLat([longitude, latitude])
+            .setHTML(
+              clusterCardHtml({
+                count: Number(properties['point_count'] ?? 0),
+                substantiated: Number(properties['substantiated'] ?? 0),
+                minAgeHours: Number(properties['minAge']),
+              }),
+            )
+            .addTo(map);
+        });
+        map.on('mouseleave', layerId, () => {
+          map.getCanvas().style.cursor = '';
+          hover.remove();
+        });
+        map.on('click', layerId, (event) => {
+          const feature = event.features?.[0];
+          if (feature === undefined || feature.geometry.type !== 'Point') return;
+          const clusterId = Number((feature.properties as Record<string, unknown>)['cluster_id']);
+          const source = map.getSource(EVENTS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+          if (source === undefined || Number.isNaN(clusterId)) return;
+          const [longitude, latitude] = feature.geometry.coordinates as [number, number];
+          void source.getClusterExpansionZoom(clusterId).then((zoom) => {
+            hover.remove();
+            map.easeTo({ center: [longitude, latitude], zoom, duration: 500 });
+          });
         });
       }
 

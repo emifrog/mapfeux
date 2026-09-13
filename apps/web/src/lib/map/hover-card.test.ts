@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { escapeHtml, hoverCardHtml, type HoverCardData } from './hover-card';
+import { clusterCardHtml, escapeHtml, hoverCardHtml, type HoverCardData } from './hover-card';
 
 const NOW = new Date('2026-09-13T20:00:00Z');
 
@@ -63,5 +63,34 @@ describe('hoverCardHtml', () => {
     expect(html).toContain('inconnu');
     expect(html).toContain('fiabilité autre');
     expect(html).toContain('date inconnue');
+  });
+});
+
+describe('clusterCardHtml', () => {
+  it('dit combien, dont combien d’étayés, et l’âge du plus récent', () => {
+    const html = clusterCardHtml({ count: 7, substantiated: 2, minAgeHours: 5.5 });
+    expect(html).toContain('<span class="mono">7</span> événements');
+    expect(html).toContain('<span class="mono">2</span> étayés');
+    expect(html).toContain('5 observations isolées');
+    expect(html).toContain('il y a 5 h 30 min');
+    expect(html).toContain('Cliquer pour rapprocher');
+  });
+
+  it('accorde les singuliers', () => {
+    const html = clusterCardHtml({ count: 2, substantiated: 1, minAgeHours: 1 });
+    expect(html).toContain('<span class="mono">1</span> étayé ·');
+    expect(html).toContain('1 observation isolée');
+  });
+
+  it('dit « aucun » plutôt que « 0 »', () => {
+    expect(clusterCardHtml({ count: 4, substantiated: 0, minAgeHours: 2 })).toContain(
+      'dont aucun étayé',
+    );
+  });
+
+  it('tait l’âge quand il n’est pas un nombre plutôt que d’en inventer un', () => {
+    expect(clusterCardHtml({ count: 3, substantiated: 0, minAgeHours: Number.NaN })).not.toContain(
+      'Le plus récent',
+    );
   });
 });

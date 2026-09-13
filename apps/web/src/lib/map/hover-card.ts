@@ -1,4 +1,4 @@
-import { formatDataRecency } from '@mapfeux/domain';
+import { formatDataAge, formatDataRecency } from '@mapfeux/domain';
 import { CONFIDENCE_LEVEL_LABELS, EVENT_FRESHNESS_LABELS } from '@mapfeux/ui';
 
 /**
@@ -81,5 +81,38 @@ export function hoverCardHtml(data: HoverCardData, now: Date): string {
     when === '' ? '' : `<span class="mono">${escapeHtml(when)}</span> `,
     `(${escapeHtml(formatDataRecency(at, now))})</p>`,
     `<p class="mapfeux-hover__hint">Cliquer pour ouvrir la fiche</p>`,
+  ].join('');
+}
+
+export interface ClusterCardData {
+  count: number;
+  substantiated: number;
+  /** Âge du membre le plus récent, en heures. */
+  minAgeHours: number;
+}
+
+/**
+ * La carte au survol d'une **grappe** : combien, dont combien d'étayés, et
+ * depuis quand pour le plus récent. Pas de commune — une grappe en couvre
+ * plusieurs — et le clic ne mène pas à une fiche, il rapproche.
+ */
+export function clusterCardHtml(data: ClusterCardData): string {
+  const count = Math.max(0, Math.round(data.count));
+  const substantiated = Math.max(0, Math.round(data.substantiated));
+  const age = Number.isFinite(data.minAgeHours)
+    ? formatDataAge(Math.max(0, data.minAgeHours) * 3_600_000)
+    : null;
+
+  return [
+    `<p class="mapfeux-hover__title"><span class="mono">${count}</span> événements</p>`,
+    // « dont aucun étayé » et non « dont 0 étayé » : un zéro se lit, il ne se dit pas.
+    substantiated === 0
+      ? `<p class="mapfeux-hover__line">dont aucun étayé`
+      : `<p class="mapfeux-hover__line">dont <span class="mono">${substantiated}</span> étayé${substantiated > 1 ? 's' : ''}`,
+    ` · ${count - substantiated} observation${count - substantiated > 1 ? 's' : ''} isolée${count - substantiated > 1 ? 's' : ''}</p>`,
+    age === null
+      ? ''
+      : `<p class="mapfeux-hover__when">Le plus récent : il y a ${escapeHtml(age)}</p>`,
+    `<p class="mapfeux-hover__hint">Cliquer pour rapprocher</p>`,
   ].join('');
 }
