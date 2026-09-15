@@ -53,13 +53,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # `setup-micromamba` crée l'environnement décrit par le fichier et
-      # l'active pour les étapes en `bash -el {0}` : le nom `mapfeux-geo` est
-      # repris du fichier, sans qu'il faille passer par `micromamba run -n`.
+      # `setup-micromamba` crée l'environnement décrit par le verrou et
+      # l'active pour les étapes en `bash -el {0}`. Un verrou conda-lock ne
+      # porte pas de nom : `mapfeux-geo` est donné ici, sans qu'il faille
+      # passer par `micromamba run -n`.
       - name: Environnement micromamba
         uses: mamba-org/setup-micromamba@v2
         with:
-          environment-file: services/geo-worker/environment.yml
+          environment-file: services/geo-worker/conda-lock.yml
+          environment-name: mapfeux-geo
           cache-environment: true
 
       - name: Archivage

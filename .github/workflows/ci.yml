@@ -58,10 +58,13 @@ jobs:
       - uses: actions/checkout@v4
 
       # L'environnement conda-forge est la référence : la CI doit valider le
-      # même environnement que les postes de développement. ADR-014.
+      # même environnement que les postes de développement. ADR-014. Depuis le
+      # 15 septembre 2026, c'est le **verrou** qui est validé — les versions
+      # exactes que le VPS installera —, et non une résolution du jour.
       - uses: mamba-org/setup-micromamba@v2
         with:
-          environment-file: services/geo-worker/environment.yml
+          environment-file: services/geo-worker/conda-lock.yml
+          environment-name: mapfeux-geo
           cache-environment: true
 
       - name: Lint

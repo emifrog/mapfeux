@@ -8,8 +8,17 @@
 # AROME — n'a pas de roue PyPI fiable. conda-forge fournit des binaires win-64
 # pour ecCodes, GDAL et cfgrib, ce que ni pip ni un venv nu ne savent faire.
 #
-# Création :   micromamba create -f environment.yml -y
+# Ce fichier est la **source** ; `conda-lock.yml`, à côté, est le **verrou** :
+# les versions exactes, avec leurs empreintes, pour linux-64 (CI, VPS) et
+# win-64 (poste). Sans lui, chaque recréation laissait le solveur choisir une
+# combinaison différente — relevé par un audit externe le 15 septembre 2026.
+#
+# Création :   micromamba create -n mapfeux-geo -f conda-lock.yml -y
 # Activation : micromamba activate mapfeux-geo
+# Régénérer le verrou après toute modification de ce fichier :
+#   micromamba create -n conda-lock -c conda-forge conda-lock -y   # une fois
+#   micromamba run -n conda-lock conda-lock --micromamba \
+#     -f environment.yml -p linux-64 -p win-64 --lockfile conda-lock.yml
 # =============================================================================
 name: mapfeux-geo
 
@@ -24,7 +33,7 @@ dependencies:
 
   # Pile géospatiale — binaires conda-forge obligatoires
   # GDAL n'est pas épinglé : le solveur choisit la version compatible avec le
-  # reste de la pile. Le verrouillage se fait par fichier de lock, pas ici.
+  # reste de la pile. Le verrouillage se fait dans `conda-lock.yml`, pas ici.
   - gdal
   - eccodes
   - proj

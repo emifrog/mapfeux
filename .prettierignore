@@ -15,3 +15,8 @@ next-env.d.ts
 # sortie à chaque régénération, et le contrôle de format échouerait sur une
 # différence que personne n'a introduite.
 data/**/*.json
+
+# Verrou conda engendré par conda-lock : sa forme est celle de l'outil, et il
+# se régénère entier. Le reformater ferait échouer le contrôle à la prochaine
+# régénération.
+services/geo-worker/conda-lock.yml

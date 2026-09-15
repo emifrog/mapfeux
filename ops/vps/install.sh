@@ -76,15 +76,18 @@ else
 fi
 
 # --- Environnement géospatial -------------------------------------------------
-# `environment.yml` porte toute la pile, dérivation raster comprise : une
-# seule création, rien à ajouter par pip.
+# `conda-lock.yml` porte toute la pile, dérivation raster comprise, **aux
+# versions exactes** que la CI valide (linux-64) : une seule création, rien à
+# ajouter par pip, et la même combinaison à chaque recréation. `environment.yml`
+# reste la source, le verrou s'en régénère (voir son en-tête). Un verrou ne se
+# met pas à jour en place : on recrée, ce qui remplace l'environnement existant.
 say "environnement mapfeux-geo"
 if [[ -d "$MAMBA_ROOT_PREFIX/envs/mapfeux-geo" ]]; then
-  "$MICROMAMBA" install -y -q -n mapfeux-geo -f "$ROOT/services/geo-worker/environment.yml"
-  echo "mis à jour"
+  "$MICROMAMBA" create -y -q -n mapfeux-geo -f "$ROOT/services/geo-worker/conda-lock.yml"
+  echo "recréé depuis le verrou"
 else
-  "$MICROMAMBA" create -y -q -n mapfeux-geo -f "$ROOT/services/geo-worker/environment.yml"
-  echo "créé"
+  "$MICROMAMBA" create -y -q -n mapfeux-geo -f "$ROOT/services/geo-worker/conda-lock.yml"
+  echo "créé depuis le verrou"
 fi
 "$MICROMAMBA" run -n mapfeux-geo python -c "import rasterio, psycopg, httpx; print('pile géospatiale : ok')"
 

@@ -201,6 +201,14 @@ def _existing_events(
     La distance est mesurée jusqu'au membre le plus proche, pas jusqu'au centre :
     un feu allongé sur cinq kilomètres a un centre éloigné de ses deux
     extrémités, et mesurer depuis le centre le couperait en deux événements.
+
+    Seul `archived` est écarté. Un événement **masqué** reste rattachable —
+    hors périmètre (ADR-027) ou retiré à la main —, et c'est voulu : un site
+    étranger persistant reste un seul événement masqué au lieu d'en engendrer
+    un par passe, et c'est le rattachement qui déplace le point représentatif
+    et permet au déclencheur de périmètre de rendre la main. L'ADR et la 49ᵉ
+    migration ont dit l'inverse pendant une demi-journée ; la règle est fixée
+    par un test.
     """
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(

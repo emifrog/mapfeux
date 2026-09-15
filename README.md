@@ -17,9 +17,11 @@ des fumées.
 
 ## État d'avancement
 
-Fondations et couche territoriale du pilote livrées : monorepo, schéma Supabase,
-socle web, worker Python, CI, carte et 316 communes sur le 06 et le 83. Reste
-l'objet central du produit — la fiche événement — et l'ingestion FIRMS.
+Le service tourne sur données réelles depuis le 5 août 2026, en France
+métropolitaine et Corse : ingestion FIRMS nationale et regroupement en
+événements, fiche événement, carte à deux échelles, catalogue, pages communes,
+état des données, neuf sources au registre. Le déclencheur d'ingestion tourne
+sur un poste Windows en attendant le VPS (`ops/vps/`).
 
 Le détail par jalon, les dettes et la prochaine action se trouvent dans le
 [plan de développement](docs/plan-de-developpement.md), tenu à jour à chaque
@@ -116,10 +118,15 @@ depuis l'éditeur SQL du tableau de bord.
 
 ### Ingestion planifiée — à faire une fois
 
-La chaîne d'ingestion tourne toutes les dix minutes via GitHub Actions
-(`.github/workflows/ingestion.yml`). Tant que ces trois étapes ne sont pas
-faites, elle échoue à chaque déclenchement et la fraîcheur affichée sur le site
-reste celle du dernier lancement manuel.
+La chaîne d'ingestion tourne depuis un planificateur — les sept tâches de
+`ops/tasks.json`, sur un poste Windows en transition, sur le VPS ensuite
+(`ops/vps/README.md`). Les workflows GitHub Actions n'ont plus de cron depuis
+le 13 septembre 2026 : ils gardent le déclenchement manuel, pour éprouver un
+secret ou rejouer une passe depuis un runner. Les trois étapes ci-dessous
+servent aux deux : la chaîne de connexion est la même dans le `.env` du
+planificateur et dans le secret `INGESTION_DATABASE_URL`. Tant qu'elles ne sont
+pas faites, chaque passe échoue et la fraîcheur affichée sur le site reste celle
+du dernier import réussi.
 
 **1. Créer le rôle d'ingestion et lui poser un mot de passe.**
 
@@ -167,7 +174,7 @@ Settings → Secrets and variables → Actions :
 **4. Éprouver les identifiants avant de brancher l'ordonnanceur.**
 
 Une tâche planifiée qui échoue sur un identifiant invalide échoue en silence
-toutes les dix minutes : personne ne regarde un onglet Actions, et le site
+toutes les dix minutes : personne ne lit un journal de tâche, et le site
 continue d'afficher un âge de donnée qui grandit sans que rien ne le signale.
 
 En ajoutant `INGESTION_DATABASE_URL` à `services/geo-worker/.env` — jamais
@@ -182,9 +189,12 @@ contournement RLS et surtout que **le verrou de session survit à une
 validation** — le symptôme d'un pooler en mode transaction, qui laisserait deux
 ingestions se superposer. Aucune valeur n'est affichée.
 
-Puis déclencher une fois à la main — onglet Actions, workflow « Ingestion »,
-*Run workflow* — pour vérifier avant d'attendre le créneau suivant.
+Puis déclencher une fois à la main — onglet Actions, workflow « Ingestion » ou
+« Vigilance », *Run workflow* — pour prouver le secret depuis un runner GitHub
+avant de le poser dans le `.env` du planificateur ; c'est ainsi que la forme
+pooler a été prouvée le 15 septembre 2026.
 
+> Seule la réconciliation trimestrielle (`reconcile-firms.yml`) garde un cron.
 > GitHub désactive les workflows planifiés après soixante jours sans activité
 > sur le dépôt, et ne les déclenche que depuis la branche par défaut.
 

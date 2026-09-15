@@ -14,10 +14,12 @@ le plafond se lève, et une passe qui l'atteint le dit.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from geo_worker.pipelines.clustering import (
     ClusteringResult,
+    _existing_events,
     _pending_detections,
     cluster_detections,
     pass_was_capped,
@@ -58,6 +60,30 @@ class FausseConnexion:
 
     def cursor(self, **_: object) -> FauxCurseur:
         return self.curseur
+
+
+class TestEvenementsRattachables:
+    """Un événement masqué reste rattachable ; seul l'archivé ne l'est plus.
+
+    ADR-027, révision du 15 septembre 2026. L'ADR et la 49ᵉ migration ont
+    affirmé pendant une demi-journée que le regroupement n'alimentait pas
+    les masqués ; le code ne l'a jamais fait, et c'est lui qui a raison : un
+    site étranger persistant reste un seul événement masqué au lieu d'en
+    engendrer un par passe, et c'est le rattachement qui déplace le point
+    représentatif et permet au déclencheur de périmètre de rendre la main.
+
+    Le test lit le SQL, contre l'usage de ce fichier : ici la règle **est**
+    la clause, et une exclusion de `hidden` glissée dans la requête ne se
+    verrait nulle part ailleurs avant la production.
+    """
+
+    def test_seul_archived_est_ecarte(self) -> None:
+        conn = FausseConnexion()
+        _existing_events(conn, floor=datetime(2026, 9, 15, tzinfo=UTC))  # type: ignore[arg-type]
+        sql, params = conn.curseur.requetes[0]
+        assert "freshness_status <> 'archived'" in sql
+        assert "hidden" not in sql
+        assert params == {"floor": datetime(2026, 9, 15, tzinfo=UTC)}
 
 
 class TestPlafondDePasse:

@@ -41,10 +41,12 @@ Télécharger l'exécutable directement évite ce détour et se scripte en CI.
 ### 2. Environnement
 
 ```bash
-micromamba create -f environment.yml -y
+micromamba create -n mapfeux-geo -f conda-lock.yml -y
 ```
 
-La résolution prend quelques secondes, le téléchargement plusieurs minutes la
+Le verrou donne les versions exactes que la CI valide et que le VPS installe ;
+`environment.yml` reste la source, et son en-tête dit comment régénérer le
+verrou après l'avoir modifié. Le téléchargement prend plusieurs minutes la
 première fois : la pile GDAL et ecCodes pèse lourd.
 
 ### 3. Configuration

@@ -2,6 +2,9 @@
 
 - **Statut** : accepté
 - **Date** : 2026-09-15
+- **Révision** : 2026-09-15 au soir — la conséquence sur le regroupement
+  était écrite à l'envers (voir « Conséquences ») ; texte corrigé, le code
+  n'a pas changé
 - **Tranche** : applique le cahier v2.1 §2.4 et FR-001 (« France
   métropolitaine et Corse ») à l'ingestion, sans le contredire ; précise
   §17.7 (masquage)
@@ -61,9 +64,16 @@ forment n'est jamais publié.**
 
 - Le catalogue, la carte, les pages communes et les agrégats disent les
   mêmes nombres, ceux de la France.
-- Un site industriel étranger cesse de grossir : le regroupement
-  n'alimente pas un événement masqué, et ses nouvelles détections forment
-  un nouvel événement, masqué à son tour.
+- Un site industriel étranger reste **un seul événement, masqué** : le
+  regroupement continue de lui rattacher ses détections — `_existing_events`
+  (`clustering.py`) n'écarte que `archived`, jamais `hidden`. C'est voulu :
+  écarter les masqués engendrerait un événement masqué par passe pour
+  chaque site persistant, et c'est le rattachement qui déplace le point
+  représentatif et permet au déclencheur de rendre la main si l'événement
+  revient dans le périmètre. Le texte initial de cet ADR et de la 49ᵉ
+  migration affirmaient l'inverse ; un audit externe l'a relevé le soir
+  même, et la production a tranché — 53 rattachements à 14 événements déjà
+  masqués depuis la migration. Un test fixe désormais la règle.
 - La base garde environ une détection sur deux hors périmètre. À revoir
   avec la purge de rétention (plan §15, J5) si le volume pèse.
 - Les identifiants déjà partagés d'événements hors périmètre mènent à une

@@ -31,9 +31,12 @@
 -- Le déclencheur force `hidden` tant que l'événement est hors périmètre, quel
 -- que soit le chemin — regroupement, cycle de vie, retouche manuelle — et
 -- rend la main au cycle de vie si le point revient dans le périmètre (le
--- motif est reconnu, jamais deviné). Le regroupement n'alimente pas un
--- événement masqué (`clustering.py`) : un site étranger cesse de grossir,
--- et ses nouvelles détections forment un nouvel événement, masqué à son tour.
+-- motif est reconnu, jamais deviné). Le regroupement **continue d'alimenter**
+-- un événement masqué (`clustering.py` n'écarte que `archived`) : un site
+-- étranger reste un seul événement masqué au lieu d'en engendrer un par
+-- passe, et c'est ce rattachement qui peut ramener son point dans le
+-- périmètre. (Commentaire corrigé le soir du 15 septembre 2026 : la version
+-- initiale disait l'inverse ; le SQL de cette migration n'a pas changé.)
 --
 -- Idempotente : `add column if not exists`, `create or replace`, déclencheur
 -- reposé après suppression, rattrapage borné aux lignes à changer.
