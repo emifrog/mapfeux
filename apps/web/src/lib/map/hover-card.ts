@@ -84,6 +84,60 @@ export function hoverCardHtml(data: HoverCardData, now: Date): string {
   ].join('');
 }
 
+export interface ObservationCardData {
+  /** L'événement dont l'observation est membre. */
+  publicId: string;
+  /** ISO 8601. */
+  acquiredAt: string;
+  sensor: string;
+  satellite: string;
+  /** `'D'`, `'N'` ou rien. */
+  dayNight: string | null;
+  frpMw: number | null;
+  /** Confiance de l'observation elle-même — `'unknown'` compris. */
+  confidence: string;
+}
+
+const MW = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+
+/**
+ * La carte au survol d'un point de l'**empreinte** : une observation, pas
+ * un événement. Elle dit ce que dit la ligne du tableau — heure
+ * d'acquisition, capteur, confiance, puissance — dans les mêmes mots, et
+ * elle ne propose de cliquer que s'il y a une fiche à ouvrir : sur la
+ * fiche elle-même, le clic ne ferait que recharger la page.
+ */
+export function observationCardHtml(
+  data: ObservationCardData,
+  now: Date,
+  options: { link: boolean },
+): string {
+  const at = new Date(data.acquiredAt);
+  const when = Number.isNaN(at.getTime()) ? '' : TIME.format(at);
+  const confidence =
+    data.confidence === 'unknown'
+      ? 'inconnue'
+      : ((CONFIDENCE_LEVEL_LABELS as Record<string, string>)[data.confidence]?.toLowerCase() ??
+        data.confidence);
+  const period = data.dayNight === 'D' ? ' · jour' : data.dayNight === 'N' ? ' · nuit' : '';
+  const power =
+    data.frpMw === null || !Number.isFinite(data.frpMw)
+      ? 'puissance non disponible'
+      : `<span class="mono">${MW.format(data.frpMw)}</span> MW`;
+
+  return [
+    `<p class="mapfeux-hover__title">Observation satellitaire`,
+    `<span class="mapfeux-hover__id">${escapeHtml(`${data.satellite} · ${data.sensor}`)}</span></p>`,
+    `<p class="mapfeux-hover__when">Acquise `,
+    when === '' ? '' : `<span class="mono">${escapeHtml(when)}</span> `,
+    `(${escapeHtml(formatDataRecency(at, now))})${period}</p>`,
+    `<p class="mapfeux-hover__line">confiance ${escapeHtml(confidence)} · ${power}</p>`,
+    options.link
+      ? `<p class="mapfeux-hover__hint">Cliquer pour ouvrir la fiche ${escapeHtml(data.publicId)}</p>`
+      : '',
+  ].join('');
+}
+
 export interface ClusterCardData {
   count: number;
   substantiated: number;

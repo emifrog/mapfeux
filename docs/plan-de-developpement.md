@@ -1862,11 +1862,26 @@ deux références ouvrent un feu sur sa carte et son évolution.
 
 Le corps de la fiche tient désormais dans une colonne de lecture de
 soixante-quinze caractères, comme la relecture ; seule la tête est large,
-parce qu'elle porte une carte. Reste, vu en passant : la carte au survol
-d'un point de l'empreinte propose « cliquer pour ouvrir la fiche » depuis
-la fiche elle-même — le clic ne fait que recharger la page ; et
-l'impression ne porte que les douze premières lignes du tableau et
-l'annonce du pli, un `<details>` fermé ne s'ouvrant pas à l'impression.
+parce qu'elle porte une carte.
+
+- ✅ **La carte au survol d'un point de l'empreinte** (même jour, suite).
+  Un point de l'empreinte est une observation, pas un événement : sa carte
+  disait « 1 détection · fiabilité modérée · cliquer pour ouvrir la
+  fiche » — depuis la fiche elle-même, où le clic ne faisait que
+  recharger la page. Elle dit maintenant ce que dit la ligne du tableau,
+  dans les mêmes mots : « Observation satellitaire · N20 · VIIRS — Acquise
+  15/09/2026 02:54 (il y a 6 h 52 min) · nuit — confiance modérée ·
+  6,8 MW ». Le marqueur porte ce qu'il sait de lui-même (`observation`
+  sur `MapEvent`, mis à plat dans les propriétés, sans faire voyager une
+  valeur absente), et la carte ne propose de cliquer que s'il y a une
+  fiche à ouvrir : `linkToEvent={false}` sur la fiche — ni clic, ni
+  curseur qui promette un lien ; la relecture garde le sien, et sa carte
+  au survol dit « cliquer pour ouvrir la fiche MPF-… ». Vérifié sur les
+  deux pages ; sept tests de plus (`hover-card`, `event-layer`)
+
+Reste, vu en passant : l'impression ne porte que les douze premières
+lignes du tableau et l'annonce du pli, un `<details>` fermé ne s'ouvrant
+pas à l'impression.
 
 #### Une affirmation devenue fausse, trouvée en refondant
 

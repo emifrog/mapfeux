@@ -289,6 +289,15 @@ export default async function EventPage({ params }: PageParams) {
     detectionCount: 1,
     location: detection.location,
     nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
+    // Ce que la ligne du tableau dit de cette observation : la carte au
+    // survol le redit, dans les mêmes mots.
+    observation: {
+      sensor: detection.sensor,
+      satellite: detection.satellite,
+      dayNight: detection.dayNight,
+      frpMw: detection.frpMw,
+      confidence: detection.confidenceLevel,
+    },
   }));
   const footprintBounds = framingBounds(detections.map((detection) => detection.location));
   const passes = groupByPass(detections);
@@ -412,6 +421,7 @@ export default async function EventPage({ params }: PageParams) {
               zoom={13}
               className="h-full w-full"
               events={footprint}
+              linkToEvent={false}
               padding={{ top: 36, right: 36, bottom: 36, left: 36 }}
               {...(footprintBounds === null ? {} : { fitBounds: footprintBounds })}
               perimeters={

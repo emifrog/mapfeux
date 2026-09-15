@@ -8,7 +8,12 @@ import { Protocol } from 'pmtiles';
 
 import { publicEnv } from '@/lib/env';
 import { applyBasemapStyle, isDarkTheme, subscribeTheme } from '@/lib/map/basemap-style';
-import { clusterCardHtml, hoverCardHtml, type HoverCardData } from '@/lib/map/hover-card';
+import {
+  clusterCardHtml,
+  hoverCardHtml,
+  observationCardHtml,
+  type HoverCardData,
+} from '@/lib/map/hover-card';
 import type { LoadedEventRow } from '@/lib/map/loaded-events';
 
 import { removeAirLayer, resolveAirTiles, setAirLayer, type AirTilesInfo } from './air-layer';
@@ -115,6 +120,13 @@ export interface BaseMapProps {
   perimeters?: PerimeterShape[];
   /** Recharge les événements lorsque l'emprise change. FR-007. */
   reloadOnMove?: boolean;
+  /**
+   * `false` : un clic sur un marqueur n'ouvre pas de fiche. La fiche
+   * elle-même montre son empreinte : y cliquer ne ferait que recharger la
+   * page, et le curseur ne doit pas promettre un lien qui n'y est pas. La
+   * carte au survol reste.
+   */
+  linkToEvent?: boolean;
   /**
    * Marges occupées par des panneaux posés sur la carte, en pixels.
    *
@@ -284,6 +296,7 @@ export default function BaseMap({
   events = [],
   perimeters = [],
   reloadOnMove = false,
+  linkToEvent = true,
   padding,
   fitBounds,
   windowHours = null,
@@ -530,16 +543,17 @@ export default function BaseMap({
       });
 
       for (const layerId of CLICKABLE_LAYER_IDS) {
-        map.on('click', layerId, (event) => {
-          const publicId = event.features?.[0]?.properties?.['publicId'];
-          if (typeof publicId === 'string') {
-            router.push(`/evenements/${publicId}`);
-          }
-        });
-
-        map.on('mouseenter', layerId, () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
+        if (linkToEvent) {
+          map.on('click', layerId, (event) => {
+            const publicId = event.features?.[0]?.properties?.['publicId'];
+            if (typeof publicId === 'string') {
+              router.push(`/evenements/${publicId}`);
+            }
+          });
+          map.on('mouseenter', layerId, () => {
+            map.getCanvas().style.cursor = 'pointer';
+          });
+        }
         // `mousemove` et non `mouseenter` seul : deux marqueurs qui se
         // touchent partagent un même `mouseenter`, et la carte doit suivre
         // celui qui est sous la souris.
@@ -547,19 +561,37 @@ export default function BaseMap({
           const feature = event.features?.[0];
           if (feature === undefined || feature.geometry.type !== 'Point') return;
           const properties = feature.properties as Record<string, unknown>;
-          const data: HoverCardData = {
-            publicId: String(properties['publicId'] ?? ''),
-            municipality: String(properties['municipality'] ?? ''),
-            lastDetectedAt: String(properties['lastDetectedAt'] ?? ''),
-            detectionCount: Number(properties['detectionCount'] ?? 0),
-            confidence: String(properties['confidence'] ?? ''),
-            freshness: String(properties['freshness'] ?? ''),
-          };
           const [longitude, latitude] = feature.geometry.coordinates as [number, number];
-          hover
-            .setLngLat([longitude, latitude])
-            .setHTML(hoverCardHtml(data, new Date()))
-            .addTo(map);
+          // Un point de l'empreinte est une observation : sa carte dit ce
+          // que dit la ligne du tableau, pas ce que dit la liste.
+          const html =
+            properties['kind'] === 'observation'
+              ? observationCardHtml(
+                  {
+                    publicId: String(properties['publicId'] ?? ''),
+                    acquiredAt: String(properties['lastDetectedAt'] ?? ''),
+                    sensor: String(properties['sensor'] ?? ''),
+                    satellite: String(properties['satellite'] ?? ''),
+                    dayNight:
+                      typeof properties['dayNight'] === 'string' ? properties['dayNight'] : null,
+                    frpMw: typeof properties['frpMw'] === 'number' ? properties['frpMw'] : null,
+                    confidence: String(properties['observationConfidence'] ?? ''),
+                  },
+                  new Date(),
+                  { link: linkToEvent },
+                )
+              : hoverCardHtml(
+                  {
+                    publicId: String(properties['publicId'] ?? ''),
+                    municipality: String(properties['municipality'] ?? ''),
+                    lastDetectedAt: String(properties['lastDetectedAt'] ?? ''),
+                    detectionCount: Number(properties['detectionCount'] ?? 0),
+                    confidence: String(properties['confidence'] ?? ''),
+                    freshness: String(properties['freshness'] ?? ''),
+                  } satisfies HoverCardData,
+                  new Date(),
+                );
+          hover.setLngLat([longitude, latitude]).setHTML(html).addTo(map);
         });
         map.on('mouseleave', layerId, () => {
           map.getCanvas().style.cursor = '';

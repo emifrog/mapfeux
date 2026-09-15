@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { clusterCardHtml, escapeHtml, hoverCardHtml, type HoverCardData } from './hover-card';
+import {
+  clusterCardHtml,
+  escapeHtml,
+  hoverCardHtml,
+  observationCardHtml,
+  type HoverCardData,
+  type ObservationCardData,
+} from './hover-card';
 
 const NOW = new Date('2026-09-13T20:00:00Z');
 
@@ -92,5 +99,54 @@ describe('clusterCardHtml', () => {
     expect(clusterCardHtml({ count: 3, substantiated: 0, minAgeHours: Number.NaN })).not.toContain(
       'Le plus récent',
     );
+  });
+});
+
+describe('observationCardHtml', () => {
+  const OBSERVATION: ObservationCardData = {
+    publicId: 'MPF-VHR8YJ85',
+    acquiredAt: '2026-09-13T15:10:00Z',
+    sensor: 'VIIRS',
+    satellite: 'N20',
+    dayNight: 'N',
+    frpMw: 12.34,
+    confidence: 'medium',
+  };
+
+  it('parle comme la ligne du tableau : heure, capteur, confiance, puissance', () => {
+    const html = observationCardHtml(OBSERVATION, NOW, { link: false });
+    expect(html).toContain('Observation satellitaire');
+    expect(html).toContain('N20 · VIIRS');
+    expect(html).toContain('il y a 4 h 50 min');
+    expect(html).toContain('· nuit');
+    expect(html).toContain('confiance modérée');
+    expect(html).toContain('<span class="mono">12,3</span> MW');
+  });
+
+  it('ne propose de cliquer que s’il y a une fiche à ouvrir', () => {
+    expect(observationCardHtml(OBSERVATION, NOW, { link: false })).not.toContain('Cliquer');
+    expect(observationCardHtml(OBSERVATION, NOW, { link: true })).toContain(
+      'Cliquer pour ouvrir la fiche MPF-VHR8YJ85',
+    );
+  });
+
+  it('dit une puissance inconnue plutôt que zéro, et une confiance inconnue en clair', () => {
+    const html = observationCardHtml(
+      { ...OBSERVATION, frpMw: null, confidence: 'unknown', dayNight: null },
+      NOW,
+      { link: false },
+    );
+    expect(html).toContain('puissance non disponible');
+    expect(html).toContain('confiance inconnue');
+    expect(html).not.toContain('· nuit');
+    expect(html).not.toContain('· jour');
+  });
+
+  it('échappe ce qui vient des données', () => {
+    const html = observationCardHtml({ ...OBSERVATION, satellite: '<b>N20</b>' }, NOW, {
+      link: false,
+    });
+    expect(html).toContain('&lt;b&gt;N20&lt;/b&gt;');
+    expect(html).not.toContain('<b>');
   });
 });

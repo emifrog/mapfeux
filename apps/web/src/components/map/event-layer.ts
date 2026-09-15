@@ -50,6 +50,20 @@ const CLUSTER_RECENT_FILTER = [
  */
 const RECENT_FILTER = ['<', ['get', 'ageHours'], 24] as const;
 
+/**
+ * Ce qu'une observation seule sait d'elle-même — la ligne du tableau de la
+ * fiche. Portée par un marqueur de l'empreinte, elle change ce que la
+ * carte au survol raconte : une acquisition, pas un événement.
+ */
+export interface MapObservation {
+  sensor: string;
+  satellite: string;
+  dayNight: string | null;
+  frpMw: number | null;
+  /** Confiance de l'observation, `'unknown'` compris. */
+  confidence: string;
+}
+
 export interface MapEvent {
   publicId: string;
   freshnessStatus: string;
@@ -60,6 +74,27 @@ export interface MapEvent {
   detectionCount: number;
   location: { longitude: number; latitude: number };
   nearestMunicipalityName: string | null;
+  /**
+   * Présent quand le marqueur est **une observation** de l'empreinte d'un
+   * événement — la fiche, la relecture — et non l'événement lui-même.
+   */
+  observation?: MapObservation;
+}
+
+/**
+ * Les propriétés d'une observation, à plat : MapLibre sérialise un objet
+ * imbriqué en chaîne, et une valeur `null` n'a pas à voyager pour être
+ * relue comme absente.
+ */
+function observationProperties(observation: MapObservation): Record<string, string | number> {
+  return {
+    kind: 'observation',
+    sensor: observation.sensor,
+    satellite: observation.satellite,
+    observationConfidence: observation.confidence,
+    ...(observation.dayNight === null ? {} : { dayNight: observation.dayNight }),
+    ...(observation.frpMw === null ? {} : { frpMw: observation.frpMw }),
+  };
 }
 
 /**
@@ -92,6 +127,7 @@ export function toFeatureCollection(events: MapEvent[], now = new Date()): Featu
         // `ageHours` ci-dessus est figé à la construction de la couche et
         // ne sert qu'à la couleur.
         lastDetectedAt: event.lastDetectedAt,
+        ...(event.observation === undefined ? {} : observationProperties(event.observation)),
       },
     })),
   };

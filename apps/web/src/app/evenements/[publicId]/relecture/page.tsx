@@ -223,6 +223,13 @@ export default async function ReplayPage({
             detectionCount: 1,
             location: d.location,
             nearestMunicipalityName: null,
+            observation: {
+              sensor: d.sensor,
+              satellite: d.satellite,
+              dayNight: d.dayNight,
+              frpMw: d.frpMw,
+              confidence: d.confidenceLevel,
+            },
           }))}
           perimeters={perimetersAtInstant.map((perimeter) => ({
             id: perimeter.id,
