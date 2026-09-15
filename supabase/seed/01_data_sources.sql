@@ -80,8 +80,14 @@ values
     'Météo-France — modèle AROME',
     'Météo-France',
     'active',
-    interval '3 hours',
-    interval '9 hours',
+    -- La seule lecture est l'archive FWI, quotidienne à 10 h 45 UTC, datée
+    -- du run archivé (06 h UTC en régime normal, 03 h en repli) : 28 h 45
+    -- entre la donnée et la lecture suivante. Les bornes disent ce que notre
+    -- chaîne promet, pas la cadence du modèle — à 3 h, la source lisait
+    -- « trop ancienne » la plus grande partie de chaque journée (15 septembre
+    -- 2026, migration `registre_cadence_de_lecture`).
+    interval '32 hours',
+    interval '56 hours',
     'https://donneespubliques.meteofrance.fr/?fond=produit&id_produit=131&id_rubrique=51',
     'Licence Ouverte / Etalab',
     'Données météorologiques Météo-France (modèle AROME)',
@@ -95,9 +101,13 @@ values
     -- En service depuis le 26 août 2026 : chaîne complète (import, COG,
     -- tuiles, fiche commune, couche carte) et première passe planifiée
     -- constatée.
+    -- Le run de 00 h UTC est daté de son run et lu à 08 h 45 UTC : 32 h 45
+    -- entre la donnée et la lecture suivante. À 24 h, la source lisait
+    -- « retardée » chaque matin entre le petit matin et la lecture
+    -- (15 septembre 2026, migration `registre_cadence_de_lecture`).
     'active',
-    interval '24 hours',
-    interval '48 hours',
+    interval '34 hours',
+    interval '58 hours',
     'https://ads.atmosphere.copernicus.eu/datasets/cams-europe-air-quality-forecasts',
     'Copernicus Licence',
     'Généré avec les services Copernicus Atmosphere Monitoring Service',
@@ -146,11 +156,18 @@ values
     -- Connecteur écrit le 26 août 2026 (ADR-026, liste blanche), **en
     -- service depuis le 11 septembre** après cent passes planifiées dont
     -- quatre-vingt-quinze complètes (migration `official_sources_in_service`).
-    -- Les intervalles portent sur l'âge de la donnée : une préfecture
-    -- publie irrégulièrement — quotidien en crise, hebdomadaire l'hiver.
+    -- Les bornes portent sur la **lecture** du flux, toutes les quinze
+    -- minutes, et la passe date sa donnée de l'instant de lecture. Une
+    -- première version datait de la dernière publication trouvée avec une
+    -- attente de sept jours — « une préfecture publie irrégulièrement » — et
+    -- lisait « retardée » après huit jours de silence préfectoral alors que
+    -- la chaîne lisait sans erreur : une fausse alerte, l'inverse de la fausse
+    -- assurance de `massifs` (15 septembre 2026, migration
+    -- `registre_cadence_de_lecture`). Ce qu'une préfecture a publié en
+    -- dernier est une autre information : `app.official_feed_items`.
     'active',
-    interval '7 days',
-    interval '30 days',
+    interval '1 hour',
+    interval '6 hours',
     'https://www.var.gouv.fr/Actualites',
     'Licence Ouverte / Etalab',
     'Publications officielles des préfectures, attribuées et non réécrites',

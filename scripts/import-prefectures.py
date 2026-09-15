@@ -19,7 +19,6 @@ from __future__ import annotations
 import pathlib
 import sys
 from datetime import UTC, datetime
-from datetime import time as time_of_day
 
 import httpx
 import psycopg
@@ -149,11 +148,26 @@ def main(argv: list[str]) -> int:
                 counters.records_inserted = total_inserted
                 counters.records_updated = total_refreshed
                 counters.records_rejected = len(rejections)
-                if latest_published is not None:
-                    counters.source_data_at = datetime.combine(
-                        latest_published, time_of_day(), tzinfo=UTC
-                    )
-                counters.metrics = {"feeds": per_feed, "rejets": rejections}
+                # L'instant de **lecture**, non la dernière publication trouvée.
+                #
+                # Une première version datait la passe de la publication la
+                # plus récente : après huit jours de silence préfectoral, la
+                # vue de fraîcheur lisait « retardée » alors que le flux était
+                # lu toutes les quinze minutes sans erreur — une fausse alerte,
+                # l'inverse exact de la fausse assurance de `massifs`
+                # (11 septembre 2026), et le bandeau de toutes les pages en
+                # descendait. `/statut` répond « à quand remonte ce que nous
+                # avons lu » ; ce que la préfecture a publié en dernier est une
+                # autre information, portée ci-dessous par les métriques et par
+                # `app.official_feed_items`.
+                counters.source_data_at = datetime.now(UTC)
+                counters.metrics = {
+                    "feeds": per_feed,
+                    "rejets": rejections,
+                    "derniere_publication": (
+                        None if latest_published is None else latest_published.isoformat()
+                    ),
+                }
         except ImportRunError as exc:
             print(f"échec : {exc}")
             return 1
