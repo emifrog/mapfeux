@@ -25,8 +25,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 
+import { DetectionsTable, VISIBLE_DETECTIONS } from '@/components/detections-table';
+import { FrpChart } from '@/components/frp-chart';
+import type { MapEvent } from '@/components/map/event-layer';
 import { MapView } from '@/components/map/map-view';
 import { ShareLink } from '@/components/share-link';
+import { groupByPass } from '@/lib/events/passes';
+import { framingBounds } from '@/lib/map/framing';
 import {
   eventPath,
   fetchEvent,
@@ -271,8 +276,25 @@ export default async function EventPage({ params }: PageParams) {
   const canonicalUrl = `${getServerEnv().PUBLIC_APP_URL}${eventPath(event)}`;
   const isFixture = event.publicId.startsWith('DEMO-');
 
+  // L'empreinte observée : chaque observation membre est un point sur la
+  // carte de la fiche, coloré par son âge, disque ou anneau selon sa
+  // confiance — le vocabulaire de `/carte` et de la relecture. La carte
+  // se cadre sur cette empreinte, jamais au-delà du zoom 13 : un pixel
+  // isolé de 375 m ne doit pas devenir une carte de quartier.
+  const footprint: MapEvent[] = detections.map((detection) => ({
+    publicId: event.publicId,
+    freshnessStatus: event.freshnessStatus,
+    lastDetectedAt: detection.acquiredAt.toISOString(),
+    confidence: detection.confidenceLevel === 'unknown' ? 'low' : detection.confidenceLevel,
+    detectionCount: 1,
+    location: detection.location,
+    nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
+  }));
+  const footprintBounds = framingBounds(detections.map((detection) => detection.location));
+  const passes = groupByPass(detections);
+
   return (
-    <article className="shell max-w-[840px] py-10">
+    <article className="shell py-10">
       {isFixture && (
         <p
           className="text-small mb-6 rounded-md border-l-[3px] px-4 py-3 font-medium"
@@ -304,33 +326,133 @@ export default async function EventPage({ params }: PageParams) {
       )}
 
       {/*
+        En tête, deux colonnes : ce qu'on lit, et où c'est. La carte était
+        au pixel 3 635 d'une page de 4 609, sous un tableau de cinquante-sept
+        lignes — et vide, faute d'événement à dessiner. Constaté le
+        15 septembre 2026. Elle est maintenant à côté du titre, avec
+        l'empreinte des observations ; elle illustre toujours, elle ne porte
+        rien : la position, la commune et l'horodatage restent en texte à sa
+        gauche, et s'impriment sans elle (FR-051, FR-068).
+      */}
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,28rem)_1fr] lg:items-start lg:gap-12">
+        <div>
+          {/*
         Surtitre : identifiant, lieu, nature. En chasse fixe parce qu'il porte
         des références, pas du discours — et il remplace le fil d'Ariane en
         petit corps qui se confondait avec le texte courant.
       */}
-      <nav aria-label="Fil d’Ariane" className="eyebrow flex flex-wrap items-center gap-2">
-        <span>{event.publicId}</span>
-        {event.territory !== null && (
-          <>
+          <nav aria-label="Fil d’Ariane" className="eyebrow flex flex-wrap items-center gap-2">
+            <span>{event.publicId}</span>
+            {event.territory !== null && (
+              <>
+                <span aria-hidden="true" className="text-(--border-strong)">
+                  /
+                </span>
+                <Link
+                  href={`/territoires/${event.territory.slug}`}
+                  className="hover:text-(--text-2)"
+                >
+                  {event.territory.name}
+                </Link>
+              </>
+            )}
             <span aria-hidden="true" className="text-(--border-strong)">
               /
             </span>
-            <Link href={`/territoires/${event.territory.slug}`} className="hover:text-(--text-2)">
-              {event.territory.name}
-            </Link>
-          </>
-        )}
-        <span aria-hidden="true" className="text-(--border-strong)">
-          /
-        </span>
-        <span>observation satellitaire</span>
-      </nav>
+            <span>observation satellitaire</span>
+          </nav>
 
-      <h1 className="text-display mt-3 max-w-[19ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
-        {event.nearestMunicipality === null
-          ? 'Anomalies thermiques observées'
-          : `Anomalies thermiques près de ${event.nearestMunicipality.name}`}
-      </h1>
+          <h1 className="text-display mt-3 max-w-[19ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
+            {event.nearestMunicipality === null
+              ? 'Anomalies thermiques observées'
+              : `Anomalies thermiques près de ${event.nearestMunicipality.name}`}
+          </h1>
+
+          {/* Dernière observation : l'horodatage exact accompagne toujours l'âge. */}
+          <section aria-labelledby="derniere-observation" className="mt-6">
+            <h2 id="derniere-observation" className="text-small text-(--text-2) font-semibold">
+              Dernière observation
+            </h2>
+            <p className="mt-1">
+              <time dateTime={event.lastDetectedAt.toISOString()} className="text-lg font-semibold">
+                {formatInstant(event.lastDetectedAt, event.timeZone)}
+              </time>
+              <span className="text-(--text-2) ml-2">
+                (il y a {formatDataAge(dataAgeMs(event.lastDetectedAt, now))})
+              </span>
+            </p>
+            <ProvenanceBadge provenance="observation" className="mt-2" />
+          </section>
+
+          <p className="text-small text-(--text-2) mt-5">
+            Position représentative :{' '}
+            <span className="mono">
+              {event.location.latitude.toFixed(4)} N, {event.location.longitude.toFixed(4)} E
+            </span>
+            {event.nearestMunicipality !== null && (
+              <>
+                {' · commune la plus proche : '}
+                <Link
+                  href={`/communes/${event.nearestMunicipality.insee}`}
+                  className="underline underline-offset-4"
+                >
+                  {event.nearestMunicipality.name}
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+
+        <div>
+          {/* À l'impression, la position textuelle fait foi : un canevas
+              WebGL imprime au mieux une vignette illisible (FR-068). */}
+          <div className="border-(--border-strong) aspect-[4/3] overflow-hidden rounded-xl border sm:aspect-[16/10] print:hidden">
+            <MapView
+              center={[event.location.longitude, event.location.latitude]}
+              zoom={13}
+              className="h-full w-full"
+              events={footprint}
+              padding={{ top: 36, right: 36, bottom: 36, left: 36 }}
+              {...(footprintBounds === null ? {} : { fitBounds: footprintBounds })}
+              perimeters={
+                currentPerimeter === null
+                  ? []
+                  : [
+                      {
+                        id: currentPerimeter.id,
+                        perimeterType: currentPerimeter.perimeterType,
+                        geometry: currentPerimeter.geometry,
+                      },
+                    ]
+              }
+            />
+          </div>
+          <p className="text-small text-(--text-2) mt-2 print:hidden">
+            Chaque point est une observation satellitaire, colorée par son âge — disque plein pour
+            une confiance moyenne ou haute, anneau pour une confiance faible.
+            {currentPerimeter !== null && (
+              <>
+                {' '}
+                {perimeterIsIndicative ? 'Le contour tireté' : 'Le contour'} est la version courante
+                du périmètre —{' '}
+                {PERIMETER_TYPE_LABELS[currentPerimeter.perimeterType]?.toLowerCase()}, détaillée
+                plus bas.
+              </>
+            )}
+          </p>
+          <p className="text-small mt-2 print:hidden">
+            <Link
+              href={`/evenements/${event.publicId}/relecture`}
+              className="font-semibold underline underline-offset-4"
+            >
+              Relecture temporelle
+            </Link>{' '}
+            <span className="text-(--text-2)">
+              — rejouer les observations passage par passage, à instant partageable.
+            </span>
+          </p>
+        </div>
+      </div>
 
       <StatusPanel event={event} now={now} />
 
@@ -365,547 +487,449 @@ export default async function EventPage({ params }: PageParams) {
           </p>
         )}
 
-      {/* Dernière observation : l'horodatage exact accompagne toujours l'âge. */}
-      <section aria-labelledby="derniere-observation" className="mt-8">
-        <h2 id="derniere-observation" className="text-title font-bold tracking-tight">
-          Dernière observation
-        </h2>
-        <p className="mt-2">
-          <time dateTime={event.lastDetectedAt.toISOString()} className="text-lg">
-            {formatInstant(event.lastDetectedAt, event.timeZone)}
-          </time>
-          <span className="text-(--text-2) ml-2">
-            (il y a {formatDataAge(dataAgeMs(event.lastDetectedAt, now))})
-          </span>
-        </p>
-        <ProvenanceBadge provenance="observation" className="mt-2" />
-      </section>
+      {/*
+        Le corps de la fiche, en colonne de lecture : soixante-quinze
+        caractères, comme la relecture. La tête est large parce qu'elle
+        porte une carte ; ce qui suit se lit.
+      */}
+      <div className="max-w-[75ch]">
+        {/* Synthèse. Chaque chiffre est une agrégation, donc un calcul. */}
+        <section aria-labelledby="synthese" className="mt-10">
+          <h2 id="synthese" className="text-title font-bold tracking-tight">
+            Ce qui a été mesuré
+          </h2>
+          <ProvenanceBadge provenance="algorithmic_inference" className="mt-2" />
 
-      {/* Synthèse. Chaque chiffre est une agrégation, donc un calcul. */}
-      <section aria-labelledby="synthese" className="mt-10">
-        <h2 id="synthese" className="text-title font-bold tracking-tight">
-          Ce qui a été mesuré
-        </h2>
-        <ProvenanceBadge provenance="algorithmic_inference" className="mt-2" />
-
-        {/*
+          {/*
           Les grandeurs mesurées portées en gros caractères tabulaires : c'est
           l'ancre visuelle de la page, et la chasse fixe dit qu'elles sont
           mesurées et non affirmées.
         */}
-        <div
-          className="mt-5 grid grid-cols-2 gap-px sm:grid-cols-4"
-          style={{ background: 'var(--border)' }}
-        >
-          {[
-            { n: event.detectionCount, unit: '', k: 'observations' },
-            {
-              n: event.sensorCount,
-              unit: '',
-              k: `capteur${event.sensorCount > 1 ? 's' : ''}`,
-            },
-            { n: event.frp.max ?? '—', unit: 'MW', k: 'puissance radiative max.' },
-            {
-              n: CONFIDENCE_LEVEL_LABELS[event.confidenceLevel],
-              unit: '',
-              k: 'fiabilité estimée',
-            },
-          ].map((figure) => (
-            <div key={figure.k} className="py-4 pr-4" style={{ background: 'var(--bg)' }}>
-              <p className="mono text-[27px] font-semibold leading-tight tracking-[-0.03em]">
-                {figure.n}
-                {figure.unit !== '' && (
-                  <span className="text-small text-(--text-3) ml-1 font-medium">{figure.unit}</span>
-                )}
-              </p>
-              <p className="text-small text-(--text-2) mt-1">{figure.k}</p>
-            </div>
-          ))}
-        </div>
-
-        <dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
-          <div>
-            <dt className="text-small text-(--text-2)">Première observation</dt>
-            <dd>
-              <time dateTime={event.firstDetectedAt.toISOString()}>
-                {formatInstant(event.firstDetectedAt, event.timeZone)}
-              </time>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-small text-(--text-2)">Détections</dt>
-            <dd>
-              {event.detectionCount} sur {event.sensorCount} capteur
-              {event.sensorCount > 1 ? 's' : ''}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-small text-(--text-2)">Capteurs</dt>
-            <dd>{event.sensors.length === 0 ? '—' : event.sensors.join(', ')}</dd>
-          </div>
-          <div>
-            <dt className="text-small text-(--text-2)">Satellites</dt>
-            <dd>{event.satellites.length === 0 ? '—' : event.satellites.join(', ')}</dd>
-          </div>
-          <div>
-            <dt className="text-small text-(--text-2)">Puissance radiative (FRP)</dt>
-            <dd>
-              {event.frp.median === null
-                ? 'Non disponible'
-                : `médiane ${event.frp.median} MW, maximum ${event.frp.max ?? '—'} MW`}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-small text-(--text-2)">Fiabilité</dt>
-            <dd>{CONFIDENCE_LEVEL_LABELS[event.confidenceLevel]}</dd>
-          </div>
-        </dl>
-
-        <p className="text-(--text-2) mt-3 text-xs">{CONFIDENCE_LEVEL_NOTICE}</p>
-      </section>
-
-      {/* Chronologie triée par heure de survenue, pas d'import. FR-055 */}
-      <section aria-labelledby="chronologie" className="mt-10">
-        <h2 id="chronologie" className="text-title font-bold tracking-tight">
-          Chronologie
-        </h2>
-        {timeline.length === 0 ? (
-          <p className="text-(--text-2) mt-2">Aucune entrée de chronologie pour cet événement.</p>
-        ) : (
-          <ol className="relative mt-4 pl-6">
-            {/* Filet vertical : la chronologie se lit comme une ligne de temps,
-                les pastilles portant la provenance de chaque entrée. */}
-            <span
-              aria-hidden="true"
-              className="absolute bottom-1.5 left-1 top-1.5 w-px"
-              style={{ background: 'var(--border)' }}
-            />
-            {timeline.map((entry) => (
-              <li key={entry.id} className="relative pb-5 last:pb-0">
-                <span
-                  aria-hidden="true"
-                  className="absolute -left-6 top-1.5 block size-2.5 rounded-full border-2"
-                  style={{
-                    background: PROVENANCE_DOT[entry.provenance],
-                    borderColor: 'var(--surface)',
-                  }}
-                />
-                <p className="text-sm leading-snug">{entry.title}</p>
-                {entry.summary !== null && (
-                  <p className="mt-1 text-sm" style={{ color: 'var(--text-2)' }}>
-                    {entry.summary}
-                  </p>
-                )}
-                <p
-                  className="mono mt-1 text-[11px]"
-                  style={{ color: PROVENANCE_DOT[entry.provenance] }}
-                >
-                  <time dateTime={entry.occurredAt.toISOString()}>
-                    {formatInstant(entry.occurredAt, event.timeZone)}
-                  </time>{' '}
-                  · {PROVENANCE_LABELS[entry.provenance].toLowerCase()}
-                  {entry.source !== null && (
-                    <>
-                      {' · '}
-                      <a href={entry.source.url} rel="noopener noreferrer" className="underline">
-                        {entry.source.organisation}
-                      </a>
-                    </>
+          <div
+            className="mt-5 grid grid-cols-2 gap-px sm:grid-cols-4"
+            style={{ background: 'var(--border)' }}
+          >
+            {[
+              { n: event.detectionCount, unit: '', k: 'observations' },
+              {
+                n: event.sensorCount,
+                unit: '',
+                k: `capteur${event.sensorCount > 1 ? 's' : ''}`,
+              },
+              { n: event.frp.max ?? '—', unit: 'MW', k: 'puissance radiative max.' },
+              {
+                n: CONFIDENCE_LEVEL_LABELS[event.confidenceLevel],
+                unit: '',
+                k: 'fiabilité estimée',
+              },
+            ].map((figure) => (
+              <div key={figure.k} className="py-4 pr-4" style={{ background: 'var(--bg)' }}>
+                <p className="mono text-[27px] font-semibold leading-tight tracking-[-0.03em]">
+                  {figure.n}
+                  {figure.unit !== '' && (
+                    <span className="text-small text-(--text-3) ml-1 font-medium">
+                      {figure.unit}
+                    </span>
                   )}
                 </p>
-              </li>
+                <p className="text-small text-(--text-2) mt-1">{figure.k}</p>
+              </div>
             ))}
-          </ol>
-        )}
-      </section>
-
-      {/* Alternative textuelle à la carte. §8.6 */}
-      <section aria-labelledby="detections" className="mt-10">
-        <h2 id="detections" className="text-title font-bold tracking-tight">
-          Détections membres
-        </h2>
-        <p className="text-(--text-2) mt-2 text-sm">{MAP_DISCLAIMER}</p>
-        {detectionsTruncated && (
-          <p className="text-small mt-2">
-            <strong>
-              Tableau partiel : les {DETECTION_TABLE_LIMIT} observations les plus récentes, sur{' '}
-              {event.detectionCount}.
-            </strong>{' '}
-            <Link
-              href={`/evenements/${event.publicId}/relecture`}
-              className="underline underline-offset-4"
-            >
-              La relecture
-            </Link>{' '}
-            <span className="text-(--text-2)">rejoue l’événement passage par passage.</span>
-          </p>
-        )}
-
-        {detections.length === 0 ? (
-          <p className="text-(--text-2) mt-3">Aucune détection publiable.</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-xl w-full border-collapse text-left text-sm">
-              <caption className="sr-only">
-                Détections satellitaires rattachées à cet événement, de la plus récente à la plus
-                ancienne
-              </caption>
-              <thead>
-                <tr className="border-(--border-strong) border-b-2">
-                  <th scope="col" className="py-2 pr-4">
-                    Heure d’acquisition
-                  </th>
-                  <th scope="col" className="py-2 pr-4">
-                    Capteur
-                  </th>
-                  <th scope="col" className="py-2 pr-4">
-                    Confiance
-                  </th>
-                  <th scope="col" className="py-2">
-                    FRP
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {detections.map((detection, index) => (
-                  // L'heure et la longitude ne suffisent pas : deux pixels
-                  // d'un même passage partagent les deux — vu sur Pontevès.
-                  // La liste est triée et rendue serveur, l'indice est stable.
-                  <tr
-                    key={`${detection.acquiredAt.toISOString()}-${index}`}
-                    className="border-(--border) border-b"
-                  >
-                    <td className="py-2 pr-4">
-                      <time dateTime={detection.acquiredAt.toISOString()}>
-                        {formatInstant(detection.acquiredAt, event.timeZone)}
-                      </time>
-                    </td>
-                    <td className="py-2 pr-4">
-                      {detection.sensor} · {detection.satellite}
-                      {detection.dayNight !== null && (
-                        <span className="text-(--text-2)">
-                          {detection.dayNight === 'D' ? ' · jour' : ' · nuit'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2 pr-4">
-                      {detection.confidenceLevel === 'unknown'
-                        ? 'Inconnue'
-                        : CONFIDENCE_LEVEL_LABELS[detection.confidenceLevel]}
-                    </td>
-                    <td className="py-2">
-                      {detection.frpMw === null ? '—' : `${detection.frpMw} MW`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        )}
-      </section>
 
-      {/* La carte vient après le contenu : elle l'illustre, ne le porte pas. */}
-      <section aria-labelledby="localisation" className="mt-10">
-        <h2 id="localisation" className="text-title font-bold tracking-tight">
-          Localisation
-        </h2>
-        <p className="text-(--text-2) mt-2 text-sm">
-          Position représentative : {event.location.latitude.toFixed(4)} N,{' '}
-          {event.location.longitude.toFixed(4)} E
-          {event.nearestMunicipality !== null && (
-            <>
-              {' · commune la plus proche : '}
-              <Link
-                href={`/communes/${event.nearestMunicipality.insee}`}
-                className="underline underline-offset-4"
-              >
-                {event.nearestMunicipality.name}
-              </Link>
-            </>
-          )}
-        </p>
-        {/* À l'impression, la position textuelle ci-dessus fait foi : un canevas
-            WebGL imprime au mieux une vignette illisible (FR-068). */}
-        <div className="border-(--border-strong) mt-3 h-72 overflow-hidden rounded border print:hidden">
-          <MapView
-            center={[event.location.longitude, event.location.latitude]}
-            zoom={11}
-            className="h-full w-full"
-            perimeters={
-              currentPerimeter === null
-                ? []
-                : [
-                    {
-                      id: currentPerimeter.id,
-                      perimeterType: currentPerimeter.perimeterType,
-                      geometry: currentPerimeter.geometry,
-                    },
-                  ]
-            }
-          />
-        </div>
-        {currentPerimeter !== null && (
-          <p className="text-small text-(--text-2) mt-2">
-            {perimeterIsIndicative ? 'Le contour tireté' : 'Le contour'} est la version courante du
-            périmètre — {PERIMETER_TYPE_LABELS[currentPerimeter.perimeterType]?.toLowerCase()},
-            détaillée ci-dessous.
-          </p>
-        )}
-        <p className="text-small mt-3 print:hidden">
-          <Link
-            href={`/evenements/${event.publicId}/relecture`}
-            className="font-semibold underline underline-offset-4"
-          >
-            Relecture temporelle
-          </Link>{' '}
-          <span className="text-(--text-2)">
-            — rejouer les observations passage par passage, à instant partageable.
-          </span>
-        </p>
-      </section>
-
-      {/* Périmètres versionnés (FR-090 à FR-094). Zéro périmètre est l'état
-          normal de la plupart des événements : la section n'existe que
-          lorsqu'il y a quelque chose à sourcer. */}
-      {perimeters.length > 0 && currentPerimeter !== null && (
-        <section aria-labelledby="perimetres" className="mt-10">
-          <h2 id="perimetres" className="text-title font-bold tracking-tight">
-            Périmètres
-          </h2>
-          {perimeterIsIndicative && (
-            <p className="text-(--text-2) mt-2 text-sm">{PERIMETER_DISCLAIMER}</p>
+          {/*
+          L'évolution, passage par passage : la somme des puissances d'un
+          même passage, du premier au dernier. Un tableau de cinquante-sept
+          lignes ne montre pas qu'un feu a doublé dans la nuit ; six barres
+          le montrent. Absent sous deux passages connus — une barre seule ne
+          dit aucune évolution.
+        */}
+          <FrpChart passes={passes} timeZone={event.timeZone} />
+          {detectionsTruncated && passes.length > 1 && (
+            <p className="text-small text-(--text-3) mt-2">
+              Passages reconstitués sur les {DETECTION_TABLE_LIMIT} observations les plus récentes.
+            </p>
           )}
 
-          <p className="mt-4">
-            <span className="font-semibold">
-              {PERIMETER_TYPE_LABELS[currentPerimeter.perimeterType] ?? 'Périmètre'}
-            </span>{' '}
-            —{' '}
-            <span className="mono">
-              {currentPerimeter.areaHa.toLocaleString('fr-FR')}
-              {' '}ha
-            </span>
-          </p>
-
-          <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+          <dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
             <div>
-              <dt className="text-small text-(--text-2)">État représenté au</dt>
+              <dt className="text-small text-(--text-2)">Première observation</dt>
               <dd>
-                <time dateTime={currentPerimeter.validAt.toISOString()}>
-                  {formatInstant(currentPerimeter.validAt, event.timeZone)}
+                <time dateTime={event.firstDetectedAt.toISOString()}>
+                  {formatInstant(event.firstDetectedAt, event.timeZone)}
                 </time>
               </dd>
             </div>
             <div>
-              <dt className="text-small text-(--text-2)">Source</dt>
+              <dt className="text-small text-(--text-2)">Détections</dt>
               <dd>
-                {currentPerimeter.sourceName}
-                {currentPerimeter.publishedAt !== null && (
-                  <span className="text-(--text-2)">
-                    {' '}
-                    · publié le {formatInstant(currentPerimeter.publishedAt, event.timeZone)}
-                  </span>
-                )}
+                {event.detectionCount} sur {event.sensorCount} capteur
+                {event.sensorCount > 1 ? 's' : ''}
               </dd>
             </div>
             <div>
-              <dt className="text-small text-(--text-2)">Surface annoncée par la source</dt>
+              <dt className="text-small text-(--text-2)">Capteurs</dt>
+              <dd>{event.sensors.length === 0 ? '—' : event.sensors.join(', ')}</dd>
+            </div>
+            <div>
+              <dt className="text-small text-(--text-2)">Satellites</dt>
+              <dd>{event.satellites.length === 0 ? '—' : event.satellites.join(', ')}</dd>
+            </div>
+            <div>
+              <dt className="text-small text-(--text-2)">Puissance radiative (FRP)</dt>
               <dd>
-                {currentPerimeter.sourceAreaHa === null
-                  ? '—'
-                  : `${currentPerimeter.sourceAreaHa.toLocaleString('fr-FR')} ha`}
+                {event.frp.median === null
+                  ? 'Non disponible'
+                  : `médiane ${event.frp.median} MW, maximum ${event.frp.max ?? '—'} MW`}
               </dd>
             </div>
             <div>
-              <dt className="text-small text-(--text-2)">Résolution indicative</dt>
-              <dd>
-                {currentPerimeter.resolutionM === null
-                  ? '—'
-                  : `~${currentPerimeter.resolutionM.toLocaleString('fr-FR')} m`}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-small text-(--text-2)">Confiance</dt>
-              <dd>
-                {PERIMETER_CONFIDENCE_LABELS[currentPerimeter.confidenceLevel] ??
-                  currentPerimeter.confidenceLevel}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-small text-(--text-2)">Importé le</dt>
-              <dd>
-                <time dateTime={currentPerimeter.importedAt.toISOString()}>
-                  {formatInstant(currentPerimeter.importedAt, event.timeZone)}
-                </time>
-              </dd>
+              <dt className="text-small text-(--text-2)">Fiabilité</dt>
+              <dd>{CONFIDENCE_LEVEL_LABELS[event.confidenceLevel]}</dd>
             </div>
           </dl>
 
-          {/* FR-095 : une surface sans sa méthode est une affirmation. */}
-          <p className="text-(--text-3) mt-3 text-xs">
-            Surface recalculée par MapFeux : {currentPerimeter.method}.
-            {currentPerimeter.sourceAttribution !== null && (
-              <> {currentPerimeter.sourceAttribution}.</>
-            )}
-          </p>
+          <p className="text-(--text-2) mt-3 text-xs">{CONFIDENCE_LEVEL_NOTICE}</p>
+        </section>
 
-          {previousPerimeters.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-small font-semibold">
-                Version{previousPerimeters.length > 1 ? 's' : ''} précédente
-                {previousPerimeters.length > 1 ? 's' : ''}, conservée
-                {previousPerimeters.length > 1 ? 's' : ''}
-              </h3>
-              <ul className="text-small text-(--text-2) mt-1 space-y-1">
-                {previousPerimeters.map((version) => (
-                  <li key={version.id}>
-                    {PERIMETER_TYPE_LABELS[version.perimeterType] ?? 'Périmètre'} —{' '}
-                    <span className="mono">{version.areaHa.toLocaleString('fr-FR')}&nbsp;ha</span>
-                    {version.publishedAt !== null && (
-                      <> · publié le {formatInstant(version.publishedAt, event.timeZone)}</>
-                    )}{' '}
-                    · remplacé par une version plus récente
-                  </li>
-                ))}
-              </ul>
-            </div>
+        {/* Chronologie triée par heure de survenue, pas d'import. FR-055 */}
+        <section aria-labelledby="chronologie" className="mt-10">
+          <h2 id="chronologie" className="text-title font-bold tracking-tight">
+            Chronologie
+          </h2>
+          {timeline.length === 0 ? (
+            <p className="text-(--text-2) mt-2">Aucune entrée de chronologie pour cet événement.</p>
+          ) : (
+            <ol className="relative mt-4 pl-6">
+              {/* Filet vertical : la chronologie se lit comme une ligne de temps,
+                les pastilles portant la provenance de chaque entrée. */}
+              <span
+                aria-hidden="true"
+                className="absolute bottom-1.5 left-1 top-1.5 w-px"
+                style={{ background: 'var(--border)' }}
+              />
+              {timeline.map((entry) => (
+                <li key={entry.id} className="relative pb-5 last:pb-0">
+                  <span
+                    aria-hidden="true"
+                    className="absolute -left-6 top-1.5 block size-2.5 rounded-full border-2"
+                    style={{
+                      background: PROVENANCE_DOT[entry.provenance],
+                      borderColor: 'var(--surface)',
+                    }}
+                  />
+                  <p className="text-sm leading-snug">{entry.title}</p>
+                  {entry.summary !== null && (
+                    <p className="mt-1 text-sm" style={{ color: 'var(--text-2)' }}>
+                      {entry.summary}
+                    </p>
+                  )}
+                  <p
+                    className="mono mt-1 text-[11px]"
+                    style={{ color: PROVENANCE_DOT[entry.provenance] }}
+                  >
+                    <time dateTime={entry.occurredAt.toISOString()}>
+                      {formatInstant(entry.occurredAt, event.timeZone)}
+                    </time>{' '}
+                    · {PROVENANCE_LABELS[entry.provenance].toLowerCase()}
+                    {entry.source !== null && (
+                      <>
+                        {' · '}
+                        <a href={entry.source.url} rel="noopener noreferrer" className="underline">
+                          {entry.source.organisation}
+                        </a>
+                      </>
+                    )}
+                  </p>
+                </li>
+              ))}
+            </ol>
           )}
         </section>
-      )}
 
-      {/* Ce qui n'est pas affiché, et pourquoi. Une absence non expliquée se lit
-          comme une absence de phénomène. */}
-      <section aria-labelledby="non-disponible" className="bg-(--surface-muted) mt-10 rounded p-4">
-        <h2 id="non-disponible" className="text-lg font-semibold">
-          Ce que cette fiche ne montre pas
-        </h2>
-        <p className="text-(--text) mt-2 text-sm">
-          Le panache de fumée indicatif, les communes potentiellement concernées et la qualité de
-          l’air ne sont pas publiés. Un panache estimé à partir du vent au sol est trop incertain en
-          relief pour être affiché sans induire en erreur. Ces fonctions reviendront lorsqu’un vent
-          de transport en altitude et une calibration sur cas connus seront disponibles.
-        </p>
-      </section>
-
-      {officialItems.length > 0 && (
-        <section aria-labelledby="publications-officielles" className="mt-10">
-          <h2 id="publications-officielles" className="text-title font-bold tracking-tight">
-            Publications de la préfecture mentionnant {officialItems[0]?.municipalityName}
+        {/* Alternative textuelle à la carte. §8.6 */}
+        <section aria-labelledby="detections" className="mt-10">
+          <h2 id="detections" className="text-title font-bold tracking-tight">
+            Détections membres
           </h2>
-          {/* FR-104 et ADR-026 : le critère d'affichage EST la définition du
+          <p className="text-(--text-2) mt-2 text-sm">{MAP_DISCLAIMER}</p>
+          {detectionsTruncated && (
+            <p className="text-small mt-2">
+              <strong>
+                Tableau partiel : les {DETECTION_TABLE_LIMIT} observations les plus récentes, sur{' '}
+                {event.detectionCount}.
+              </strong>{' '}
+              <Link
+                href={`/evenements/${event.publicId}/relecture`}
+                className="underline underline-offset-4"
+              >
+                La relecture
+              </Link>{' '}
+              <span className="text-(--text-2)">rejoue l’événement passage par passage.</span>
+            </p>
+          )}
+
+          {detections.length === 0 ? (
+            <p className="text-(--text-2) mt-3">Aucune détection publiable.</p>
+          ) : (
+            <>
+              {detections.length > VISIBLE_DETECTIONS && (
+                <p className="text-small text-(--text-2) mt-2">
+                  Les {VISIBLE_DETECTIONS} plus récentes ci-dessous ; les autres sont repliées à la
+                  suite, et le graphique ci-dessus les résume passage par passage.
+                </p>
+              )}
+              <DetectionsTable detections={detections} timeZone={event.timeZone} />
+            </>
+          )}
+        </section>
+
+        {/* Périmètres versionnés (FR-090 à FR-094). Zéro périmètre est l'état
+          normal de la plupart des événements : la section n'existe que
+          lorsqu'il y a quelque chose à sourcer. */}
+        {perimeters.length > 0 && currentPerimeter !== null && (
+          <section aria-labelledby="perimetres" className="mt-10">
+            <h2 id="perimetres" className="text-title font-bold tracking-tight">
+              Périmètres
+            </h2>
+            {perimeterIsIndicative && (
+              <p className="text-(--text-2) mt-2 text-sm">{PERIMETER_DISCLAIMER}</p>
+            )}
+
+            <p className="mt-4">
+              <span className="font-semibold">
+                {PERIMETER_TYPE_LABELS[currentPerimeter.perimeterType] ?? 'Périmètre'}
+              </span>{' '}
+              —{' '}
+              <span className="mono">
+                {currentPerimeter.areaHa.toLocaleString('fr-FR')}
+                {' '}ha
+              </span>
+            </p>
+
+            <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+              <div>
+                <dt className="text-small text-(--text-2)">État représenté au</dt>
+                <dd>
+                  <time dateTime={currentPerimeter.validAt.toISOString()}>
+                    {formatInstant(currentPerimeter.validAt, event.timeZone)}
+                  </time>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-small text-(--text-2)">Source</dt>
+                <dd>
+                  {currentPerimeter.sourceName}
+                  {currentPerimeter.publishedAt !== null && (
+                    <span className="text-(--text-2)">
+                      {' '}
+                      · publié le {formatInstant(currentPerimeter.publishedAt, event.timeZone)}
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-small text-(--text-2)">Surface annoncée par la source</dt>
+                <dd>
+                  {currentPerimeter.sourceAreaHa === null
+                    ? '—'
+                    : `${currentPerimeter.sourceAreaHa.toLocaleString('fr-FR')} ha`}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-small text-(--text-2)">Résolution indicative</dt>
+                <dd>
+                  {currentPerimeter.resolutionM === null
+                    ? '—'
+                    : `~${currentPerimeter.resolutionM.toLocaleString('fr-FR')} m`}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-small text-(--text-2)">Confiance</dt>
+                <dd>
+                  {PERIMETER_CONFIDENCE_LABELS[currentPerimeter.confidenceLevel] ??
+                    currentPerimeter.confidenceLevel}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-small text-(--text-2)">Importé le</dt>
+                <dd>
+                  <time dateTime={currentPerimeter.importedAt.toISOString()}>
+                    {formatInstant(currentPerimeter.importedAt, event.timeZone)}
+                  </time>
+                </dd>
+              </div>
+            </dl>
+
+            {/* FR-095 : une surface sans sa méthode est une affirmation. */}
+            <p className="text-(--text-3) mt-3 text-xs">
+              Surface recalculée par MapFeux : {currentPerimeter.method}.
+              {currentPerimeter.sourceAttribution !== null && (
+                <> {currentPerimeter.sourceAttribution}.</>
+              )}
+            </p>
+
+            {previousPerimeters.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-small font-semibold">
+                  Version{previousPerimeters.length > 1 ? 's' : ''} précédente
+                  {previousPerimeters.length > 1 ? 's' : ''}, conservée
+                  {previousPerimeters.length > 1 ? 's' : ''}
+                </h3>
+                <ul className="text-small text-(--text-2) mt-1 space-y-1">
+                  {previousPerimeters.map((version) => (
+                    <li key={version.id}>
+                      {PERIMETER_TYPE_LABELS[version.perimeterType] ?? 'Périmètre'} —{' '}
+                      <span className="mono">{version.areaHa.toLocaleString('fr-FR')}&nbsp;ha</span>
+                      {version.publishedAt !== null && (
+                        <> · publié le {formatInstant(version.publishedAt, event.timeZone)}</>
+                      )}{' '}
+                      · remplacé par une version plus récente
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Ce qui n'est pas affiché, et pourquoi. Une absence non expliquée se lit
+          comme une absence de phénomène. */}
+        <section
+          aria-labelledby="non-disponible"
+          className="bg-(--surface-muted) mt-10 rounded p-4"
+        >
+          <h2 id="non-disponible" className="text-lg font-semibold">
+            Ce que cette fiche ne montre pas
+          </h2>
+          <p className="text-(--text) mt-2 text-sm">
+            Le panache de fumée indicatif, les communes potentiellement concernées et la qualité de
+            l’air ne sont pas publiés. Un panache estimé à partir du vent au sol est trop incertain
+            en relief pour être affiché sans induire en erreur. Ces fonctions reviendront lorsqu’un
+            vent de transport en altitude et une calibration sur cas connus seront disponibles.
+          </p>
+        </section>
+
+        {officialItems.length > 0 && (
+          <section aria-labelledby="publications-officielles" className="mt-10">
+            <h2 id="publications-officielles" className="text-title font-bold tracking-tight">
+              Publications de la préfecture mentionnant {officialItems[0]?.municipalityName}
+            </h2>
+            {/* FR-104 et ADR-026 : le critère d'affichage EST la définition du
               rapprochement — le nom de la commune figure dans le titre, dans
               la fenêtre d'activité de l'événement. Rien de plus n'est déduit :
               la publication peut concerner un tout autre sujet. */}
-          <p className="text-small text-(--text-2) mt-2 max-w-[68ch]">
-            Publications officielles dont le titre mentionne la commune la plus proche des
-            observations, autour de la période d’activité. Ce rapprochement est automatique : la
-            publication peut concerner un autre sujet que cet événement.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {officialItems.map((item) => (
-              <li key={item.url}>
-                <a
-                  href={item.url}
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-4"
-                >
-                  {item.title}
-                </a>
-                <span className="text-(--text-2) block text-xs">
-                  {item.organisation}
-                  {item.publishedOn !== null && (
-                    <>
-                      {' · publié le '}
-                      <time dateTime={item.publishedOn} className="mono">
-                        {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' }).format(
-                          new Date(item.publishedOn),
-                        )}
-                      </time>
-                    </>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+            <p className="text-small text-(--text-2) mt-2 max-w-[68ch]">
+              Publications officielles dont le titre mentionne la commune la plus proche des
+              observations, autour de la période d’activité. Ce rapprochement est automatique : la
+              publication peut concerner un autre sujet que cet événement.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {officialItems.map((item) => (
+                <li key={item.url}>
+                  <a
+                    href={item.url}
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4"
+                  >
+                    {item.title}
+                  </a>
+                  <span className="text-(--text-2) block text-xs">
+                    {item.organisation}
+                    {item.publishedOn !== null && (
+                      <>
+                        {' · publié le '}
+                        <time dateTime={item.publishedOn} className="mono">
+                          {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' }).format(
+                            new Date(item.publishedOn),
+                          )}
+                        </time>
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-      {officialLinks.length > 0 && (
-        <section aria-labelledby="officiel" className="mt-10">
-          <h2 id="officiel" className="text-title font-bold tracking-tight">
-            Informations officielles du territoire
+        {officialLinks.length > 0 && (
+          <section aria-labelledby="officiel" className="mt-10">
+            <h2 id="officiel" className="text-title font-bold tracking-tight">
+              Informations officielles du territoire
+            </h2>
+            <ul className="mt-3 space-y-2">
+              {officialLinks.map((link) => (
+                <li key={link.url}>
+                  <a
+                    href={link.url}
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4"
+                  >
+                    {link.title}
+                  </a>
+                  <span className="text-(--text-2) block text-xs">{link.organisation}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section aria-labelledby="partage" className="mt-10">
+          <h2 id="partage" className="text-title font-bold tracking-tight">
+            Partager
           </h2>
-          <ul className="mt-3 space-y-2">
-            {officialLinks.map((link) => (
-              <li key={link.url}>
-                <a
-                  href={link.url}
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-4"
-                >
-                  {link.title}
-                </a>
-                <span className="text-(--text-2) block text-xs">{link.organisation}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section aria-labelledby="partage" className="mt-10">
-        <h2 id="partage" className="text-title font-bold tracking-tight">
-          Partager
-        </h2>
-        <p className="mt-2 text-sm">
-          URL permanente :{' '}
-          <a href={canonicalUrl} className="break-all underline underline-offset-4">
-            {canonicalUrl}
-          </a>
-        </p>
-        {/* L'URL permanente s'imprime — c'est la référence de la feuille — mais
+          <p className="mt-2 text-sm">
+            URL permanente :{' '}
+            <a href={canonicalUrl} className="break-all underline underline-offset-4">
+              {canonicalUrl}
+            </a>
+          </p>
+          {/* L'URL permanente s'imprime — c'est la référence de la feuille — mais
             un bouton de copie sur papier n'est qu'un dessin de bouton. */}
-        <p className="mt-3 print:hidden">
-          <ShareLink url={canonicalUrl} />
-        </p>
-      </section>
+          <p className="mt-3 print:hidden">
+            <ShareLink url={canonicalUrl} />
+          </p>
+        </section>
 
-      <footer className="border-(--border) text-(--text-2) mt-10 border-t pt-4 text-xs">
-        <p>{EVENT_DISCLAIMER}</p>
-        {/* Les trois horodatages sont distincts et tous affichés : l'heure de
+        <footer className="border-(--border) text-(--text-2) mt-10 border-t pt-4 text-xs">
+          <p>{EVENT_DISCLAIMER}</p>
+          {/* Les trois horodatages sont distincts et tous affichés : l'heure de
             consultation, celle de la construction de l'état, et celle de la
             donnée elle-même. Les confondre laisserait croire qu'une page
             fraîchement servie porte une observation fraîche (§21.5). */}
-        <p className="mt-2">
-          Page servie le{' '}
-          <time dateTime={now.toISOString()}>{formatInstant(now, event.timeZone)}</time>.
-          {view.generatedAt === null ? (
-            <> État lu directement en base, sans état figé disponible.</>
-          ) : (
-            <>
-              {' '}
-              État figé construit le{' '}
-              <time dateTime={view.generatedAt.toISOString()}>
-                {formatInstant(view.generatedAt, event.timeZone)}
-              </time>
-              .
-            </>
-          )}{' '}
-          Donnée la plus récente :{' '}
-          <time dateTime={event.lastDetectedAt.toISOString()}>
-            {formatInstant(event.lastDetectedAt, event.timeZone)}
-          </time>
-          .
-        </p>
-        <p className="mt-2 print:hidden">
-          <Link href="/methodologie" className="underline underline-offset-4">
-            Méthodologie
-          </Link>
-          {' · '}
-          <Link href="/sources" className="underline underline-offset-4">
-            Sources et licences
-          </Link>
-        </p>
-      </footer>
+          <p className="mt-2">
+            Page servie le{' '}
+            <time dateTime={now.toISOString()}>{formatInstant(now, event.timeZone)}</time>.
+            {view.generatedAt === null ? (
+              <> État lu directement en base, sans état figé disponible.</>
+            ) : (
+              <>
+                {' '}
+                État figé construit le{' '}
+                <time dateTime={view.generatedAt.toISOString()}>
+                  {formatInstant(view.generatedAt, event.timeZone)}
+                </time>
+                .
+              </>
+            )}{' '}
+            Donnée la plus récente :{' '}
+            <time dateTime={event.lastDetectedAt.toISOString()}>
+              {formatInstant(event.lastDetectedAt, event.timeZone)}
+            </time>
+            .
+          </p>
+          <p className="mt-2 print:hidden">
+            <Link href="/methodologie" className="underline underline-offset-4">
+              Méthodologie
+            </Link>
+            {' · '}
+            <Link href="/sources" className="underline underline-offset-4">
+              Sources et licences
+            </Link>
+          </p>
+        </footer>
+      </div>
     </article>
   );
 }

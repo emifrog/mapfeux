@@ -722,9 +722,17 @@ export default function BaseMap({
   // déplacement. Le premier rendu vient du serveur avec la même fenêtre —
   // le montage ne recharge donc rien, il n'y aurait qu'un aller-retour pour
   // le même résultat.
+  //
+  // Seule une carte qui suit l'emprise recharge. Une carte à lot fixe — la
+  // fiche avec son empreinte, la relecture, l'accueil — ne redemande jamais
+  // l'API : constaté le 15 septembre 2026, en développement, l'empreinte
+  // de cinquante-sept observations remplacée par les événements de
+  // l'emprise, parce que le mode strict rejoue les effets et que le
+  // garde-fou « premier montage » ne tenait qu'une fois.
   const windowSettledRef = useRef(false);
   useEffect(() => {
     windowHoursRef.current = windowHours;
+    if (!reloadOnMove) return;
     const map = mapRef.current;
     if (map === null) return;
     if (!windowSettledRef.current) {
@@ -741,7 +749,7 @@ export default function BaseMap({
     } else {
       map.once('load', run);
     }
-  }, [windowHours]);
+  }, [windowHours, reloadOnMove]);
 
   // Couche radar (§19.3). Changer de frame ne touche que l'image de la
   // source : c'est ce qui rend l'animation fluide.

@@ -1817,6 +1817,57 @@ et son filet orange, aucune couleur chaude en décoration. Les deux
 références tirent une part de leur effet d'un fond de feu ou de satellite ;
 ce n'est pas notre axe, et ce n'est pas ce qui manquait.
 
+#### La fiche, regardée avec le même œil — 15 septembre 2026
+
+Mesuré sur MPF-VHR8YJ85, cinquante-sept observations à Condé-sur-l'Escaut,
+à 1 024 px de large : une page de 4 609 px, la carte au pixel 3 635 — sous
+un tableau de cinquante-sept lignes — et **vide** : la fiche ne lui passait
+aucun événement, elle montrait un fond IGN au zoom 11 sans rien dessus. Les
+deux références ouvrent un feu sur sa carte et son évolution.
+
+- ✅ **La carte en tête, à côté du titre**, avec **l'empreinte des
+  observations** : chaque observation membre est un point coloré par son
+  âge, disque ou anneau selon sa confiance — le vocabulaire de `/carte` et
+  de la relecture, pas un troisième. Cadrée sur l'empreinte (`fitBounds`,
+  marges de 36 px), jamais au-delà du zoom 13 : un pixel isolé de 375 m ne
+  devient pas une carte de quartier. La position, la commune et
+  l'horodatage restent en texte à sa gauche et s'impriment sans elle
+  (FR-051, FR-068). Vérifié : 57 points rendus, un seul identifiant, un
+  seul point pour Vicq-sur-Mer au zoom 13
+- ✅ **La puissance radiative par passage** — un graphique SVG rendu par le
+  serveur, sans JavaScript. Les pixels d'un même satellite à moins de dix
+  minutes font un passage ; sa puissance est la **somme** des pixels
+  connus, un calcul dit comme tel (FR-053). L'échelle part de zéro et
+  plafonne à un nombre rond ; un passage sans puissance est marqué au sol,
+  pas omis ; sous deux passages connus, pas de graphique. Géométrie pure
+  dans une boîte de mille sur cent étirée à la colonne, libellés en HTML
+  pour ne pas rétrécir sur téléphone. Vérifié : six passages du 15/09
+  02:54 (N20, 15 observations, 57,8 MW) au 06:34 (Aqua, 3 observations,
+  138,8 MW), chacun lisible au survol. Seize tests (`passes.ts`,
+  `frp-chart.ts`)
+- ✅ **Le tableau se replie au-delà de douze lignes** : les douze plus
+  récentes, puis un `<details>` natif qui dit combien il en garde — 45 sur
+  Condé. Rien n'est masqué au sens du cahier : tout est dans la page,
+  rendu par le serveur, et s'ouvre sans JavaScript. La page passe de 4 609
+  à 3 153 px
+- ✅ **Une carte à lot fixe ne redemande jamais l'API** — trouvé en
+  vérifiant, thème clair : l'empreinte remplacée par les événements de
+  l'emprise, en gris d'archive. Le rechargement « au changement de
+  fenêtre » de `BaseMap` tenait son premier montage pour acquis ; le mode
+  strict de développement rejoue les effets, et le garde-fou ne tenait
+  qu'une fois. Il est maintenant réservé aux cartes qui suivent l'emprise
+  (`reloadOnMove`) — la fiche, la relecture et l'accueil en sont
+  protégés. Production non touchée par le symptôme (pas de mode strict),
+  mais le code était faux
+
+Le corps de la fiche tient désormais dans une colonne de lecture de
+soixante-quinze caractères, comme la relecture ; seule la tête est large,
+parce qu'elle porte une carte. Reste, vu en passant : la carte au survol
+d'un point de l'empreinte propose « cliquer pour ouvrir la fiche » depuis
+la fiche elle-même — le clic ne fait que recharger la page ; et
+l'impression ne porte que les douze premières lignes du tableau et
+l'annonce du pli, un `<details>` fermé ne s'ouvrant pas à l'impression.
+
 #### Une affirmation devenue fausse, trouvée en refondant
 
 `/commune/[insee]` annonçait que « les détections thermiques satellitaires ne
