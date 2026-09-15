@@ -4,6 +4,7 @@ import { MODELLED_VALUE_NOTICE } from '@mapfeux/domain';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { EventList } from '@/components/event-list';
+import { UnavailableNotice } from '@/components/unavailable-notice';
 import type { EventSummary } from '@/lib/data/events';
 import type { FramingBounds } from '@/lib/map/framing';
 import { toEventSummaries } from '@/lib/map/loaded-events';
@@ -157,6 +158,7 @@ export function CarteMapPanel({
   listEvents: initialListEvents,
   bounds,
   departments: initialDepartments,
+  departmentsReadable: initialDepartmentsReadable = true,
   now: initialNow,
   children,
 }: {
@@ -173,6 +175,11 @@ export function CarteMapPanel({
    * état qui existe sans JavaScript.
    */
   departments: DepartmentRow[];
+  /**
+   * Faux quand le serveur n'a pas pu lire les agrégats : une liste vide
+   * dirait « aucun département concerné », ce que personne n'a mesuré.
+   */
+  departmentsReadable?: boolean;
   /** Instant du rendu serveur : l'âge du premier lot se mesure contre lui. */
   now: Date;
   /** Cartons rendus par le serveur, en tête de la colonne de lecture. */
@@ -184,6 +191,10 @@ export function CarteMapPanel({
   const [scope, setScope] = useState<MapScope>(scopeForZoom(zoom));
   const [departmentRows, setDepartmentRows] = useState(initialDepartments);
   const [departmentsAt, setDepartmentsAt] = useState(initialNow);
+  // « Pas lu » n'est pas « aucun » : chaque échelle garde le verdict de sa
+  // dernière lecture et l'écrit à la place du compte quand elle a manqué.
+  const [departmentsReadable, setDepartmentsReadable] = useState(initialDepartmentsReadable);
+  const [listReadable, setListReadable] = useState(true);
   const controlsRef = useRef<MapControls | null>(null);
 
   const focusDepartment = (row: DepartmentRow): void => {
@@ -313,12 +324,17 @@ export function CarteMapPanel({
           markersMinZoom={ZONE_MIN_ZOOM}
           onViewChange={(view) => setScope(scopeForZoom(view.zoom))}
           onEventsLoaded={(loaded) => {
-            setListEvents(toEventSummaries(loaded));
+            // Lecture manquée : la liste précédente ne décrit plus l'emprise
+            // affichée, et une liste vide affirmerait une absence — elle
+            // s'efface, le bandeau prend sa place.
+            setListReadable(loaded !== null);
+            setListEvents(loaded === null ? [] : toEventSummaries(loaded));
             setListAt(new Date());
             setListFollowsMap(true);
           }}
           onDepartmentsLoaded={(rows) => {
-            setDepartmentRows(toDepartmentRows(rows));
+            setDepartmentsReadable(rows !== null);
+            setDepartmentRows(rows === null ? [] : toDepartmentRows(rows));
             setDepartmentsAt(new Date());
           }}
           onControls={(controls) => {
@@ -385,23 +401,39 @@ export function CarteMapPanel({
                 <h2 id="liste" className="text-body font-bold tracking-tight">
                   Départements concernés
                 </h2>
-                <p className="text-small text-(--text-2) mt-1.5 leading-relaxed" aria-live="polite">
-                  <span className="mono">{summary.events}</span> événement
-                  {summary.events > 1 ? 's' : ''} {windowPhrase(windowHours)}, sur{' '}
-                  <span className="mono">{summary.departments}</span> département
-                  {summary.departments > 1 ? 's' : ''}. Relevé à{' '}
-                  <time dateTime={departmentsAt.toISOString()} className="mono">
-                    {TIME.format(departmentsAt)}
-                  </time>
-                  . Rapprochez la carte pour lire les événements d’une zone.
-                </p>
+                {!departmentsReadable ? (
+                  <UnavailableNotice className="mt-2">
+                    Les comptes par département n’ont pas pu être lus à{' '}
+                    <time dateTime={departmentsAt.toISOString()} className="mono">
+                      {TIME.format(departmentsAt)}
+                    </time>
+                    . Ce n’est pas une France sans événement : la base n’a pas répondu. Rechargez la
+                    page dans quelques instants.
+                  </UnavailableNotice>
+                ) : (
+                  <p
+                    className="text-small text-(--text-2) mt-1.5 leading-relaxed"
+                    aria-live="polite"
+                  >
+                    <span className="mono">{summary.events}</span> événement
+                    {summary.events > 1 ? 's' : ''} {windowPhrase(windowHours)}, sur{' '}
+                    <span className="mono">{summary.departments}</span> département
+                    {summary.departments > 1 ? 's' : ''}. Relevé à{' '}
+                    <time dateTime={departmentsAt.toISOString()} className="mono">
+                      {TIME.format(departmentsAt)}
+                    </time>
+                    . Rapprochez la carte pour lire les événements d’une zone.
+                  </p>
+                )}
 
                 <div className="mt-3">
-                  <DepartmentList
-                    rows={departmentRows}
-                    now={departmentsAt}
-                    onFocus={focusDepartment}
-                  />
+                  {departmentsReadable && (
+                    <DepartmentList
+                      rows={departmentRows}
+                      now={departmentsAt}
+                      onFocus={focusDepartment}
+                    />
+                  )}
                 </div>
               </FloatingCard>
             ) : (
@@ -409,27 +441,41 @@ export function CarteMapPanel({
                 <h2 id="liste" className="text-body font-bold tracking-tight">
                   Événements de la zone
                 </h2>
-                <p className="text-small text-(--text-2) mt-1.5 leading-relaxed" aria-live="polite">
-                  {listFollowsMap ? (
-                    <>
-                      <span className="mono">{listEvents.length}</span> événement
-                      {listEvents.length > 1 ? 's' : ''} {windowPhrase(windowHours)}, dans l’emprise
-                      affichée. Relevé à{' '}
-                      <time dateTime={listAt.toISOString()} className="mono">
-                        {TIME.format(listAt)}
-                      </time>
-                      .
-                    </>
-                  ) : (
-                    // La carte vient de passer à l'échelle d'une zone et n'a
-                    // pas encore répondu : dire « 0 événement » serait
-                    // affirmer une absence qu'on n'a pas mesurée.
-                    <>Lecture des événements de l’emprise affichée…</>
-                  )}
-                </p>
+                {!listReadable ? (
+                  <UnavailableNotice className="mt-2">
+                    Les événements de l’emprise affichée n’ont pas pu être lus à{' '}
+                    <time dateTime={listAt.toISOString()} className="mono">
+                      {TIME.format(listAt)}
+                    </time>
+                    . Ce n’est pas une zone sans événement : la base n’a pas répondu. Déplacez la
+                    carte pour réessayer.
+                  </UnavailableNotice>
+                ) : (
+                  <p
+                    className="text-small text-(--text-2) mt-1.5 leading-relaxed"
+                    aria-live="polite"
+                  >
+                    {listFollowsMap ? (
+                      <>
+                        <span className="mono">{listEvents.length}</span> événement
+                        {listEvents.length > 1 ? 's' : ''} {windowPhrase(windowHours)}, dans
+                        l’emprise affichée. Relevé à{' '}
+                        <time dateTime={listAt.toISOString()} className="mono">
+                          {TIME.format(listAt)}
+                        </time>
+                        .
+                      </>
+                    ) : (
+                      // La carte vient de passer à l'échelle d'une zone et n'a
+                      // pas encore répondu : dire « 0 événement » serait
+                      // affirmer une absence qu'on n'a pas mesurée.
+                      <>Lecture des événements de l’emprise affichée…</>
+                    )}
+                  </p>
+                )}
 
                 <div className="mt-4">
-                  <EventList events={listEvents} now={listAt} />
+                  {listReadable && <EventList events={listEvents} now={listAt} />}
                 </div>
               </FloatingCard>
             )}
@@ -540,7 +586,15 @@ export function CarteMapPanel({
         <TimeBar
           windowHours={windowHours}
           onWindowHours={setWindowHours}
-          eventCount={scope === 'national' ? summary.events : listEvents.length}
+          eventCount={
+            scope === 'national'
+              ? departmentsReadable
+                ? summary.events
+                : null
+              : listReadable
+                ? listEvents.length
+                : null
+          }
         />
       </div>
     </div>

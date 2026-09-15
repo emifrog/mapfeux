@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 
-import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
+import { jsonError, jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
 import { fetchDepartmentAggregates } from '@/lib/data/events';
 import { fetchSourceStatus, toMetaSources } from '@/lib/sources';
 
@@ -37,9 +37,13 @@ export async function GET(request: NextRequest): Promise<Response> {
     fetchDepartmentAggregates(since),
     fetchSourceStatus(),
   ]);
+  // Les départements sans événement sont absents ; une base qui ne répond
+  // pas les rendrait tous absents — et la carte nationale sans lavis se
+  // lirait comme une France sans feu. 503, non caché.
+  if (!aggregates.readable) return jsonUnavailable(requestId);
 
   return jsonSuccess(
-    aggregates.map((row) => ({
+    aggregates.value.map((row) => ({
       departmentCode: row.departmentCode,
       departmentSlug: row.departmentSlug,
       departmentStatus: row.departmentStatus,

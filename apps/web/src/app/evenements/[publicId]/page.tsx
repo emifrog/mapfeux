@@ -26,10 +26,12 @@ import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 
 import { DetectionsTable, VISIBLE_DETECTIONS } from '@/components/detections-table';
+import { EventUnavailable } from '@/components/event-unavailable';
 import { FrpChart } from '@/components/frp-chart';
 import type { MapEvent } from '@/components/map/event-layer';
 import { MapView } from '@/components/map/map-view';
 import { ShareLink } from '@/components/share-link';
+import { UnavailableNotice } from '@/components/unavailable-notice';
 import { groupByPass } from '@/lib/events/passes';
 import { framingBounds } from '@/lib/map/framing';
 import {
@@ -42,6 +44,7 @@ import {
   resolveEventAlias,
   type FireEvent,
 } from '@/lib/data/events';
+import { valueOr } from '@/lib/data/read-result';
 import { fetchEventOfficialItems } from '@/lib/data/official';
 import { fetchOfficialLinks } from '@/lib/data/territories';
 import { getServerEnv } from '@/lib/env';
@@ -93,12 +96,22 @@ function formatInstant(value: Date, timeZone: string): string {
 
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const { publicId } = await params;
-  const event = await fetchEvent(publicId);
+  const read = await fetchEvent(publicId);
+
+  // Base muette : un titre qui ne prétend rien, et pas d'indexation d'un
+  // rendu dégradé.
+  if (!read.readable) {
+    return { title: 'Fiche indisponible', robots: { index: false, follow: false } };
+  }
+  const event = read.value;
 
   if (event === null) {
     const outside = await isEventOutsideTerritory(publicId);
     return {
-      title: outside ? 'Hors du périmètre du service' : 'Événement introuvable',
+      title:
+        outside.readable && outside.value
+          ? 'Hors du périmètre du service'
+          : 'Événement introuvable',
       robots: { index: false, follow: false },
     };
   }
@@ -269,36 +282,50 @@ function OutsideTerritory({ publicId }: { publicId: string }) {
 export default async function EventPage({ params }: PageParams) {
   const { publicId } = await params;
 
-  const view = await fetchEventView(publicId);
+  const viewRead = await fetchEventView(publicId);
+
+  // Base muette : ni 404 ni redirection — on ne sait rien de l'identifiant,
+  // et la page le dit. Jusqu'au 15 septembre 2026, une panne de lecture
+  // rendait « Événement introuvable » sur une fiche qui existe.
+  if (!viewRead.readable) return <EventUnavailable publicId={publicId} />;
+  const view = viewRead.value;
 
   if (view === null) {
     // Identifiant fusionné : redirection permanente vers l'événement canonique
     // plutôt qu'un 404. Une URL partagée ne doit jamais se périmer (§13.10).
     const canonical = await resolveEventAlias(publicId);
-    if (canonical !== null && canonical !== publicId) {
-      permanentRedirect(`/evenements/${canonical}`);
+    if (!canonical.readable) return <EventUnavailable publicId={publicId} />;
+    if (canonical.value !== null && canonical.value !== publicId) {
+      permanentRedirect(`/evenements/${canonical.value}`);
     }
     // Hors du périmètre du service (ADR-027) : la page le dit, plutôt qu'un
     // 404 muet sur un lien qui a pu circuler — 716 événements publiés sur
     // sept jours, dont 394 hors de France, jusqu'au 15 septembre 2026.
-    if (await isEventOutsideTerritory(publicId)) {
+    const outside = await isEventOutsideTerritory(publicId);
+    if (!outside.readable) return <EventUnavailable publicId={publicId} />;
+    if (outside.value) {
       return <OutsideTerritory publicId={publicId} />;
     }
     notFound();
   }
 
-  const { event, timeline } = view;
+  const { event } = view;
+  const timeline = valueOr(view.timeline, []);
 
   // Plafond du tableau, nommé pour être annoncé : un événement plus grand
   // que lui l'affiche partiel et le dit (dette §15 — la relecture annonçait
   // déjà le sien, la fiche pas encore).
   const DETECTION_TABLE_LIMIT = 500;
-  const [detections, officialLinks, perimeters, officialItems] = await Promise.all([
+  const [detectionsRead, officialLinks, perimetersRead, officialItems] = await Promise.all([
     fetchEventDetections(event.publicId, DETECTION_TABLE_LIMIT),
     event.territory === null ? Promise.resolve([]) : fetchOfficialLinks(event.territory.slug),
     fetchEventPerimeters(event.publicId),
     fetchEventOfficialItems(event.publicId),
   ]);
+  // L'événement a été lu ; une section qui ne l'a pas été le dit à sa place,
+  // sans emporter la fiche.
+  const detections = valueOr(detectionsRead, []);
+  const perimeters = valueOr(perimetersRead, []);
   const detectionsTruncated =
     detections.length === DETECTION_TABLE_LIMIT && event.detectionCount > DETECTION_TABLE_LIMIT;
   const currentPerimeter = perimeters.find((perimeter) => perimeter.isCurrent) ?? null;
@@ -650,7 +677,12 @@ export default async function EventPage({ params }: PageParams) {
           <h2 id="chronologie" className="text-title font-bold tracking-tight">
             Chronologie
           </h2>
-          {timeline.length === 0 ? (
+          {!view.timeline.readable ? (
+            <UnavailableNotice className="mt-3 max-w-[68ch]">
+              La chronologie n’a pas pu être lue au moment d’établir cette page. Ce n’est pas une
+              chronologie vide : la base n’a pas répondu.
+            </UnavailableNotice>
+          ) : timeline.length === 0 ? (
             <p className="text-(--text-2) mt-2">Aucune entrée de chronologie pour cet événement.</p>
           ) : (
             <ol className="relative mt-4 pl-6">
@@ -722,7 +754,12 @@ export default async function EventPage({ params }: PageParams) {
             </p>
           )}
 
-          {detections.length === 0 ? (
+          {!detectionsRead.readable ? (
+            <UnavailableNotice className="mt-3 max-w-[68ch]">
+              Les détections n’ont pas pu être lues au moment d’établir cette page. L’événement en
+              compte {event.detectionCount} : la base n’a pas répondu.
+            </UnavailableNotice>
+          ) : detections.length === 0 ? (
             <p className="text-(--text-2) mt-3">Aucune détection publiable.</p>
           ) : (
             <>
@@ -739,7 +776,14 @@ export default async function EventPage({ params }: PageParams) {
 
         {/* Périmètres versionnés (FR-090 à FR-094). Zéro périmètre est l'état
           normal de la plupart des événements : la section n'existe que
-          lorsqu'il y a quelque chose à sourcer. */}
+          lorsqu'il y a quelque chose à sourcer — ou quand on n'a pas pu
+          savoir, ce qui n'est pas la même chose. */}
+        {!perimetersRead.readable && (
+          <UnavailableNotice className="mt-10 max-w-[68ch]">
+            Les périmètres, s’il en existe pour cet événement, n’ont pas pu être lus au moment
+            d’établir cette page.
+          </UnavailableNotice>
+        )}
         {perimeters.length > 0 && currentPerimeter !== null && (
           <section aria-labelledby="perimetres" className="mt-10">
             <h2 id="perimetres" className="text-title font-bold tracking-tight">

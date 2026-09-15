@@ -7,7 +7,9 @@ import { notFound } from 'next/navigation';
 import { EventList } from '@/components/event-list';
 import { MapView } from '@/components/map/map-view';
 import { MunicipalityAir } from '@/components/municipality-air';
+import { UnavailableNotice } from '@/components/unavailable-notice';
 import { fetchEventsNearMunicipality } from '@/lib/data/events';
+import { valueOr } from '@/lib/data/read-result';
 import { fetchMunicipality } from '@/lib/data/municipalities';
 
 /** Les événements rattachés à la commune sur les trente derniers jours. */
@@ -21,7 +23,10 @@ const EVENTS_WINDOW_DAYS = 30;
  * fraîcheur (§2.4).
  */
 
-export const revalidate = 3600;
+// Cinq minutes et non plus une heure : depuis le 15 septembre 2026 la page
+// liste les événements, et un rendu — dégradé ou non — ne doit pas leur
+// survivre une heure.
+export const revalidate = 300;
 
 export async function generateMetadata({
   params,
@@ -52,7 +57,10 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
 
   const now = new Date();
   const since = new Date(now.getTime() - EVENTS_WINDOW_DAYS * 24 * 3_600_000);
-  const events = await fetchEventsNearMunicipality(municipality, { since });
+  const nearby = await fetchEventsNearMunicipality(municipality, { since });
+  // Non lus, les événements ne sont pas « aucun » : la liste cède la place
+  // au bandeau, la carte reste sans marqueur — elle ne peut rien affirmer.
+  const events = valueOr(nearby, []);
 
   return (
     <div className="shell max-w-[880px] py-10">
@@ -143,7 +151,15 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
           .
         </p>
         <div className="mt-4 max-w-[68ch]">
-          <EventList events={events} now={now} />
+          {nearby.readable ? (
+            <EventList events={events} now={now} />
+          ) : (
+            <UnavailableNotice>
+              Les événements autour de cette commune n’ont pas pu être lus au moment d’établir cette
+              page. Ce n’est pas une absence d’événement : la base n’a pas répondu. Rechargez la
+              page dans quelques instants.
+            </UnavailableNotice>
+          )}
         </div>
         {municipality.departmentSlug === null && (
           <p className="text-small text-(--text-2) mt-4 max-w-[68ch]">

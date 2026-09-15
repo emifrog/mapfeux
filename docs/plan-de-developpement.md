@@ -10,10 +10,15 @@ rejouable — et tranché le fait le plus lourd, trouvé en chemin : **61 % des
 événements regroupés depuis août étaient hors de France** (ADR-027, masqués
 en base). Le soir, **le poste ingère sous `mapfeux_ingest`** — et la
 bascule a trouvé, avant de casser, un déclencheur du jour qui aurait fait
-échouer chaque écriture sous ce rôle (50ᵉ migration). Restent deux gestes
-à l'auteur : la bascule du déclencheur sur le VPS — le poste n'a tourné
-qu'un tiers du temps, mesuré — et la validation du titre de l'accueil. Le
-fil de la journée suit, du matin au soir.
+échouer chaque écriture sous ce rôle (50ᵉ migration). Plus tard dans la
+soirée, un **audit externe** a reproduit ce que personne n'avait regardé :
+la base muette, le site affichait « 0 événement », un 404 sur une fiche qui
+existe et un catalogue vide mis en cache. **Traité le soir même** — chaque
+lecture d'événements dit si elle a lu, l'API répond 503 non cachée, les
+pages portent un bandeau. Restent deux gestes à l'auteur : la bascule du
+déclencheur sur le VPS — le poste n'a tourné qu'un tiers du temps, mesuré —
+et la validation du titre de l'accueil. Le fil de la journée suit, du matin
+au soir.
 
 **15 septembre 2026, matin** — **la fiche événement,
 regardée avec le même œil que la carte**. Mesurée sur un événement du jour
@@ -60,6 +65,21 @@ service » — et la **page commune** lit enfin ses événements. Le VPS attend
 toujours sa souscription — le kit est prêt (`ops/vps/`), la bascule est
 décrite en §2 — et la mesure de cadence, rejouable depuis ce jour, dit que
 le poste n'a tourné qu'un tiers du temps.
+
+**Le soir** — **le poste ingère sous `mapfeux_ingest`**, et la bascule a
+trouvé, avant de casser, un déclencheur du jour qui aurait fait échouer
+chaque écriture sous ce rôle (50ᵉ migration, §14). Puis un **audit
+externe**, conduit sur l'archive du matin, a reproduit sur les routes
+réelles ce qu'une base muette faisait dire au site : « 0 événement » à
+l'accueil, 404 sur une fiche qui existe, catalogue vide en 200 mis en
+cache une minute. **Traité dans la soirée** : chaque lecture d'événements
+rend un résultat explicite — lu, vide compris, ou pas lu —, l'API répond
+503 non cachée, les pages et le panneau de la carte portent un bandeau à
+la place du chiffre qu'ils n'ont pas pu établir ; vérifié en navigateur
+sur une panne simulée. Les quatre autres constats de l'audit sont
+vérifiés et rangés en §15 — trois étaient déjà au plan, le quatrième est
+latent. Détail en
+[§14](#une-panne-de-lecture-nest-plus-une-absence-dévénements--15-septembre-2026-soir).
 
 **13 septembre 2026, soir** — **l'accueil s'ouvre
 sur la carte nationale vivante et trois chiffres réels**, la recherche est
@@ -172,9 +192,12 @@ au registre, **9/9 en service** — sept lues par le planificateur Windows aux
 cadences déclarées quand le poste tourne, sous le rôle d'ingestion
 `mapfeux_ingest` depuis le 15 au soir, deux à la main (IGN, EFFIS). La
 fiche événement, la carte, l'accueil et l'état des données sont au niveau
-où on les montre ; le déclencheur, lui, n'a tourné qu'un tiers du temps
-depuis sa bascule sur le poste, et attend le VPS (§2). Les paragraphes
-suivants sont l'histoire, du plus ancien au plus récent.
+où on les montre — et depuis le soir du 15, **ils disent la panne quand la
+base ne répond pas** au lieu d'afficher zéro événement, un 404 ou un
+catalogue vide mis en cache (constat 1 d'un audit externe, §14) ; le
+déclencheur, lui, n'a tourné qu'un tiers du temps depuis sa bascule sur le
+poste, et attend le VPS (§2). Les paragraphes suivants sont l'histoire, du
+plus ancien au plus récent.
 
 **La chaîne complète répond**, vérifiée de bout en bout contre le projet
 Supabase hébergé : navigateur → Next.js → PostgREST → schéma `api` → PostGIS.
@@ -255,7 +278,7 @@ build — vertes.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 180 tests (54 domaine, 81 web, 37 map-style, 8 contrats) |
+| Web | `pnpm test` | ✅ 208 tests (58 domaine, 105 web, 37 map-style, 8 contrats) — dont 16 nouveaux le 15 au soir : la panne de lecture rend `readable: false` et jamais un vide, les routes catalogue et fiche répondent 503 `no-store` et non 200 vide ou 404 |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
@@ -290,7 +313,10 @@ avec la chaîne `mapfeux_ingest` que le poste emploie depuis le 15 au soir
 dans les journaux des tâches. Le runbook est `ops/vps/README.md`. Ensuite :
 sept jours de cadence mesurée, le critère des trente minutes de J4 sur la
 première publication réelle, et J5 — administration, supervision, mode
-dégradé.
+dégradé. L'audit externe du 15 septembre (§14, §15) donne le même ordre
+une fois les indisponibilités rendues honnêtes — fait le soir même :
+continuité des imports, puis l'historique au-delà des plafonds, puis
+l'administration (MFA) et les tests de frontières.
 
 Les deux clés attendues sont posées et vivantes — `COPERNICUS_KEY` en
 secret GitHub, la clé d'application radar dans l'environnement : au
@@ -2119,6 +2145,58 @@ posée au §15, décision à prendre avant de montrer le projet.
   `security definer`. Le déclencheur exercé sous le rôle, écriture annulée,
   avant de toucher au `.env`
 
+#### Une panne de lecture n'est plus une absence d'événements — 15 septembre 2026, soir
+
+Un audit externe, conduit sur l'archive du matin, a reproduit sur les
+routes réelles ce que personne n'avait regardé : la base muette, **le
+catalogue répondait 200 avec une liste vide** — `s-maxage=60`,
+`stale-while-revalidate=300`, un faux vide gardé par le CDN et lu comme
+« aucun événement en France » —, **la fiche répondait 404** sur un
+identifiant qui existe, et **l'accueil additionnait des agrégats absents
+pour afficher « 0 événement »**. La lecture des sources avait déjà son
+résultat explicite (`readable`) ; les événements ne l'avaient pas.
+
+Fait le soir même, sur le principe que le cahier proscrit la fausse
+assurance (§5.13, §21.5) :
+
+- **`ReadResult<T>`** (`lib/data/read-result.ts`) : chaque lecture
+  d'événements — fiche, alias, chronologie, vue, catalogue, agrégats,
+  emprise, périmètres, détections, commune, périmètre du service — rend
+  `readable: true` avec sa valeur, vide comprise, ou `readable: false`
+  sans valeur. `lookupEvent` réunit les trois réponses possibles d'un
+  identifiant — événement, alias, rien — et la quatrième qui n'en est pas
+  une. Vérifié par dix tests sur PostgREST simulé.
+- **L'API dit 503, jamais cachée** : `jsonUnavailable` — code
+  `SOURCE_UNAVAILABLE` de l'annexe E, `Cache-Control: no-store`,
+  `Retry-After: 60` — sur les six routes événements et l'image de partage.
+  Le vide **lu** reste un 200 cachable. Six tests de route le fixent, dont
+  « alias vers un canonique illisible : 503, pas 404 ».
+- **Les pages disent qu'elles ne savent pas** : un bandeau
+  `UnavailableNotice`, la couleur « dégradé » de `/statut`, remplace le
+  chiffre ou la liste qu'il n'a pas pu établir — accueil (trois tirets et
+  un bandeau, « un tiret n'est pas un zéro »), catalogue, archives,
+  commune, sections de la fiche (chronologie, détections, périmètres) ;
+  la fiche et la relecture illisibles rendent une page `EventUnavailable`
+  datée, ni 404 ni erreur générique. Le panneau de `/carte` distingue aux
+  deux échelles « pas lu » de « zéro », y compris dans la barre temporelle
+  (« compte non lu »), et le client de la carte annonce l'échec au lieu de
+  le taire (`onEventsLoaded(null)`, `onDepartmentsLoaded(null)`).
+- **Vérifié en navigateur sur une panne simulée** — Supabase pointé sur un
+  port mort par un `.env.development.local` ignoré par git, retiré
+  ensuite : six routes en 503 `no-store`, accueil, catalogue, archives,
+  fiche, relecture, `/statut` et `/carte` aux deux échelles avec leurs
+  bandeaux, aucune erreur de rendu ; puis le chemin sain rétabli, 47 / 78 /
+  9-9 à l'accueil.
+
+Compromis assumé : les pages en régénération incrémentale (accueil 5 min,
+fiche et carte 2 min, commune ramenée d'une heure à 5 min) peuvent
+resservir un rendu dégradé jusqu'à leur délai — le bandeau porte l'heure du
+rendu, et un rendu dégradé daté vaut mieux qu'un rendu sain périmé servi
+comme actuel (§21.5). Reste à étendre le même résultat aux lectures hors
+événements — communes, territoires, informations officielles — : sous la
+même panne, `/communes/06004` répond encore 404 parce que la commune
+elle-même n'a pas pu être lue (§15).
+
 #### L'import manuel est un état, et la commune lit ses événements — 15 septembre 2026, midi
 
 - ✅ **`manual`, un état de source qui manquait** (48ᵉ migration,
@@ -2273,6 +2351,11 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Un garde-fou « premier montage » ne tient pas sous le mode strict | `BaseMap` sautait le rechargement « au changement de fenêtre » à son premier passage pour ne pas redemander ce que le serveur venait de rendre ; le mode strict de React rejoue les effets, le second passage rechargeait, et une carte à lot fixe — la fiche, la relecture — voyait ses marqueurs remplacés par ceux de l'emprise (constaté le 15 septembre, en développement ; production épargnée par absence de mode strict, mais le code était faux). Corrigé par une condition sur ce que la carte **est** (`reloadOnMove`), pas sur le nombre de passages. **Règle** : un effet ne se garde jamais par « c'est la première fois » ; il se garde par une propriété | Continu |
 | Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |
 | Une source peut dater sa donnée en avance | `massifs` enregistrait `source_data_at` au **jour décrit** — le niveau du lendemain paraît la veille au soir — et non à l'instant de lecture. La fraîcheur en tirait un âge négatif, ramené à zéro puis formaté en « moins d'une minute » : le bandeau de toutes les pages a annoncé « maj il y a moins d'une minute » en permanence dès la mise en service (11 septembre). Connecteur corrigé, et deux garde-fous posés dans le domaine — `mostRecentPast` écarte du concours ce qui est horodaté en avance, `formatDataRecency` dit « dans 4 h 28 min » plutôt que de faire passer une avance pour une fraîcheur. **À vérifier à chaque nouveau connecteur** : `source_data_at` est l'instant de production, jamais l'échéance décrite | Continu |
+| Une panne de lecture devenait une absence d'événements | Constat 1 de l'audit externe du 15 septembre, reproduit sur les routes réelles : catalogue 200 vide mis en cache une minute, fiche 404, accueil « 0 événement ». **Traité le soir même** (§14) : `ReadResult` sur toutes les lectures d'événements, 503 `no-store` sur l'API, bandeaux sur les pages, panneau carte honnête aux deux échelles, 16 tests. Reste le même patron à étendre aux communes, territoires et informations officielles — `/communes/[insee]` répond encore 404 quand la commune elle-même est illisible | Prochaine session |
+| Audit externe du 15 septembre — ce qui reste | Cinq constats vérifiés contre le dépôt et la production : **1** traité (ci-dessus) ; **2** cadence liée au poste — connu, §2, l'audit ajoute une **alerte extérieure d'absence de passes**, à poser ; **3** historique tronqué au-delà de 2 000 observations — ci-dessous ; **4** MFA déclarée, pas imposée — déjà au plan ; **5** frontières peu testées — Playwright en J6, l'audit ajoute une **passe de regroupement exécutée sous `mapfeux_ingest` dans la CI**, le test qui aurait trouvé le cas de la 50ᵉ migration. Dette documentaire exacte : README périmé (ci-dessous), aucun fichier de lock conda (ligne existante), assertions TypeScript (ligne existante), gros fichiers — fiche 988 lignes, carte 950, accès aux événements 824, à découper au fil de l'eau | J5 (alerte), J6 (CI sous rôle) |
+| Historique tronqué au-delà de 2 000 observations | La route `state` lit les 2 000 observations les plus récentes puis filtre `at` en mémoire ; la fiche a le même plafond. Avec 2 001 observations, l'état à l'instant de la première rend zéro observation. **Latent, pas actuel** — mesuré le 15 septembre : 1 033 observations au plus sur un événement (masqué, hors périmètre), 570 sur le plus gros événement public, aucun au-delà de 2 000. Correction : passer `at` à la fonction SQL et calculer les agrégats en base, annoncer la troncature | Avant J6 |
+| ADR-027 dit que le regroupement n'alimente pas les masqués — le code les alimente | L'ADR et le commentaire de la 49ᵉ migration affirment qu'un événement masqué ne reçoit plus de détections ; `_existing_events` (`clustering.py`) n'exclut que `archived`. Vérifié en production : 53 rattachements à 14 événements déjà masqués depuis la migration. **Le code a raison** — un site étranger reste un seul événement au lieu d'en engendrer un par passe, et c'est ce qui permet au déclencheur de rendre la main si le point représentatif revient dans le périmètre. À corriger : le texte de l'ADR, le commentaire de migration, et un test de regroupement qui fige le comportement | Prochaine session |
+| README périmé | Annonce encore la fiche événement et l'ingestion FIRMS « à construire », et une planification GitHub Actions retirée depuis le 13 septembre. Trois passages, relevés par l'audit | Prochaine session |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |

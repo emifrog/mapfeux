@@ -2,6 +2,7 @@ import { formatDataRecency } from '@mapfeux/domain';
 import { SOURCE_FRESHNESS_LABELS } from '@mapfeux/ui';
 import type { Metadata } from 'next';
 
+import { UnavailableNotice } from '@/components/unavailable-notice';
 import { fetchSourceStatus, type SourceStatusRow } from '@/lib/sources';
 
 /**
@@ -153,17 +154,10 @@ export default async function StatusPage() {
         // La page doit rester lisible quand sa propre source de vérité tombe.
         // Annoncer l'ignorance vaut mieux qu'un tableau vide, qui se lirait
         // comme « aucune source en panne ».
-        <p
-          className="text-small mt-8 rounded-md border-l-[3px] px-4 py-3"
-          style={{
-            background: 'var(--color-degraded-wash)',
-            borderColor: 'var(--color-degraded)',
-            color: 'var(--color-degraded)',
-          }}
-        >
+        <UnavailableNotice className="mt-8">
           L’état des sources n’est pas consultable actuellement. Cette page ne reflète donc pas la
           situation réelle des imports.
-        </p>
+        </UnavailableNotice>
       ) : sources.length === 0 ? (
         <p
           className="text-small mt-8 rounded-md border p-4"

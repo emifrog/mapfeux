@@ -45,6 +45,7 @@ export function jsonError(
   message: string,
   requestId: string,
   status?: number,
+  headers: Record<string, string> = {},
 ): Response {
   return Response.json(
     { error: { code, message, requestId } },
@@ -53,8 +54,28 @@ export function jsonError(
       headers: {
         'Cache-Control': 'no-store',
         'Content-Type': 'application/json; charset=utf-8',
+        ...headers,
       },
     },
+  );
+}
+
+/**
+ * La base n'a pas répondu : 503, jamais mis en cache.
+ *
+ * Jusqu'au 15 septembre 2026, une lecture manquée sortait en 200 avec une
+ * liste vide — gardée une minute par le CDN et lue comme « aucun
+ * événement » — ou en 404 sur une fiche qui existe. Le code est celui de
+ * l'annexe E pour une source qui ne répond pas : pour l'API, la base en est
+ * une. `Retry-After` dit au consommateur quand revenir.
+ */
+export function jsonUnavailable(requestId: string): Response {
+  return jsonError(
+    'SOURCE_UNAVAILABLE',
+    'Les données ne sont pas consultables pour le moment. Réessayez dans quelques instants.',
+    requestId,
+    undefined,
+    { 'Retry-After': '60' },
   );
 }
 

@@ -1,7 +1,7 @@
 import { publicEventIdSchema } from '@mapfeux/contracts';
 
-import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
-import { fetchEvent, resolveEventAlias } from '@/lib/data/events';
+import { jsonError, jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
+import { fetchEvent, lookupEvent } from '@/lib/data/events';
 import { fetchSourceStatus, toMetaSources } from '@/lib/sources';
 
 /**
@@ -23,13 +23,17 @@ export async function GET(
     return jsonError('VALIDATION_ERROR', 'Identifiant d’événement invalide.', requestId);
   }
 
-  let event = await fetchEvent(parsed.data);
+  // Trois réponses possibles de la base — l'événement, un alias fusionné, rien
+  // — et une quatrième qui n'en est pas une : elle n'a pas répondu. Celle-là
+  // sort en 503, jamais en 404 : un 404 ferait périmer une URL qui existe.
+  const lookup = await lookupEvent(parsed.data);
+  if (!lookup.readable) return jsonUnavailable(requestId);
 
-  if (event === null) {
-    const canonical = await resolveEventAlias(parsed.data);
-    if (canonical !== null && canonical !== parsed.data) {
-      event = await fetchEvent(canonical);
-    }
+  let event = lookup.value.kind === 'event' ? lookup.value.event : null;
+  if (lookup.value.kind === 'alias') {
+    const canonical = await fetchEvent(lookup.value.canonical);
+    if (!canonical.readable) return jsonUnavailable(requestId);
+    event = canonical.value;
   }
 
   if (event === null) {

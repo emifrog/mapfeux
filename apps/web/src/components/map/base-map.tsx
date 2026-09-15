@@ -73,23 +73,46 @@ async function resolveTilesUrl(): Promise<string | null> {
  *
  * Un échec laisse simplement les départements sans lavis : le fond, les
  * contours et les événements restent — une couche indisponible ne condamne
- * jamais la carte (§2.4).
+ * jamais la carte (§2.4). Mais il est **annoncé** (`onLoaded(null)`) : le
+ * panneau ne doit pas lire « aucun département concerné » dans une réponse
+ * qui n'est pas venue.
  */
 async function loadDepartmentAggregates(
   map: maplibregl.Map,
   since: Date | undefined,
-  onLoaded?: (rows: DepartmentAggregate[]) => void,
+  onLoaded?: (rows: DepartmentAggregate[] | null) => void,
 ): Promise<void> {
   try {
     const query = since === undefined ? '' : `?since=${since.toISOString()}`;
     const response = await fetch(`/api/v1/events/departments${query}`);
-    if (!response.ok) return;
+    if (!response.ok) {
+      onLoaded?.(null);
+      return;
+    }
     const payload = (await response.json()) as { data: DepartmentAggregate[] };
     setDepartmentAggregates(map, payload.data);
     onLoaded?.(payload.data);
   } catch {
-    // Silencieux : voir ci-dessus.
+    onLoaded?.(null);
   }
+}
+
+/**
+ * Ce qu'un rechargement d'événements a donné. `skipped` : l'emprise dépasse
+ * le plafond de l'API, la carte lit la France par ses départements — rien à
+ * dire. `unavailable` : l'API n'a pas répondu (503 depuis le 15 septembre
+ * 2026, ou réseau coupé) — ce n'est pas une emprise vide, et la liste doit
+ * le dire.
+ */
+type ReloadOutcome =
+  { status: 'skipped' } | { status: 'unavailable' } | { status: 'loaded'; rows: LoadedEventRow[] };
+
+function announceEvents(
+  outcome: ReloadOutcome,
+  onLoaded: ((events: LoadedEventRow[] | null) => void) | undefined,
+): void {
+  if (outcome.status === 'loaded') onLoaded?.(outcome.rows);
+  else if (outcome.status === 'unavailable') onLoaded?.(null);
 }
 
 /**
@@ -189,13 +212,15 @@ export interface BaseMapProps {
    * remonter permet à la liste textuelle de montrer exactement ce que la
    * carte montre (§8.6), sans seconde requête et sans second compte.
    */
-  onEventsLoaded?: (events: LoadedEventRow[]) => void;
+  /** `null` : l'API n'a pas répondu — ce n'est pas une emprise vide. */
+  onEventsLoaded?: (events: LoadedEventRow[] | null) => void;
   /**
    * Reçoit les agrégats départementaux du dernier chargement — la fenêtre
    * courante, puisqu'ils la suivent —, pour que la colonne de lecture liste
    * les départements concernés à l'échelle nationale (§21.3).
    */
-  onDepartmentsLoaded?: (rows: DepartmentAggregate[]) => void;
+  /** `null` : l'API n'a pas répondu — ce n'est pas une France sans événement. */
+  onDepartmentsLoaded?: (rows: DepartmentAggregate[] | null) => void;
   /** Prévient à chaque fin de mouvement du zoom atteint : c'est lui qui fixe l'échelle lue. */
   onViewChange?: (view: { zoom: number }) => void;
   /** Remet au panneau, une fois la carte prête, ce qu'il peut lui demander. */
@@ -292,15 +317,12 @@ function visibleBounds(map: maplibregl.Map): [number, number, number, number] {
  * qui vaut mieux que de les effacer. La liste textuelle rendue par le serveur
  * porte, elle, l'horodatage de son propre chargement.
  */
-async function reload(
-  map: maplibregl.Map,
-  windowHours: number | null,
-): Promise<LoadedEventRow[] | null> {
+async function reload(map: maplibregl.Map, windowHours: number | null): Promise<ReloadOutcome> {
   const bounds = visibleBounds(map);
   // Une emprise plus large que le plafond de l'API ne se demande pas : la
   // géométrie le dit avant tout aller-retour, et la carte lit alors la
   // France par ses départements (§21.4).
-  if (!isWithinBboxCap(bounds)) return null;
+  if (!isWithinBboxCap(bounds)) return { status: 'skipped' };
   const bbox = bounds.map((value) => value.toFixed(4)).join(',');
 
   // FR-005 : la fenêtre est un filtre **annoncé**, porté par le même
@@ -313,7 +335,7 @@ async function reload(
 
   try {
     const response = await fetch(`/api/v1/events?bbox=${bbox}&limit=500${since}`);
-    if (!response.ok) return null;
+    if (!response.ok) return { status: 'unavailable' };
 
     const payload = (await response.json()) as { data: LoadedEventRow[] };
 
@@ -332,10 +354,11 @@ async function reload(
         nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
       })),
     );
-    return payload.data;
+    return { status: 'loaded', rows: payload.data };
   } catch {
-    // Emprise trop large ou réseau coupé : on garde l'affichage précédent.
-    return null;
+    // Réseau coupé : les marqueurs précédents restent — ils ne prétendent
+    // pas être l'emprise courante, et le panneau annonce la lecture manquée.
+    return { status: 'unavailable' };
   }
 }
 
@@ -721,8 +744,8 @@ export default function BaseMap({
           // L'échelle d'abord : le panneau doit savoir s'il lit la France
           // ou une zone avant de recevoir — ou non — des événements.
           onViewChangeRef.current?.({ zoom: map.getZoom() });
-          void reload(map, windowHoursRef.current).then((loaded) => {
-            if (loaded !== null) onEventsLoadedRef.current?.(loaded);
+          void reload(map, windowHoursRef.current).then((outcome) => {
+            announceEvents(outcome, onEventsLoadedRef.current);
           });
         });
       }
@@ -879,8 +902,8 @@ export default function BaseMap({
       return;
     }
     const run = (): void => {
-      void reload(map, windowHours).then((loaded) => {
-        if (loaded !== null) onEventsLoadedRef.current?.(loaded);
+      void reload(map, windowHours).then((outcome) => {
+        announceEvents(outcome, onEventsLoadedRef.current);
       });
       void loadDepartmentAggregates(
         map,

@@ -1,6 +1,6 @@
 import { publicEventIdSchema } from '@mapfeux/contracts';
 
-import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
+import { jsonError, jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
 import { fetchEvent, fetchEventTimeline } from '@/lib/data/events';
 
 /**
@@ -22,14 +22,16 @@ export async function GET(
   }
 
   const event = await fetchEvent(parsed.data);
-  if (event === null) {
+  if (!event.readable) return jsonUnavailable(requestId);
+  if (event.value === null) {
     return jsonError('NOT_FOUND', 'Cet événement n’est pas disponible.', requestId);
   }
 
   const entries = await fetchEventTimeline(parsed.data);
+  if (!entries.readable) return jsonUnavailable(requestId);
 
   return jsonSuccess(
-    entries.map((entry) => ({
+    entries.value.map((entry) => ({
       id: entry.id,
       entryType: entry.entryType,
       provenance: entry.provenance,

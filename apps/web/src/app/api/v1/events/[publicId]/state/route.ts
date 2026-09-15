@@ -1,7 +1,7 @@
 import { publicEventIdSchema } from '@mapfeux/contracts';
 import type { NextRequest } from 'next/server';
 
-import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
+import { jsonError, jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
 import { fetchEvent, fetchEventDetections, fetchEventTimeline } from '@/lib/data/events';
 
 /**
@@ -25,7 +25,9 @@ export async function GET(
     return jsonError('VALIDATION_ERROR', 'Identifiant d’événement invalide.', requestId);
   }
 
-  const event = await fetchEvent(parsed.data);
+  const read = await fetchEvent(parsed.data);
+  if (!read.readable) return jsonUnavailable(requestId);
+  const event = read.value;
   if (event === null) {
     return jsonError('NOT_FOUND', 'Cet événement n’est pas disponible.', requestId);
   }
@@ -36,10 +38,15 @@ export async function GET(
     return jsonError('VALIDATION_ERROR', 'Paramètre at invalide, attendu ISO 8601.', requestId);
   }
 
-  const [detections, timeline] = await Promise.all([
+  const [detectionsRead, timelineRead] = await Promise.all([
     fetchEventDetections(parsed.data, 2000),
     fetchEventTimeline(parsed.data),
   ]);
+  // Un état reconstitué sur des observations non lues serait un état faux,
+  // mis en cache cinq minutes : mieux vaut ne pas répondre.
+  if (!detectionsRead.readable || !timelineRead.readable) return jsonUnavailable(requestId);
+  const detections = detectionsRead.value;
+  const timeline = timelineRead.value;
 
   const visible = detections.filter((d) => d.acquiredAt.getTime() <= requestedAt.getTime());
   const effectiveAt =

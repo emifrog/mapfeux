@@ -4,13 +4,13 @@ import { notFound, permanentRedirect } from 'next/navigation';
 
 import { PERIMETER_TYPE_LABELS } from '@mapfeux/ui';
 
+import { EventUnavailable } from '@/components/event-unavailable';
 import { MapView } from '@/components/map/map-view';
 import {
-  fetchEvent,
   fetchEventDetections,
   fetchEventPerimeters,
   fetchEventTimeline,
-  resolveEventAlias,
+  lookupEvent,
 } from '@/lib/data/events';
 
 import { ReplayControls } from './replay-controls';
@@ -68,23 +68,30 @@ export default async function ReplayPage({
   const publicId = rawPublicId.toUpperCase();
   const query = await searchParams;
 
-  const event = await fetchEvent(publicId);
-  if (event === null) {
-    const canonical = await resolveEventAlias(publicId);
-    if (canonical !== null && canonical !== publicId) {
-      permanentRedirect(`/evenements/${canonical}/relecture`);
-    }
-    notFound();
+  const lookup = await lookupEvent(publicId);
+  if (!lookup.readable) return <EventUnavailable publicId={publicId} what="relecture" />;
+  if (lookup.value.kind === 'alias') {
+    permanentRedirect(`/evenements/${lookup.value.canonical}/relecture`);
   }
+  if (lookup.value.kind === 'missing') notFound();
+  const { event } = lookup.value;
 
   // Plafond de l'API : 2 000 observations. Atteint, il est annoncé — une
   // relecture tronquée en silence raconterait un feu plus petit que le vrai.
   const DETECTION_CEILING = 2000;
-  const [detections, timeline, perimeters] = await Promise.all([
+  const [detectionsRead, timelineRead, perimetersRead] = await Promise.all([
     fetchEventDetections(publicId, DETECTION_CEILING),
     fetchEventTimeline(publicId),
     fetchEventPerimeters(publicId),
   ]);
+  // Une relecture sur des données partiellement lues rejouerait un feu qui
+  // n'a pas existé : tout ou rien.
+  if (!detectionsRead.readable || !timelineRead.readable || !perimetersRead.readable) {
+    return <EventUnavailable publicId={publicId} what="relecture" />;
+  }
+  const detections = detectionsRead.value;
+  const timeline = timelineRead.value;
+  const perimeters = perimetersRead.value;
   const truncated = detections.length === DETECTION_CEILING;
 
   // Les instants de la relecture sont les passages satellitaires — chaque

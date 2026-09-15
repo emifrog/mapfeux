@@ -1,6 +1,6 @@
-import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
-import { eventPath, fetchEvent, resolveEventAlias } from '@/lib/data/events';
+import { eventPath, lookupEvent } from '@/lib/data/events';
 
 import EventPage, { generateMetadata as eventMetadata } from '../page';
 
@@ -32,17 +32,18 @@ export default async function SluggedEventPage({
   const { publicId: rawPublicId, slug } = await params;
   const publicId = rawPublicId.toUpperCase();
 
-  const event = await fetchEvent(publicId);
-  if (event === null) {
-    const canonical = await resolveEventAlias(publicId);
-    if (canonical !== null && canonical !== publicId) {
-      permanentRedirect(`/evenements/${canonical}`);
-    }
-    notFound();
-  }
+  const lookup = await lookupEvent(publicId);
 
-  if (slug !== event.editorialSlug) {
-    redirect(eventPath(event));
+  // Le slug ne se vérifie que sur un événement lu. Tout le reste — base
+  // muette, alias fusionné, identifiant inconnu ou hors périmètre — est
+  // l'affaire de la fiche nue, qui sait le dire ; ce segment ne fait que
+  // décorer son URL.
+  if (
+    lookup.readable &&
+    lookup.value.kind === 'event' &&
+    slug !== lookup.value.event.editorialSlug
+  ) {
+    redirect(eventPath(lookup.value.event));
   }
 
   return <EventPage params={Promise.resolve({ publicId })} />;

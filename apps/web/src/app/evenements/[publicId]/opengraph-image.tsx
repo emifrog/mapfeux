@@ -100,7 +100,17 @@ interface PageParams {
 
 export default async function OpenGraphImage({ params }: PageParams) {
   const { publicId } = await params;
-  const view = await fetchEventView(publicId);
+  const read = await fetchEventView(publicId);
+
+  // Base muette : 503 non caché, pour que le moissonneur revienne — un 404
+  // lui ferait retenir qu'il n'y a pas d'image.
+  if (!read.readable) {
+    return new Response('Fiche indisponible', {
+      status: 503,
+      headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' },
+    });
+  }
+  const view = read.value;
 
   // Pas de redirection d'alias ici : c'est la page qui redirige, et le
   // moissonneur du réseau social redemandera l'image sous l'URL canonique.

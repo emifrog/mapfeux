@@ -11,6 +11,8 @@ import type {
 
 import { createPublicReadClient } from '@/lib/supabase/server';
 
+import { readable, unreadable, type ReadResult } from './read-result';
+
 /**
  * Accès aux événements.
  *
@@ -19,6 +21,10 @@ import { createPublicReadClient } from '@/lib/supabase/server';
  * La fiche doit être rendue côté serveur et rester lisible sans JavaScript
  * (FR-051). Tout ce qu'elle affiche est donc chargé ici, en trois requêtes au
  * plus, avant le premier octet envoyé au navigateur.
+ *
+ * Chaque lecture rend un `ReadResult` : une base qui ne répond pas n'est ni
+ * une liste vide ni un événement introuvable, et l'appelant — page ou route —
+ * doit le dire (`lib/data/read-result.ts`).
  */
 
 interface EventRow {
@@ -159,12 +165,14 @@ function toEvent(row: EventRow): FireEvent {
 }
 
 /**
- * Retourne `null` si l'événement n'existe pas ou a été masqué.
+ * `null` si l'événement n'existe pas ou a été masqué ; `readable: false` si
+ * la base n'a pas répondu. L'appelant ne doit pas prendre l'un pour l'autre :
+ * un 404 rendu sur une panne ferait périmer une URL qui existe (§13.10).
  *
  * Le masquage est traité en base : un événement retiré du public l'est aussi
  * par son URL directe (§17.7).
  */
-export async function fetchEvent(publicId: string): Promise<FireEvent | null> {
+export async function fetchEvent(publicId: string): Promise<ReadResult<FireEvent | null>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('fire_event', { event_public_id: publicId });
 
@@ -174,20 +182,20 @@ export async function fetchEvent(publicId: string): Promise<FireEvent | null> {
       code: error.code,
       message: error.message,
     });
-    return null;
+    return unreadable();
   }
 
   const rows = (data ?? []) as EventRow[];
   const first = rows[0];
-  return first === undefined ? null : toEvent(first);
+  return readable(first === undefined ? null : toEvent(first));
 }
 
 /**
  * Résout un identifiant fusionné vers l'événement canonique.
- * Retourne `null` si l'identifiant n'est connu ni comme événement, ni comme
- * alias — permet à l'appelant de distinguer une redirection d'un 404 (§13.10).
+ * `null` si l'identifiant n'est connu ni comme événement, ni comme alias —
+ * permet à l'appelant de distinguer une redirection d'un 404 (§13.10).
  */
-export async function resolveEventAlias(candidate: string): Promise<string | null> {
+export async function resolveEventAlias(candidate: string): Promise<ReadResult<string | null>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('resolve_event_alias', {
     candidate_public_id: candidate,
@@ -198,13 +206,37 @@ export async function resolveEventAlias(candidate: string): Promise<string | nul
       code: error.code,
       message: error.message,
     });
-    return null;
+    return unreadable();
   }
 
-  return (data as string | null) ?? null;
+  return readable((data as string | null) ?? null);
 }
 
-export async function fetchEventTimeline(publicId: string): Promise<TimelineEntry[]> {
+/**
+ * Ce qu'un identifiant public désigne : un événement publié, un alias
+ * fusionné vers un autre identifiant, ou rien. Les trois réponses se
+ * traitent différemment — servir, rediriger, 404 — et aucune ne se déduit
+ * d'une base qui n'a pas répondu.
+ */
+export type EventLookup =
+  | { readonly kind: 'event'; readonly event: FireEvent }
+  | { readonly kind: 'alias'; readonly canonical: string }
+  | { readonly kind: 'missing' };
+
+export async function lookupEvent(publicId: string): Promise<ReadResult<EventLookup>> {
+  const event = await fetchEvent(publicId);
+  if (!event.readable) return unreadable();
+  if (event.value !== null) return readable({ kind: 'event', event: event.value });
+
+  const canonical = await resolveEventAlias(publicId);
+  if (!canonical.readable) return unreadable();
+  if (canonical.value !== null && canonical.value !== publicId) {
+    return readable({ kind: 'alias', canonical: canonical.value });
+  }
+  return readable({ kind: 'missing' });
+}
+
+export async function fetchEventTimeline(publicId: string): Promise<ReadResult<TimelineEntry[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('fire_event_timeline', {
     event_public_id: publicId,
@@ -216,7 +248,7 @@ export async function fetchEventTimeline(publicId: string): Promise<TimelineEntr
       code: error.code,
       message: error.message,
     });
-    return [];
+    return unreadable();
   }
 
   type Row = {
@@ -231,19 +263,21 @@ export async function fetchEventTimeline(publicId: string): Promise<TimelineEntr
     source_url: string | null;
   };
 
-  return ((data ?? []) as Row[]).map((row) => ({
-    id: row.id,
-    entryType: row.entry_type,
-    provenance: row.provenance,
-    occurredAt: new Date(row.occurred_at),
-    recordedAt: new Date(row.recorded_at),
-    title: row.title,
-    summary: row.summary,
-    source:
-      row.source_organisation === null || row.source_url === null
-        ? null
-        : { organisation: row.source_organisation, url: row.source_url },
-  }));
+  return readable(
+    ((data ?? []) as Row[]).map((row) => ({
+      id: row.id,
+      entryType: row.entry_type,
+      provenance: row.provenance,
+      occurredAt: new Date(row.occurred_at),
+      recordedAt: new Date(row.recorded_at),
+      title: row.title,
+      summary: row.summary,
+      source:
+        row.source_organisation === null || row.source_url === null
+          ? null
+          : { organisation: row.source_organisation, url: row.source_url },
+    })),
+  );
 }
 
 /**
@@ -260,7 +294,12 @@ export interface EventView {
   /** Heure de construction du snapshot. Nulle en lecture directe. */
   readonly generatedAt: Date | null;
   readonly event: FireEvent;
-  readonly timeline: TimelineEntry[];
+  /**
+   * Toujours lue dans un snapshot ; en lecture directe, sa propre lecture
+   * peut manquer alors que l'événement, lui, a été lu — la fiche le dit à
+   * l'endroit de la chronologie, pas à la place de la fiche.
+   */
+  readonly timeline: ReadResult<TimelineEntry[]>;
 }
 
 interface SnapshotPayload {
@@ -296,7 +335,7 @@ interface SnapshotPayload {
   updatedAt: string;
 }
 
-export async function fetchEventView(publicId: string): Promise<EventView | null> {
+export async function fetchEventView(publicId: string): Promise<ReadResult<EventView | null>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('fire_event_snapshot', {
     event_public_id: publicId,
@@ -312,7 +351,7 @@ export async function fetchEventView(publicId: string): Promise<EventView | null
 
     if (snapshot !== undefined) {
       const p = snapshot.payload;
-      return {
+      return readable({
         origin: 'snapshot',
         generatedAt: new Date(snapshot.generated_at),
         event: {
@@ -339,17 +378,19 @@ export async function fetchEventView(publicId: string): Promise<EventView | null
           timelineEntryCount: p.timeline.length,
           timelineLatestAt: p.timeline[0] === undefined ? null : new Date(p.timeline[0].occurredAt),
         },
-        timeline: p.timeline.map((entry) => ({
-          id: entry.id,
-          entryType: entry.entryType,
-          provenance: entry.provenance,
-          occurredAt: new Date(entry.occurredAt),
-          recordedAt: new Date(entry.recordedAt),
-          title: entry.title,
-          summary: entry.summary,
-          source: entry.source,
-        })),
-      };
+        timeline: readable(
+          p.timeline.map((entry) => ({
+            id: entry.id,
+            entryType: entry.entryType,
+            provenance: entry.provenance,
+            occurredAt: new Date(entry.occurredAt),
+            recordedAt: new Date(entry.recordedAt),
+            title: entry.title,
+            summary: entry.summary,
+            source: entry.source,
+          })),
+        ),
+      });
     }
   } else {
     console.error('[events] snapshot illisible, repli sur la lecture directe', {
@@ -361,16 +402,19 @@ export async function fetchEventView(publicId: string): Promise<EventView | null
 
   // Aucun snapshot : événement trop récent pour en avoir un, ou tâche de
   // rafraîchissement en retard. La lecture directe reste correcte, elle est
-  // seulement plus coûteuse.
+  // seulement plus coûteuse. Snapshot illisible **et** lecture directe
+  // illisible : c'est la base qui ne répond pas, et la fiche doit le dire
+  // plutôt que de se déclarer introuvable.
   const event = await fetchEvent(publicId);
-  if (event === null) return null;
+  if (!event.readable) return unreadable();
+  if (event.value === null) return readable(null);
 
-  return {
+  return readable({
     origin: 'live',
     generatedAt: null,
-    event,
-    timeline: await fetchEventTimeline(event.publicId),
-  };
+    event: event.value,
+    timeline: await fetchEventTimeline(event.value.publicId),
+  });
 }
 
 /** Résumé d'événement pour la carte et la liste textuelle. */
@@ -444,7 +488,7 @@ export interface CatalogFilters {
  */
 export async function fetchEventsCatalog(
   filters: CatalogFilters = {},
-): Promise<{ events: EventSummary[]; nextCursor: string | null }> {
+): Promise<ReadResult<{ events: EventSummary[]; nextCursor: string | null }>> {
   const supabase = createPublicReadClient();
   const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100);
 
@@ -460,11 +504,13 @@ export async function fetchEventsCatalog(
   });
 
   if (error !== null) {
+    // Pas une première page vide : la route répondrait 200 et le CDN garderait
+    // ce faux vide une minute. La panne se dit.
     console.error('[events] catalogue indisponible', {
       code: error.code,
       message: error.message,
     });
-    return { events: [], nextCursor: null };
+    return unreadable();
   }
 
   type Row = {
@@ -507,7 +553,7 @@ export async function fetchEventsCatalog(
         })
       : null;
 
-  return { events, nextCursor };
+  return readable({ events, nextCursor });
 }
 
 export interface DepartmentAggregateRow {
@@ -533,9 +579,13 @@ export interface DepartmentAggregateRow {
  *
  * L'agrégat est calculé en base depuis la même vue que la carte : ce que la
  * vue masque, l'agrégat l'ignore par construction. Un département absent du
- * résultat n'a simplement aucun événement sur la période.
+ * résultat n'a simplement aucun événement sur la période — quand la base a
+ * répondu ; sinon, l'accueil additionnait des lignes absentes et affichait
+ * « 0 événement » sur une panne.
  */
-export async function fetchDepartmentAggregates(since: Date): Promise<DepartmentAggregateRow[]> {
+export async function fetchDepartmentAggregates(
+  since: Date,
+): Promise<ReadResult<DepartmentAggregateRow[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('department_event_aggregates', {
     since: since.toISOString(),
@@ -546,7 +596,7 @@ export async function fetchDepartmentAggregates(since: Date): Promise<Department
       code: error.code,
       message: error.message,
     });
-    return [];
+    return unreadable();
   }
 
   type Row = {
@@ -570,21 +620,23 @@ export async function fetchDepartmentAggregates(since: Date): Promise<Department
     return Number.isFinite(parsed) ? parsed : null;
   };
 
-  return ((data ?? []) as Row[]).map((row) => {
-    const longitude = toNumber(row.center_longitude);
-    const latitude = toNumber(row.center_latitude);
-    return {
-      departmentCode: row.department_code,
-      departmentSlug: row.department_slug,
-      departmentStatus: row.department_status,
-      departmentName: row.department_name ?? null,
-      center: longitude === null || latitude === null ? null : { longitude, latitude },
-      defaultZoom: toNumber(row.default_zoom),
-      events: row.events,
-      substantiated: row.substantiated,
-      lastDetectedAt: new Date(row.last_detected_at),
-    };
-  });
+  return readable(
+    ((data ?? []) as Row[]).map((row) => {
+      const longitude = toNumber(row.center_longitude);
+      const latitude = toNumber(row.center_latitude);
+      return {
+        departmentCode: row.department_code,
+        departmentSlug: row.department_slug,
+        departmentStatus: row.department_status,
+        departmentName: row.department_name ?? null,
+        center: longitude === null || latitude === null ? null : { longitude, latitude },
+        defaultZoom: toNumber(row.default_zoom),
+        events: row.events,
+        substantiated: row.substantiated,
+        lastDetectedAt: new Date(row.last_detected_at),
+      };
+    }),
+  );
 }
 
 /**
@@ -597,7 +649,7 @@ export async function fetchDepartmentAggregates(since: Date): Promise<Department
 export async function fetchEventsInBbox(
   bbox: BoundingBox,
   options: { since?: Date; limit?: number } = {},
-): Promise<EventSummary[]> {
+): Promise<ReadResult<EventSummary[]>> {
   const supabase = createPublicReadClient();
   // La fonction SQL garde son nom historique : la renommer passe par une
   // migration, sans bénéfice public — seul le nom exposé par l'URL compte.
@@ -615,7 +667,7 @@ export async function fetchEventsInBbox(
       code: error.code,
       message: error.message,
     });
-    return [];
+    return unreadable();
   }
 
   type Row = {
@@ -633,21 +685,23 @@ export async function fetchEventsInBbox(
     nearest_municipality_name: string | null;
   };
 
-  return ((data ?? []) as Row[]).map((row) => ({
-    publicId: row.public_id,
-    freshnessStatus: row.freshness_status,
-    verificationStatus: row.verification_status,
-    officialControlStatus: row.official_control_status,
-    firstDetectedAt: new Date(row.first_detected_at),
-    lastDetectedAt: new Date(row.last_detected_at),
-    location: { longitude: row.longitude, latitude: row.latitude },
-    detectionCount: row.detection_count,
-    confidenceLevel: row.confidence_level,
-    nearestMunicipality:
-      row.nearest_municipality_code === null || row.nearest_municipality_name === null
-        ? null
-        : { insee: row.nearest_municipality_code, name: row.nearest_municipality_name },
-  }));
+  return readable(
+    ((data ?? []) as Row[]).map((row) => ({
+      publicId: row.public_id,
+      freshnessStatus: row.freshness_status,
+      verificationStatus: row.verification_status,
+      officialControlStatus: row.official_control_status,
+      firstDetectedAt: new Date(row.first_detected_at),
+      lastDetectedAt: new Date(row.last_detected_at),
+      location: { longitude: row.longitude, latitude: row.latitude },
+      detectionCount: row.detection_count,
+      confidenceLevel: row.confidence_level,
+      nearestMunicipality:
+        row.nearest_municipality_code === null || row.nearest_municipality_name === null
+          ? null
+          : { insee: row.nearest_municipality_code, name: row.nearest_municipality_name },
+    })),
+  );
 }
 
 /** Une version de périmètre, telle que la fiche et la relecture la jugent. */
@@ -673,7 +727,9 @@ export interface EventPerimeter {
   knownAt: Date;
 }
 
-export async function fetchEventPerimeters(publicId: string): Promise<EventPerimeter[]> {
+export async function fetchEventPerimeters(
+  publicId: string,
+): Promise<ReadResult<EventPerimeter[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('fire_event_perimeters', {
     event_public_id: publicId,
@@ -685,7 +741,7 @@ export async function fetchEventPerimeters(publicId: string): Promise<EventPerim
       code: error.code,
       message: error.message,
     });
-    return [];
+    return unreadable();
   }
 
   type Row = {
@@ -706,30 +762,32 @@ export async function fetchEventPerimeters(publicId: string): Promise<EventPerim
     geometry: GeoJSON.MultiPolygon;
   };
 
-  return ((data ?? []) as Row[]).map((row) => ({
-    id: row.id,
-    perimeterType: row.perimeter_type,
-    validAt: new Date(row.valid_at),
-    publishedAt: row.published_at === null ? null : new Date(row.published_at),
-    importedAt: new Date(row.imported_at),
-    areaHa: Number(row.area_ha),
-    sourceAreaHa: row.source_area_ha === null ? null : Number(row.source_area_ha),
-    resolutionM: row.resolution_m === null ? null : Number(row.resolution_m),
-    confidenceLevel: row.confidence_level,
-    method: row.method,
-    sourceName: row.source_name,
-    sourceAttribution: row.source_attribution,
-    isCurrent: row.is_current,
-    supersedesId: row.supersedes_id,
-    geometry: row.geometry,
-    knownAt: new Date(row.published_at ?? row.imported_at),
-  }));
+  return readable(
+    ((data ?? []) as Row[]).map((row) => ({
+      id: row.id,
+      perimeterType: row.perimeter_type,
+      validAt: new Date(row.valid_at),
+      publishedAt: row.published_at === null ? null : new Date(row.published_at),
+      importedAt: new Date(row.imported_at),
+      areaHa: Number(row.area_ha),
+      sourceAreaHa: row.source_area_ha === null ? null : Number(row.source_area_ha),
+      resolutionM: row.resolution_m === null ? null : Number(row.resolution_m),
+      confidenceLevel: row.confidence_level,
+      method: row.method,
+      sourceName: row.source_name,
+      sourceAttribution: row.source_attribution,
+      isCurrent: row.is_current,
+      supersedesId: row.supersedes_id,
+      geometry: row.geometry,
+      knownAt: new Date(row.published_at ?? row.imported_at),
+    })),
+  );
 }
 
 export async function fetchEventDetections(
   publicId: string,
   limit = 500,
-): Promise<EventDetection[]> {
+): Promise<ReadResult<EventDetection[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('fire_event_detections', {
     event_public_id: publicId,
@@ -742,7 +800,7 @@ export async function fetchEventDetections(
       code: error.code,
       message: error.message,
     });
-    return [];
+    return unreadable();
   }
 
   type Row = {
@@ -757,16 +815,18 @@ export async function fetchEventDetections(
     is_known_thermal_source: boolean;
   };
 
-  return ((data ?? []) as Row[]).map((row) => ({
-    acquiredAt: new Date(row.acquired_at),
-    sensor: row.sensor,
-    satellite: row.satellite,
-    location: { longitude: row.longitude, latitude: row.latitude },
-    confidenceLevel: row.confidence_level,
-    frpMw: row.frp_mw === null ? null : Number(row.frp_mw),
-    dayNight: row.day_night,
-    isKnownThermalSource: row.is_known_thermal_source,
-  }));
+  return readable(
+    ((data ?? []) as Row[]).map((row) => ({
+      acquiredAt: new Date(row.acquired_at),
+      sensor: row.sensor,
+      satellite: row.satellite,
+      location: { longitude: row.longitude, latitude: row.latitude },
+      confidenceLevel: row.confidence_level,
+      frpMw: row.frp_mw === null ? null : Number(row.frp_mw),
+      dayNight: row.day_night,
+      isKnownThermalSource: row.is_known_thermal_source,
+    })),
+  );
 }
 
 /**
@@ -784,7 +844,7 @@ export async function fetchEventDetections(
 export async function fetchEventsNearMunicipality(
   municipality: { insee: string; centroid: { longitude: number; latitude: number } },
   options: { since?: Date; limit?: number } = {},
-): Promise<EventSummary[]> {
+): Promise<ReadResult<EventSummary[]>> {
   const reach = 0.25;
   const { longitude, latitude } = municipality.centroid;
   const events = await fetchEventsInBbox(
@@ -796,18 +856,22 @@ export async function fetchEventsNearMunicipality(
     },
     { limit: 500, ...(options.since === undefined ? {} : { since: options.since }) },
   );
-  return events
-    .filter((event) => event.nearestMunicipality?.insee === municipality.insee)
-    .slice(0, options.limit ?? 100);
+  if (!events.readable) return unreadable();
+  return readable(
+    events.value
+      .filter((event) => event.nearestMunicipality?.insee === municipality.insee)
+      .slice(0, options.limit ?? 100),
+  );
 }
 
 /**
  * L'identifiant désigne-t-il un événement **hors du périmètre** du service —
  * importé, jamais publié (ADR-027) ? Pour que la fiche dise pourquoi un lien
- * partagé ne mène à rien, plutôt qu'un 404 muet. `false` aussi quand la base
- * ne répond pas : on ne prétend rien qu'on n'a pas lu.
+ * partagé ne mène à rien, plutôt qu'un 404 muet. Quand la base ne répond
+ * pas, la lecture le dit : on ne prétend rien qu'on n'a pas lu, ni « hors
+ * périmètre » ni « introuvable ».
  */
-export async function isEventOutsideTerritory(publicId: string): Promise<boolean> {
+export async function isEventOutsideTerritory(publicId: string): Promise<ReadResult<boolean>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('event_outside_territory', {
     event_public_id: publicId,
@@ -818,7 +882,7 @@ export async function isEventOutsideTerritory(publicId: string): Promise<boolean
       code: error.code,
       message: error.message,
     });
-    return false;
+    return unreadable();
   }
-  return data === true;
+  return readable(data === true);
 }

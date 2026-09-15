@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MapView } from '@/components/map/map-view';
 import { MunicipalitySearch } from '@/components/municipality-search';
 import { NearMe } from '@/components/near-me';
+import { UnavailableNotice } from '@/components/unavailable-notice';
 import { fetchDepartmentAggregates } from '@/lib/data/events';
 import { fetchTerritories } from '@/lib/data/territories';
 import { fetchSourceStatus } from '@/lib/sources';
@@ -26,7 +27,9 @@ import { fetchSourceStatus } from '@/lib/sources';
  * au zoom pour lequel ils ont été dessinés (§21.3). Elle ne se manipule pas —
  * elle mène à `/carte`. Les chiffres sont ceux de la base à l'instant du
  * rendu, pas des promesses : événements observés, départements concernés,
- * sources qui répondent.
+ * sources qui répondent. Et quand la base n'a pas répondu, ils ne sont pas
+ * des zéros : un tiret, et un bandeau qui le dit — jusqu'au 15 septembre
+ * 2026, une panne de lecture affichait « 0 événement » (constat d'audit).
  *
  * Ce qui n'a pas bougé : le titre — une formulation publique, qui passe par
  * une validation métier avant d'être modifiée —, l'avertissement du §2.4 et
@@ -51,27 +54,33 @@ export default async function HomePage() {
   ]);
   const departments = territories.filter((territory) => territory.type === 'department');
 
-  const events24h = last24h.reduce((sum, row) => sum + row.events, 0);
-  const events7d = last7d.reduce((sum, row) => sum + row.events, 0);
-  const departmentsTouched = last7d.length;
+  // Une somme sur des lignes non lues vaudrait zéro : on ne somme que ce
+  // qui a été lu, et un chiffre non établi s'écrit « — ».
+  const events24h = last24h.readable
+    ? last24h.value.reduce((sum, row) => sum + row.events, 0)
+    : null;
+  const events7d = last7d.readable ? last7d.value.reduce((sum, row) => sum + row.events, 0) : null;
+  const departmentsTouched = last7d.readable ? last7d.value.length : null;
   const inService = status.sources.filter((source) => isInService(source.freshness));
   const healthy = inService.filter((source) => isHealthy(source.freshness)).length;
+  const anyUnreadable = !last24h.readable || !last7d.readable || !status.readable;
 
+  const NOT_READ = 'non consultable à cet instant';
   const figures = [
     {
-      value: COMPACT.format(events24h),
+      value: events24h === null ? '—' : COMPACT.format(events24h),
       label: 'événements observés',
-      detail: 'dernières 24 heures, France entière',
+      detail: events24h === null ? NOT_READ : 'dernières 24 heures, France entière',
     },
     {
-      value: COMPACT.format(departmentsTouched),
+      value: departmentsTouched === null ? '—' : COMPACT.format(departmentsTouched),
       label: 'départements concernés',
-      detail: `${COMPACT.format(events7d)} événements sur 7 jours`,
+      detail: events7d === null ? NOT_READ : `${COMPACT.format(events7d)} événements sur 7 jours`,
     },
     {
-      value: `${healthy}/${inService.length}`,
+      value: status.readable ? `${healthy}/${inService.length}` : '—',
       label: 'sources à jour',
-      detail: 'état des données en direct',
+      detail: status.readable ? 'état des données en direct' : NOT_READ,
       href: '/statut',
     },
   ];
@@ -163,6 +172,17 @@ export default async function HomePage() {
         sources qui répondent : les trois choses qu'un service d'observation
         peut affirmer sans mentir.
       */}
+      {anyUnreadable && (
+        <UnavailableNotice className="mt-8 max-w-[68ch]">
+          Certains chiffres n’ont pas pu être établis : la base n’a pas répondu au moment de rendre
+          cette page. Un tiret n’est pas un zéro — rien ne dit qu’il n’y a pas d’événement. L’
+          <Link href="/statut" className="underline underline-offset-4">
+            état des données
+          </Link>{' '}
+          indique ce qui répond.
+        </UnavailableNotice>
+      )}
+
       {/* `mt-8` et non `mt-10` : à 1280 × 800, les trois chiffres passaient sous
           le pli de quinze pixels. Ils sont faits pour le premier écran. */}
       <ul className="mt-8 grid gap-3 sm:grid-cols-3">

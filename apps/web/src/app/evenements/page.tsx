@@ -4,7 +4,9 @@ import Link from 'next/link';
 
 import { EventList } from '@/components/event-list';
 import { MapView } from '@/components/map/map-view';
+import { UnavailableNotice } from '@/components/unavailable-notice';
 import { decodeCatalogCursor, fetchEventsCatalog, type CatalogFilters } from '@/lib/data/events';
+import { valueOr } from '@/lib/data/read-result';
 
 /**
  * Catalogue national des événements. Cahier FR-050 à FR-055.
@@ -80,7 +82,9 @@ export default async function EventsCatalogPage({
     ...(verification === undefined ? {} : { verification }),
     ...(cursor == null ? {} : { cursor }),
   };
-  const { events, nextCursor } = await fetchEventsCatalog(filters);
+  const catalog = await fetchEventsCatalog(filters);
+  // Non lu, le catalogue n'est pas vide : la liste cède la place au bandeau.
+  const { events, nextCursor } = valueOr(catalog, { events: [], nextCursor: null });
 
   // Les liens de pagination conservent les filtres : un curseur sans sa
   // période paginerait un autre catalogue que celui affiché.
@@ -192,7 +196,16 @@ export default async function EventsCatalogPage({
       <p className="text-small text-(--text-2) mt-3 max-w-[68ch]">{MAP_DISCLAIMER}</p>
 
       <section className="mt-10 max-w-[75ch]" aria-label="Liste des événements">
-        {events.length === 0 ? (
+        {!catalog.readable ? (
+          <UnavailableNotice className="max-w-[68ch]">
+            Le catalogue n’a pas pu être lu au moment d’établir cette page. Ce n’est pas une absence
+            d’événement : la base n’a pas répondu. Rechargez la page dans quelques instants ; l’
+            <Link href="/statut" className="underline underline-offset-4">
+              état des données
+            </Link>{' '}
+            indique ce qui répond.
+          </UnavailableNotice>
+        ) : events.length === 0 ? (
           <p className="text-(--text-2) max-w-[68ch]">
             Aucun événement ne correspond à ces filtres sur la période. Cela ne signifie pas qu’il
             ne se passe rien : une détection récente peut ne pas encore être importée, et l’

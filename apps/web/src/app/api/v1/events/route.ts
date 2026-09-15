@@ -1,7 +1,7 @@
 import { bboxSchema } from '@mapfeux/contracts';
 import type { NextRequest } from 'next/server';
 
-import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
+import { jsonError, jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
 import { decodeCatalogCursor, fetchEventsCatalog, fetchEventsInBbox } from '@/lib/data/events';
 import { fetchSourceStatus, toMetaSources } from '@/lib/sources';
 
@@ -69,11 +69,13 @@ export async function GET(request: NextRequest): Promise<Response> {
     ...(since === undefined ? {} : { since }),
     limit: Math.min(limit, 500),
   });
+  // Une base qui ne répond pas n'est pas une emprise vide : 503, non caché.
+  if (!events.readable) return jsonUnavailable(requestId);
 
   const sourceStatus = await fetchSourceStatus();
 
   return jsonSuccess(
-    events.map((event) => ({
+    events.value.map((event) => ({
       id: event.publicId,
       freshnessStatus: event.freshnessStatus,
       verificationStatus: event.verificationStatus,
@@ -149,7 +151,7 @@ async function catalog(params: URLSearchParams, requestId: string): Promise<Resp
     return jsonError('VALIDATION_ERROR', 'Paramètre limit invalide.', requestId);
   }
 
-  const [{ events, nextCursor }, sourceStatus] = await Promise.all([
+  const [catalog, sourceStatus] = await Promise.all([
     fetchEventsCatalog({
       ...(since === undefined ? {} : { since }),
       ...(until === undefined ? {} : { until }),
@@ -161,6 +163,10 @@ async function catalog(params: URLSearchParams, requestId: string): Promise<Resp
     }),
     fetchSourceStatus(),
   ]);
+  // Un catalogue illisible n'est pas un catalogue vide : le 200 vide serait
+  // gardé une minute par le CDN et lu comme « aucun événement en France ».
+  if (!catalog.readable) return jsonUnavailable(requestId);
+  const { events, nextCursor } = catalog.value;
 
   return jsonSuccess(
     events.map((event) => ({

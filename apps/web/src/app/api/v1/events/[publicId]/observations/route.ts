@@ -1,6 +1,6 @@
 import { publicEventIdSchema } from '@mapfeux/contracts';
 
-import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
+import { jsonError, jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
 import { fetchEvent, fetchEventDetections } from '@/lib/data/events';
 import { fetchSourceStatus, toMetaSources } from '@/lib/sources';
 
@@ -24,7 +24,8 @@ export async function GET(
   }
 
   const event = await fetchEvent(parsed.data);
-  if (event === null) {
+  if (!event.readable) return jsonUnavailable(requestId);
+  if (event.value === null) {
     return jsonError('NOT_FOUND', 'Cet événement n’est pas disponible.', requestId);
   }
 
@@ -32,9 +33,10 @@ export async function GET(
     fetchEventDetections(parsed.data),
     fetchSourceStatus(),
   ]);
+  if (!detections.readable) return jsonUnavailable(requestId);
 
   return jsonSuccess(
-    detections.map((detection) => ({
+    detections.value.map((detection) => ({
       acquiredAt: detection.acquiredAt.toISOString(),
       sensor: detection.sensor,
       satellite: detection.satellite,

@@ -28,7 +28,8 @@ export function TimeBar({
 }: {
   windowHours: number | null;
   onWindowHours: (hours: number | null) => void;
-  eventCount: number;
+  /** `null` : le compte n'a pas été lu — ce n'est pas zéro. */
+  eventCount: number | null;
 }) {
   return (
     <section
@@ -89,10 +90,21 @@ export function TimeBar({
         </fieldset>
 
         {/* Le compte de ce qui est montré : un filtre qui ne dit pas ce
-            qu'il retient se confond avec une absence de phénomène. */}
+            qu'il retient se confond avec une absence de phénomène. Et un
+            compte qui n'a pas été lu ne s'écrit pas « 0 » : la barre le dit,
+            le panneau de lecture explique. */}
         <p className="tabular-nums" aria-live="polite">
-          <span style={{ color: 'var(--text)' }}>{eventCount}</span> événement
-          {eventCount > 1 ? 's' : ''} {windowPhrase(windowHours)}
+          {eventCount === null ? (
+            <>
+              <span style={{ color: 'var(--color-degraded)' }}>compte non lu</span>{' '}
+              {windowPhrase(windowHours)}
+            </>
+          ) : (
+            <>
+              <span style={{ color: 'var(--text)' }}>{eventCount}</span> événement
+              {eventCount > 1 ? 's' : ''} {windowPhrase(windowHours)}
+            </>
+          )}
         </p>
 
         {/* La clé de lecture : pastille **et** libellé, jamais la couleur

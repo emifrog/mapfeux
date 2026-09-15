@@ -6,6 +6,7 @@ import { CarteMapPanel } from '@/components/map/carte-map-panel';
 import { FloatingCard } from '@/components/map/floating-card';
 import { MunicipalitySearch } from '@/components/municipality-search';
 import { fetchDepartmentAggregates } from '@/lib/data/events';
+import { valueOr } from '@/lib/data/read-result';
 import { toDepartmentRows } from '@/lib/map/national-scope';
 import { DEFAULT_WINDOW_HOURS, windowSince } from '@/lib/map/time-windows';
 
@@ -72,9 +73,13 @@ export default async function MapPage() {
   const aggregates = await fetchDepartmentAggregates(since);
   // Les agrégats portent nom et destination de chaque département : le
   // registre public des territoires ne dit rien des départements « à venir »
-  // (FR-014), et la liste doit nommer les quatre-vingt-seize.
+  // (FR-014), et la liste doit nommer les quatre-vingt-seize. Non lus, ils
+  // ne sont pas « aucun » : le panneau le dit à la place de la liste.
   const departments = toDepartmentRows(
-    aggregates.map((row) => ({ ...row, lastDetectedAt: row.lastDetectedAt.toISOString() })),
+    valueOr(aggregates, []).map((row) => ({
+      ...row,
+      lastDetectedAt: row.lastDetectedAt.toISOString(),
+    })),
   );
 
   return (
@@ -85,6 +90,7 @@ export default async function MapPage() {
       listEvents={[]}
       bounds={null}
       departments={departments}
+      departmentsReadable={aggregates.readable}
       events={[]}
     >
       <FloatingCard>

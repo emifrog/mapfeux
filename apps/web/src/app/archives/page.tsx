@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { EventList } from '@/components/event-list';
+import { UnavailableNotice } from '@/components/unavailable-notice';
 import { decodeCatalogCursor, fetchEventsCatalog, type CatalogFilters } from '@/lib/data/events';
+import { valueOr } from '@/lib/data/read-result';
 
 /**
  * Archives des événements. Cahier FR-048 et FR-053.
@@ -49,7 +51,9 @@ export default async function ArchivesPage({
     ...(department === undefined ? {} : { department }),
     ...(cursor == null ? {} : { cursor }),
   };
-  const { events, nextCursor } = await fetchEventsCatalog(filters);
+  const catalog = await fetchEventsCatalog(filters);
+  // Non lues, les archives ne sont pas vides : la liste cède la place au bandeau.
+  const { events, nextCursor } = valueOr(catalog, { events: [], nextCursor: null });
   const now = new Date();
 
   const baseQuery = new URLSearchParams();
@@ -95,7 +99,17 @@ export default async function ArchivesPage({
       </form>
 
       <section className="mt-10" aria-label="Liste des événements archivés">
-        {events.length === 0 ? (
+        {!catalog.readable ? (
+          <UnavailableNotice className="max-w-[68ch]">
+            Les archives n’ont pas pu être lues au moment d’établir cette page. Ce n’est pas une
+            absence d’événement : la base n’a pas répondu. Rechargez la page dans quelques instants
+            ; l’
+            <Link href="/statut" className="underline underline-offset-4">
+              état des données
+            </Link>{' '}
+            indique ce qui répond.
+          </UnavailableNotice>
+        ) : events.length === 0 ? (
           <p className="text-(--text-2) max-w-[68ch]">
             Aucun événement archivé ne correspond à ce filtre. Les archives se remplissent au fil du
             temps, à mesure que des événements sortent de la fenêtre courante.
