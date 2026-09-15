@@ -93,7 +93,13 @@ annonçait encore la fiche « à construire », et le worker a enfin son
 **verrou conda** — dont le premier passage en CI a trouvé que GDAL 3.13
 casse l'écriture des COG en mémoire, d'où une borne motivée. Enfin le
 **constat 3** : l'état à un instant se calcule en base, 51ᵉ migration, et
-la liste plafonnée l'annonce au lieu de tronquer l'histoire. Détail en
+la liste plafonnée l'annonce au lieu de tronquer l'histoire. Le patron,
+étendu ensuite aux **communes, territoires et informations officielles**
+— page « indisponible » datée au lieu d'un 404, cinq routes de plus en
+503, un bandeau par section —, a fait tomber en vérifiant le chemin sain
+une **recherche de commune qui expirait en production** depuis l'import
+national : un prédicat que l'index ne servait pas, 3 s ramenées à un
+quart de seconde (52ᵉ migration). Détail en
 [§14](#une-panne-de-lecture-nest-plus-une-absence-dévénements--15-septembre-2026-soir).
 
 **13 septembre 2026, soir** — **l'accueil s'ouvre
