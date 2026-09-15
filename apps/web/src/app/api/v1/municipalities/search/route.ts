@@ -1,7 +1,7 @@
 import { municipalitySearchQuerySchema } from '@mapfeux/contracts';
 import type { NextRequest } from 'next/server';
 
-import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
+import { jsonError, jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
 import { searchMunicipalities } from '@/lib/data/municipalities';
 
 /**
@@ -29,18 +29,13 @@ export async function GET(request: NextRequest): Promise<Response> {
     );
   }
 
-  let results;
-  try {
-    results = await searchMunicipalities(parsed.data.q, parsed.data.limit);
-  } catch {
-    return jsonError(
-      'INTERNAL_ERROR',
-      'La recherche de commune est momentanément indisponible.',
-      requestId,
-    );
+  const results = await searchMunicipalities(parsed.data.q, parsed.data.limit);
+  // 503 et non plus 500 : la base ne répond pas, le consommateur réessaie.
+  if (!results.readable) {
+    return jsonUnavailable(requestId, 'La recherche de commune est momentanément indisponible.');
   }
 
-  return jsonSuccess(results, {
+  return jsonSuccess(results.value, {
     // Le référentiel communal ne change qu'aux mises à jour du COG.
     sMaxAge: 3600,
     staleWhileRevalidate: 86_400,

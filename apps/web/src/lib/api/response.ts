@@ -69,14 +69,11 @@ export function jsonError(
  * l'annexe E pour une source qui ne répond pas : pour l'API, la base en est
  * une. `Retry-After` dit au consommateur quand revenir.
  */
-export function jsonUnavailable(requestId: string): Response {
-  return jsonError(
-    'SOURCE_UNAVAILABLE',
-    'Les données ne sont pas consultables pour le moment. Réessayez dans quelques instants.',
-    requestId,
-    undefined,
-    { 'Retry-After': '60' },
-  );
+export function jsonUnavailable(
+  requestId: string,
+  message = 'Les données ne sont pas consultables pour le moment. Réessayez dans quelques instants.',
+): Response {
+  return jsonError('SOURCE_UNAVAILABLE', message, requestId, undefined, { 'Retry-After': '60' });
 }
 
 /** Identifiant de corrélation présent dans la réponse et dans les journaux. */

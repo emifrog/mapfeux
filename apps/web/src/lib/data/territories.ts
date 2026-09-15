@@ -4,6 +4,8 @@ import type { TerritoryStatus, TerritoryType } from '@mapfeux/domain';
 
 import { createPublicReadClient } from '@/lib/supabase/server';
 
+import { readable, unreadable, type ReadResult } from './read-result';
+
 /**
  * Accès aux territoires.
  *
@@ -65,7 +67,12 @@ function toTerritory(row: TerritoryRow): Territory {
   };
 }
 
-export async function fetchTerritories(): Promise<Territory[]> {
+/**
+ * Les territoires ouverts ou pilotes. Non lus, ils ne sont pas « aucun » :
+ * l'accueil faisait disparaître sa section « Territoires ouverts » sur une
+ * panne, et l'API répondait une liste vide mise en cache une heure.
+ */
+export async function fetchTerritories(): Promise<ReadResult<Territory[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase
     .from('territories')
@@ -75,14 +82,17 @@ export async function fetchTerritories(): Promise<Territory[]> {
 
   if (error !== null) {
     console.error('[territories] lecture impossible', { code: error.code, message: error.message });
-    return [];
+    return unreadable();
   }
 
-  return ((data ?? []) as TerritoryRow[]).map(toTerritory);
+  return readable(((data ?? []) as TerritoryRow[]).map(toTerritory));
 }
 
-/** Retourne `null` si le territoire n'existe pas ou n'est pas encore ouvert. */
-export async function fetchTerritory(slug: string): Promise<Territory | null> {
+/**
+ * `null` si le territoire n'existe pas ou n'est pas encore ouvert ;
+ * `readable: false` si la base n'a pas répondu — ce n'est pas un 404.
+ */
+export async function fetchTerritory(slug: string): Promise<ReadResult<Territory | null>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase
     .from('territories')
@@ -96,19 +106,23 @@ export async function fetchTerritory(slug: string): Promise<Territory | null> {
       code: error.code,
       message: error.message,
     });
-    return null;
+    return unreadable();
   }
 
-  return data === null ? null : toTerritory(data as TerritoryRow);
+  return readable(data === null ? null : toTerritory(data as TerritoryRow));
 }
 
 /**
  * Liens officiels d'un territoire. Cahier §5.12.
  *
  * L'absence de liens n'est pas une erreur : un territoire nouvellement ouvert
- * n'en a pas encore. La page doit le dire plutôt que d'échouer.
+ * n'en a pas encore. La page doit le dire plutôt que d'échouer — et dire
+ * autre chose quand elle n'a pas pu lire : « aucun lien » sur une panne
+ * enverrait le lecteur chercher ailleurs des liens qui existent.
  */
-export async function fetchOfficialLinks(territorySlug: string): Promise<OfficialLink[]> {
+export async function fetchOfficialLinks(
+  territorySlug: string,
+): Promise<ReadResult<OfficialLink[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase
     .from('official_links')
@@ -122,8 +136,8 @@ export async function fetchOfficialLinks(territorySlug: string): Promise<Officia
       code: error.code,
       message: error.message,
     });
-    return [];
+    return unreadable();
   }
 
-  return (data ?? []) as OfficialLink[];
+  return readable((data ?? []) as OfficialLink[]);
 }

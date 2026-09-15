@@ -52,7 +52,11 @@ export default async function HomePage() {
     fetchDepartmentAggregates(new Date(now.getTime() - DAYS_7_MS)),
     fetchSourceStatus(),
   ]);
-  const departments = territories.filter((territory) => territory.type === 'department');
+  // Non lus, les territoires ne sont pas « aucun » : la section reste, avec
+  // un bandeau à la place de la liste.
+  const departments = territories.readable
+    ? territories.value.filter((territory) => territory.type === 'department')
+    : [];
 
   // Une somme sur des lignes non lues vaudrait zéro : on ne somme que ce
   // qui a été lu, et un chiffre non établi s'écrit « — ».
@@ -229,6 +233,16 @@ export default async function HomePage() {
         <h2 className="font-semibold">Ce que montre — et ne montre pas — cette carte</h2>
         <p className="mt-2">{MAP_DISCLAIMER}</p>
       </div>
+
+      {!territories.readable && (
+        <section className="mt-14 max-w-[68ch]">
+          <h2 className="text-title font-bold tracking-tight">Territoires ouverts</h2>
+          <UnavailableNotice className="mt-4">
+            La liste des territoires ouverts n’a pas pu être lue au moment d’établir cette page. Ce
+            n’est pas une absence de territoire : la base n’a pas répondu.
+          </UnavailableNotice>
+        </section>
+      )}
 
       {departments.length > 0 && (
         <section className="mt-14 max-w-[68ch]">

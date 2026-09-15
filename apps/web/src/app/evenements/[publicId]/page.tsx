@@ -44,9 +44,9 @@ import {
   resolveEventAlias,
   type FireEvent,
 } from '@/lib/data/events';
-import { valueOr } from '@/lib/data/read-result';
+import { readable, valueOr } from '@/lib/data/read-result';
 import { fetchEventOfficialItems } from '@/lib/data/official';
-import { fetchOfficialLinks } from '@/lib/data/territories';
+import { fetchOfficialLinks, type OfficialLink } from '@/lib/data/territories';
 import { getServerEnv } from '@/lib/env';
 
 /**
@@ -316,9 +316,11 @@ export default async function EventPage({ params }: PageParams) {
   // que lui l'affiche partiel et le dit (dette §15 — la relecture annonçait
   // déjà le sien, la fiche pas encore).
   const DETECTION_TABLE_LIMIT = 500;
-  const [detectionsRead, officialLinks, perimetersRead, officialItems] = await Promise.all([
+  const [detectionsRead, officialLinksRead, perimetersRead, officialItemsRead] = await Promise.all([
     fetchEventDetections(event.publicId, DETECTION_TABLE_LIMIT),
-    event.territory === null ? Promise.resolve([]) : fetchOfficialLinks(event.territory.slug),
+    event.territory === null
+      ? Promise.resolve(readable<OfficialLink[]>([]))
+      : fetchOfficialLinks(event.territory.slug),
     fetchEventPerimeters(event.publicId),
     fetchEventOfficialItems(event.publicId),
   ]);
@@ -326,6 +328,8 @@ export default async function EventPage({ params }: PageParams) {
   // sans emporter la fiche.
   const detections = valueOr(detectionsRead, []);
   const perimeters = valueOr(perimetersRead, []);
+  const officialLinks = valueOr(officialLinksRead, []);
+  const officialItems = valueOr(officialItemsRead, []);
   const detectionsTruncated =
     detections.length === DETECTION_TABLE_LIMIT && event.detectionCount > DETECTION_TABLE_LIMIT;
   const currentPerimeter = perimeters.find((perimeter) => perimeter.isCurrent) ?? null;
@@ -907,6 +911,18 @@ export default async function EventPage({ params }: PageParams) {
           </p>
         </section>
 
+        {!officialItemsRead.readable && (
+          <section aria-labelledby="publications-officielles" className="mt-10">
+            <h2 id="publications-officielles" className="text-title font-bold tracking-tight">
+              Publications de la préfecture
+            </h2>
+            <UnavailableNotice className="mt-3 max-w-[68ch]">
+              Les publications de la préfecture n’ont pas pu être lues au moment d’établir cette
+              page. Ce n’est pas une absence de publication : la base n’a pas répondu.
+            </UnavailableNotice>
+          </section>
+        )}
+
         {officialItems.length > 0 && (
           <section aria-labelledby="publications-officielles" className="mt-10">
             <h2 id="publications-officielles" className="text-title font-bold tracking-tight">
@@ -947,6 +963,18 @@ export default async function EventPage({ params }: PageParams) {
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {!officialLinksRead.readable && (
+          <section aria-labelledby="officiel" className="mt-10">
+            <h2 id="officiel" className="text-title font-bold tracking-tight">
+              Informations officielles du territoire
+            </h2>
+            <UnavailableNotice className="mt-3 max-w-[68ch]">
+              Les liens officiels du territoire n’ont pas pu être lus au moment d’établir cette
+              page. Ce n’est pas une absence de lien : la base n’a pas répondu.
+            </UnavailableNotice>
           </section>
         )}
 

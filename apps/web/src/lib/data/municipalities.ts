@@ -2,6 +2,8 @@ import 'server-only';
 
 import { createPublicReadClient } from '@/lib/supabase/server';
 
+import { readable, unreadable, type ReadResult } from './read-result';
+
 /**
  * Accès aux communes.
  *
@@ -68,7 +70,12 @@ function toMunicipality(row: MunicipalityRow): Municipality {
   };
 }
 
-export async function fetchMunicipality(insee: string): Promise<Municipality | null> {
+/**
+ * `null` si la commune n'existe pas ; `readable: false` si la base n'a pas
+ * répondu — la page commune répondait 404 sur une panne, comme si la commune
+ * n'existait pas (audit du 15 septembre 2026, même patron que les événements).
+ */
+export async function fetchMunicipality(insee: string): Promise<ReadResult<Municipality | null>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase
     .from('municipalities')
@@ -82,10 +89,10 @@ export async function fetchMunicipality(insee: string): Promise<Municipality | n
       code: error.code,
       message: error.message,
     });
-    return null;
+    return unreadable();
   }
 
-  return data === null ? null : toMunicipality(data as MunicipalityRow);
+  return readable(data === null ? null : toMunicipality(data as MunicipalityRow));
 }
 
 /**
@@ -95,7 +102,7 @@ export async function fetchMunicipality(insee: string): Promise<Municipality | n
 export async function searchMunicipalities(
   query: string,
   limit: number,
-): Promise<MunicipalitySearchResult[]> {
+): Promise<ReadResult<MunicipalitySearchResult[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('search_municipalities', {
     q: query,
@@ -103,20 +110,24 @@ export async function searchMunicipalities(
   });
 
   if (error !== null) {
+    // Longtemps une exception (`SEARCH_UNAVAILABLE`) que la route attrapait :
+    // le résultat explicite dit la même chose sans dérouter le flot.
     console.error('[municipalities] recherche impossible', {
       code: error.code,
       message: error.message,
     });
-    throw new Error('SEARCH_UNAVAILABLE');
+    return unreadable();
   }
 
-  return ((data ?? []) as SearchRow[]).map((row) => ({
-    insee: row.insee_code,
-    name: row.name,
-    departmentCode: row.department_code,
-    postalCodes: row.postal_codes,
-    centroid: { longitude: row.longitude, latitude: row.latitude },
-  }));
+  return readable(
+    ((data ?? []) as SearchRow[]).map((row) => ({
+      insee: row.insee_code,
+      name: row.name,
+      departmentCode: row.department_code,
+      postalCodes: row.postal_codes,
+      centroid: { longitude: row.longitude, latitude: row.latitude },
+    })),
+  );
 }
 
 export interface ResolvedMunicipality {
@@ -134,7 +145,7 @@ export interface ResolvedMunicipality {
 export async function resolveMunicipality(
   longitude: number,
   latitude: number,
-): Promise<ResolvedMunicipality | null> {
+): Promise<ReadResult<ResolvedMunicipality | null>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('resolve_municipality', {
     lon: longitude,
@@ -148,16 +159,16 @@ export async function resolveMunicipality(
       code: error.code,
       message: error.message,
     });
-    throw new Error('RESOLVE_UNAVAILABLE');
+    return unreadable();
   }
 
   const rows = (data ?? []) as { insee_code: string; name: string; department_code: string }[];
   const first = rows[0];
-  if (first === undefined) return null;
+  if (first === undefined) return readable(null);
 
-  return {
+  return readable({
     insee: first.insee_code,
     name: first.name,
     departmentCode: first.department_code,
-  };
+  });
 }

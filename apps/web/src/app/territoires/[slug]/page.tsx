@@ -5,7 +5,15 @@ import { notFound } from 'next/navigation';
 
 import { MapView } from '@/components/map/map-view';
 import { MunicipalitySearch } from '@/components/municipality-search';
-import { fetchDepartmentMassifLevels, fetchDepartmentOfficialItems } from '@/lib/data/official';
+import { PageUnavailable } from '@/components/page-unavailable';
+import { UnavailableNotice } from '@/components/unavailable-notice';
+import {
+  fetchDepartmentMassifLevels,
+  fetchDepartmentOfficialItems,
+  type MassifLevel,
+  type OfficialItem,
+} from '@/lib/data/official';
+import { readable, valueOr } from '@/lib/data/read-result';
 import { fetchOfficialLinks, fetchTerritories, fetchTerritory } from '@/lib/data/territories';
 
 /**
@@ -34,8 +42,12 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const territory = await fetchTerritory(slug);
+  const read = await fetchTerritory(slug);
 
+  if (!read.readable) {
+    return { title: 'Territoire indisponible', robots: { index: false, follow: false } };
+  }
+  const territory = read.value;
   if (territory === null) {
     return { title: 'Territoire introuvable' };
   }
@@ -49,20 +61,40 @@ export async function generateMetadata({
 export default async function TerritoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  const territory = await fetchTerritory(slug);
+  const read = await fetchTerritory(slug);
+  // Base muette : ni 404 — le territoire existe peut-être — ni page vide.
+  if (!read.readable) {
+    return (
+      <PageUnavailable
+        eyebrow={`${slug} / territoire indisponible`}
+        title="Territoire indisponible pour le moment"
+      >
+        Cela ne dit rien du territoire : il n’est pas introuvable, il n’a pas pu être lu.
+      </PageUnavailable>
+    );
+  }
+  const territory = read.value;
   if (territory === null) notFound();
 
-  const [officialLinks, allTerritories, officialItems, massifLevels] = await Promise.all([
-    fetchOfficialLinks(slug),
-    fetchTerritories(),
-    // Les citations sont départementales — la liste blanche l'est (ADR-026).
-    territory.type === 'department'
-      ? fetchDepartmentOfficialItems(territory.code)
-      : Promise.resolve([]),
-    territory.type === 'department'
-      ? fetchDepartmentMassifLevels(territory.code)
-      : Promise.resolve([]),
-  ]);
+  const [officialLinksRead, allTerritoriesRead, officialItemsRead, massifLevelsRead] =
+    await Promise.all([
+      fetchOfficialLinks(slug),
+      fetchTerritories(),
+      // Les citations sont départementales — la liste blanche l'est (ADR-026).
+      territory.type === 'department'
+        ? fetchDepartmentOfficialItems(territory.code)
+        : Promise.resolve(readable<OfficialItem[]>([])),
+      territory.type === 'department'
+        ? fetchDepartmentMassifLevels(territory.code)
+        : Promise.resolve(readable<MassifLevel[]>([])),
+    ]);
+  // Le territoire a été lu ; une section qui ne l'a pas été le dit à sa
+  // place — « aucun lien », « aucune publication » sont des affirmations, pas
+  // des replis.
+  const officialLinks = valueOr(officialLinksRead, []);
+  const allTerritories = valueOr(allTerritoriesRead, []);
+  const officialItems = valueOr(officialItemsRead, []);
+  const massifLevels = valueOr(massifLevelsRead, []);
 
   const children = allTerritories.filter((t) => t.parentSlug === territory.slug);
   const parent =
@@ -129,7 +161,12 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
           <h2 id="officiel" className="text-title font-bold tracking-tight">
             Informations officielles
           </h2>
-          {officialLinks.length === 0 ? (
+          {!officialLinksRead.readable ? (
+            <UnavailableNotice className="mt-4 max-w-[68ch]">
+              Les liens officiels n’ont pas pu être lus au moment d’établir cette page. Ce n’est pas
+              une absence de lien : la base n’a pas répondu.
+            </UnavailableNotice>
+          ) : officialLinks.length === 0 ? (
             // L'absence est énoncée, jamais laissée à l'interprétation : un
             // blanc se lirait comme « rien à signaler » (§2.4).
             <p className="text-small text-(--text-2) mt-4 max-w-[68ch]">
@@ -156,6 +193,18 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
           )}
         </section>
       </div>
+
+      {territory.type === 'department' && !massifLevelsRead.readable && (
+        <section className="mt-12" aria-labelledby="massifs">
+          <h2 id="massifs" className="text-title font-bold tracking-tight">
+            Accès aux massifs forestiers
+          </h2>
+          <UnavailableNotice className="mt-4 max-w-[68ch]">
+            Les niveaux d’accès aux massifs n’ont pas pu être lus au moment d’établir cette page. Ce
+            n’est pas une absence de niveau : la base n’a pas répondu.
+          </UnavailableNotice>
+        </section>
+      )}
 
       {territory.type === 'department' && massifLevels.length > 0 && (
         <section className="mt-12" aria-labelledby="massifs">
@@ -204,7 +253,12 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
           </h2>
           {/* FR-104 et ADR-026 : des citations attribuées et datées, jamais
               réécrites — rien ici n'est une estimation de MapFeux. */}
-          {officialItems.length === 0 ? (
+          {!officialItemsRead.readable ? (
+            <UnavailableNotice className="mt-4 max-w-[68ch]">
+              Les publications de la préfecture n’ont pas pu être lues au moment d’établir cette
+              page. Ce n’est pas une absence de publication : la base n’a pas répondu.
+            </UnavailableNotice>
+          ) : officialItems.length === 0 ? (
             <p className="text-small text-(--text-2) mt-4 max-w-[68ch]">
               Aucune publication captée pour ce département. Cela ne signifie pas qu’il n’en existe
               pas : consultez directement le site de la préfecture.
@@ -244,6 +298,19 @@ export default async function TerritoryPage({ params }: { params: Promise<{ slug
               </p>
             </>
           )}
+        </section>
+      )}
+
+      {!allTerritoriesRead.readable && (
+        <section className="mt-12" aria-labelledby="rattaches">
+          <h2 id="rattaches" className="text-title font-bold tracking-tight">
+            Territoires rattachés
+          </h2>
+          <UnavailableNotice className="mt-4 max-w-[68ch]">
+            La hiérarchie des territoires n’a pas pu être lue au moment d’établir cette page : ni le
+            territoire parent dans le fil d’Ariane, ni les territoires rattachés. La base n’a pas
+            répondu.
+          </UnavailableNotice>
         </section>
       )}
 

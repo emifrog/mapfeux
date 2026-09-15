@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { EventList } from '@/components/event-list';
 import { MapView } from '@/components/map/map-view';
 import { MunicipalityAir } from '@/components/municipality-air';
+import { PageUnavailable } from '@/components/page-unavailable';
 import { UnavailableNotice } from '@/components/unavailable-notice';
 import { fetchEventsNearMunicipality } from '@/lib/data/events';
 import { valueOr } from '@/lib/data/read-result';
@@ -37,7 +38,11 @@ export async function generateMetadata({
   const parsed = inseeCodeSchema.safeParse(insee.toUpperCase());
   if (!parsed.success) return { title: 'Commune introuvable' };
 
-  const municipality = await fetchMunicipality(parsed.data);
+  const read = await fetchMunicipality(parsed.data);
+  if (!read.readable) {
+    return { title: 'Commune indisponible', robots: { index: false, follow: false } };
+  }
+  const municipality = read.value;
   if (municipality === null) return { title: 'Commune introuvable' };
 
   return {
@@ -52,7 +57,19 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
   const parsed = inseeCodeSchema.safeParse(insee.toUpperCase());
   if (!parsed.success) notFound();
 
-  const municipality = await fetchMunicipality(parsed.data);
+  const read = await fetchMunicipality(parsed.data);
+  // Base muette : ni 404 — la commune existe peut-être — ni page vide.
+  if (!read.readable) {
+    return (
+      <PageUnavailable
+        eyebrow={`${parsed.data} / commune indisponible`}
+        title="Commune indisponible pour le moment"
+      >
+        Cela ne dit rien de la commune : elle n’est pas introuvable, elle n’a pas pu être lue.
+      </PageUnavailable>
+    );
+  }
+  const municipality = read.value;
   if (municipality === null) notFound();
 
   const now = new Date();

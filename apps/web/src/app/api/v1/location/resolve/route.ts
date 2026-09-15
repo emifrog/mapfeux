@@ -1,6 +1,6 @@
 import { resolveLocationBodySchema } from '@mapfeux/contracts';
 
-import { jsonError, newRequestId } from '@/lib/api/response';
+import { jsonError, jsonUnavailable, newRequestId } from '@/lib/api/response';
 import { resolveMunicipality } from '@/lib/data/municipalities';
 
 /**
@@ -33,16 +33,16 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  let resolved;
-  try {
-    resolved = await resolveMunicipality(parsed.data.longitude, parsed.data.latitude);
-  } catch {
-    return jsonError(
-      'INTERNAL_ERROR',
-      'La localisation est momentanément indisponible. La recherche par nom reste utilisable.',
+  const read = await resolveMunicipality(parsed.data.longitude, parsed.data.latitude);
+  // 503 et non plus 500 : la base ne répond pas, ce n'est pas une position
+  // hors de France.
+  if (!read.readable) {
+    return jsonUnavailable(
       requestId,
+      'La localisation est momentanément indisponible. La recherche par nom reste utilisable.',
     );
   }
+  const resolved = read.value;
 
   if (resolved === null) {
     // Hors de France métropolitaine, ou en mer. Ce n'est pas une erreur.

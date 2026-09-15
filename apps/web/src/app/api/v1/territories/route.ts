@@ -1,4 +1,4 @@
-import { jsonSuccess } from '@/lib/api/response';
+import { jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
 import { fetchTerritories } from '@/lib/data/territories';
 
 /**
@@ -9,8 +9,11 @@ import { fetchTerritories } from '@/lib/data/territories';
  */
 export async function GET(): Promise<Response> {
   const territories = await fetchTerritories();
+  // Une liste vide se cache une heure ; une base muette ne doit pas devenir
+  // « aucun territoire ouvert » pendant une heure.
+  if (!territories.readable) return jsonUnavailable(newRequestId());
 
-  return jsonSuccess(territories, {
+  return jsonSuccess(territories.value, {
     // La configuration territoriale change à la main, très rarement.
     sMaxAge: 3600,
     staleWhileRevalidate: 86_400,

@@ -2,6 +2,8 @@ import 'server-only';
 
 import { createPublicReadClient } from '@/lib/supabase/server';
 
+import { readable, unreadable, type ReadResult } from './read-result';
+
 /**
  * Citations officielles captées en liste blanche. ADR-026, cahier §20.4.
  *
@@ -27,29 +29,33 @@ export interface OfficialItem {
 
 export async function fetchDepartmentOfficialItems(
   departmentCode: string,
-): Promise<OfficialItem[]> {
+): Promise<ReadResult<OfficialItem[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('department_official_items', {
     department: departmentCode,
   });
 
   if (error !== null) {
-    // FR-125, même doctrine : une capture indisponible ne condamne pas la
-    // page — la section affichera son absence.
+    // FR-125, même doctrine : une lecture manquée ne condamne pas la page —
+    // mais la section dit qu'elle n'a pas lu, pas qu'il n'y a rien : « aucune
+    // publication captée » sur une panne enverrait le lecteur vérifier chez
+    // la préfecture des publications qui sont en base.
     console.error('[officiel] citations illisibles', {
       departmentCode,
       code: error.code,
       message: error.message,
     });
-    return [];
+    return unreadable();
   }
 
-  return ((data ?? []) as DepartmentItemRow[]).map((row) => ({
-    organisation: row.organisation,
-    title: row.title,
-    url: row.url,
-    publishedOn: row.published_on,
-  }));
+  return readable(
+    ((data ?? []) as DepartmentItemRow[]).map((row) => ({
+      organisation: row.organisation,
+      title: row.title,
+      url: row.url,
+      publishedOn: row.published_on,
+    })),
+  );
 }
 
 interface MassifLevelRow {
@@ -71,7 +77,9 @@ export interface MassifLevel {
 }
 
 /** Niveaux d'accès aux massifs d'un département — aujourd'hui et demain. */
-export async function fetchDepartmentMassifLevels(departmentCode: string): Promise<MassifLevel[]> {
+export async function fetchDepartmentMassifLevels(
+  departmentCode: string,
+): Promise<ReadResult<MassifLevel[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('department_massif_levels', {
     department: departmentCode,
@@ -83,17 +91,19 @@ export async function fetchDepartmentMassifLevels(departmentCode: string): Promi
       code: error.code,
       message: error.message,
     });
-    return [];
+    return unreadable();
   }
 
-  return ((data ?? []) as MassifLevelRow[]).map((row) => ({
-    massifName: row.massif_name,
-    validOn: row.valid_on,
-    level: row.level,
-    levelLabel: row.level_label,
-    sourceUrl: row.source_url,
-    lastCapturedAt: row.last_captured_at,
-  }));
+  return readable(
+    ((data ?? []) as MassifLevelRow[]).map((row) => ({
+      massifName: row.massif_name,
+      validOn: row.valid_on,
+      level: row.level,
+      levelLabel: row.level_label,
+      sourceUrl: row.source_url,
+      lastCapturedAt: row.last_captured_at,
+    })),
+  );
 }
 
 interface EventItemRow extends DepartmentItemRow {
@@ -104,7 +114,9 @@ export interface EventOfficialItem extends OfficialItem {
   municipalityName: string;
 }
 
-export async function fetchEventOfficialItems(publicId: string): Promise<EventOfficialItem[]> {
+export async function fetchEventOfficialItems(
+  publicId: string,
+): Promise<ReadResult<EventOfficialItem[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('fire_event_official_items', {
     event_public_id: publicId,
@@ -116,14 +128,16 @@ export async function fetchEventOfficialItems(publicId: string): Promise<EventOf
       code: error.code,
       message: error.message,
     });
-    return [];
+    return unreadable();
   }
 
-  return ((data ?? []) as EventItemRow[]).map((row) => ({
-    organisation: row.organisation,
-    title: row.title,
-    url: row.url,
-    publishedOn: row.published_on,
-    municipalityName: row.municipality_name,
-  }));
+  return readable(
+    ((data ?? []) as EventItemRow[]).map((row) => ({
+      organisation: row.organisation,
+      title: row.title,
+      url: row.url,
+      publishedOn: row.published_on,
+      municipalityName: row.municipality_name,
+    })),
+  );
 }

@@ -1,6 +1,6 @@
 import { inseeCodeSchema } from '@mapfeux/contracts';
 
-import { jsonError, jsonSuccess, newRequestId } from '@/lib/api/response';
+import { jsonError, jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
 import { fetchMunicipality } from '@/lib/data/municipalities';
 import { fetchSourceStatus, toMetaSources } from '@/lib/sources';
 
@@ -26,7 +26,10 @@ export async function GET(
     );
   }
 
-  const municipality = await fetchMunicipality(parsed.data);
+  const read = await fetchMunicipality(parsed.data);
+  // Une base muette n'est pas une commune inconnue : 503 non caché, pas 404.
+  if (!read.readable) return jsonUnavailable(requestId);
+  const municipality = read.value;
   if (municipality === null) {
     return jsonError('NOT_FOUND', 'Cette commune n’est pas disponible.', requestId);
   }
