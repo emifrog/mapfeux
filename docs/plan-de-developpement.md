@@ -19,8 +19,12 @@ pages portent un bandeau —, puis les trois corrections courtes que l'audit
 laissait — l'ADR-027 remise à l'endroit, le README, le **verrou conda**
 dont le premier passage en CI a trouvé que GDAL 3.13 casse les COG en
 mémoire — et son constat 3 : **l'état d'un événement à un instant se
-calcule en base**, sans plafond (51ᵉ migration). Le dépôt compte 51
-migrations, 215 tests web et paquets, 460 au worker, tous verts en CI.
+calcule en base**, sans plafond (51ᵉ migration). Le même patron étendu
+aux communes et aux territoires a fait tomber, en vérifiant, une
+**recherche de commune qui expirait en production** depuis l'import
+national des 34 746 communes — 52ᵉ migration, 3 s ramenées à un quart de
+seconde. Le dépôt compte 52 migrations, 230 tests web et paquets, 460 au
+worker, tous verts en CI.
 Restent deux gestes à l'auteur : la bascule du déclencheur sur le VPS — le
 poste n'a tourné qu'un tiers du temps, mesuré — et la validation du titre
 de l'accueil. Le fil de la journée suit, du matin au soir.
@@ -205,9 +209,12 @@ cadences déclarées quand le poste tourne, sous le rôle d'ingestion
 fiche événement, la carte, l'accueil et l'état des données sont au niveau
 où on les montre — et depuis le soir du 15, **ils disent la panne quand la
 base ne répond pas** au lieu d'afficher zéro événement, un 404 ou un
-catalogue vide mis en cache (constat 1 d'un audit externe, §14), l'état
+catalogue vide mis en cache (constat 1 d'un audit externe, §14) — les
+communes, les territoires et les informations officielles aussi —, l'état
 d'un événement à un instant se calcule en base sans plafond (51ᵉ
-migration), et le worker a son verrou conda, validé par la CI ; le
+migration), la recherche de commune répond en moins de 300 ms sur les
+34 746 communes (52ᵉ migration), et le worker a son verrou conda, validé
+par la CI ; le
 déclencheur, lui, n'a tourné qu'un tiers du temps depuis sa bascule sur le
 poste, et attend le VPS (§2). Les paragraphes suivants sont l'histoire, du
 plus ancien au plus récent.
@@ -291,12 +298,12 @@ build — vertes.
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 215 tests (58 domaine, 112 web, 37 map-style, 8 contrats) — dont 23 nouveaux le 15 au soir : la panne de lecture rend `readable: false` et jamais un vide, les routes catalogue et fiche répondent 503 `no-store` et non 200 vide ou 404, et l'état à un instant prend ses chiffres de la base et annonce une liste partielle |
+| Web | `pnpm test` | ✅ 230 tests (58 domaine, 127 web, 37 map-style, 8 contrats) — dont 38 nouveaux le 15 au soir : la panne de lecture rend `readable: false` et jamais un vide, sur les événements comme sur les communes, territoires et informations officielles ; les routes répondent 503 `no-store` et non 200 vide ou 404 ; l'état à un instant prend ses chiffres de la base et annonce une liste partielle |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
 | Worker | `pytest` | ✅ 460 tests — le 460ᵉ fige la clause du regroupement : seul `archived` est écarté, un masqué reste rattachable (ADR-027 révisé) |
-| Migrations | 51 migrations sur base vierge, en CI | ✅ CI verte sur le push `2c5d293` du 15 au soir, les 51 rejouées sur base vierge ; la 51ᵉ (`event_state_in_sql`, un `drop function if exists` puis trois `create or replace`) appliquée en production et vérifiée sous `anon`. CI verte sur les pushes `b8b738c` et `1db3f4f` du 15 au soir — entre les deux, `6418979` rouge sur le worker seul : le premier verrou conda avait pris GDAL 3.13, corrigé par le suivant ; le worker y tourne désormais sur le verrou. CI verte sur les pushes `19a2099`, `881195f`, `dec7a93` et `687c284` du 15 septembre — les 50 rejouées sur base vierge, dont un `drop function` puis `create` et un déclencheur reposé ; la 50ᵉ (`point_in_territory_definer`) appliquée en production. Le secret `INGESTION_DATABASE_URL`, réaligné le soir en forme pooler, prouvé par un `vigilance` déclenché à la main : passe écrite en base depuis un runner GitHub sous `mapfeux_ingest`. Les 46ᵉ à 49ᵉ (`department_aggregates_named`, `department_aggregates_in_france`, `source_status_manual`, `events_hors_perimetre`) appliquées en production le même jour, la 46ᵉ et la 49ᵉ rejouées sans effet, la 47ᵉ mesurée sous le rôle `anon`. CI verte sur le push `98bb101`, les 45 premières rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
+| Migrations | 52 migrations sur base vierge, en CI | ✅ CI verte sur le push `5640de2` du 15 au soir, les 52 rejouées sur base vierge — celle de `678b7e8`, juste avant, annulée par le push suivant, qui la contient ; la 52ᵉ (`search_municipalities_indexed`, un `create or replace`) appliquée en production et mesurée sous `anon`. CI verte sur le push `2c5d293` du 15 au soir, les 51 premières rejouées sur base vierge ; la 51ᵉ (`event_state_in_sql`, un `drop function if exists` puis trois `create or replace`) appliquée en production et vérifiée sous `anon`. CI verte sur les pushes `b8b738c` et `1db3f4f` du 15 au soir — entre les deux, `6418979` rouge sur le worker seul : le premier verrou conda avait pris GDAL 3.13, corrigé par le suivant ; le worker y tourne désormais sur le verrou. CI verte sur les pushes `19a2099`, `881195f`, `dec7a93` et `687c284` du 15 septembre — les 50 rejouées sur base vierge, dont un `drop function` puis `create` et un déclencheur reposé ; la 50ᵉ (`point_in_territory_definer`) appliquée en production. Le secret `INGESTION_DATABASE_URL`, réaligné le soir en forme pooler, prouvé par un `vigilance` déclenché à la main : passe écrite en base depuis un runner GitHub sous `mapfeux_ingest`. Les 46ᵉ à 49ᵉ (`department_aggregates_named`, `department_aggregates_in_france`, `source_status_manual`, `events_hors_perimetre`) appliquées en production le même jour, la 46ᵉ et la 49ᵉ rejouées sans effet, la 47ᵉ mesurée sous le rôle `anon`. CI verte sur le push `98bb101`, les 45 premières rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -2282,6 +2289,38 @@ données passe `until_at`, l'état se lit en nombres, la route prend ses
 chiffres de la base quel que soit le contenu de la liste, et une liste
 courte est annoncée.
 
+#### Le même patron pour les communes et les territoires, et une recherche qui expirait — 15 septembre 2026, soir
+
+Ce que le constat 1 laissait : sous la même panne, `/communes/06004`
+répondait encore 404, parce que la commune elle-même n'avait pas pu être
+lue ; `/territoires/var` de même ; l'accueil faisait disparaître ses
+« Territoires ouverts » ; la page territoire disait « aucun lien
+officiel », « aucune publication captée » là où elle n'avait rien lu ; la
+recherche et la localisation levaient une exception traduite en 500.
+
+Les trois modules — communes, territoires, informations officielles —
+rendent un `ReadResult`. Cinq routes de plus en 503 `no-store` ; une page
+`PageUnavailable` datée pour la commune et le territoire illisibles — dont
+`EventUnavailable` n'est plus qu'un cas — ; un bandeau par section sur la
+page territoire (liens, massifs, publications, territoires rattachés), sur
+la fiche (publications, liens) et sur l'accueil (territoires ouverts).
+Quinze tests. Vérifié en navigateur sous panne simulée, puis sur le chemin
+sain.
+
+**Et sur le chemin sain, la recherche de commune a répondu 503.** Le
+patron venait de rendre visible ce qu'une exception traduite en 500
+cachait : « nice » expirait. `api.search_municipalities` testait le code
+postal par `q = any (postal_codes)`, une forme que l'index GIN ne sert pas,
+et dans un `or` avec les deux prédicats trigramme, la table entière était
+parcourue — 316 lignes au pilote, 34 746 depuis l'import national, avec
+leurs géométries : 3,1 s à froid, 1,1 s à chaud, contre les 3 s de
+`statement_timeout` d'`anon`. `postal_codes @> array[q]` dit la même chose
+et laisse le planificateur combiner les trois index en `BitmapOr` : 283 ms
+à froid. 52ᵉ migration, appliquée en production et mesurée sous `anon` —
+« nice » 0,25 s, « antib » 0,19 s, « 06600 » 0,04 s — puis sur la route.
+La cible du §6.2 avait été vérifiée sur 316 lignes ; elle est retenue en
+§15 comme chose à remesurer à chaque changement d'échelle.
+
 #### L'import manuel est un état, et la commune lit ses événements — 15 septembre 2026, midi
 
 - ✅ **`manual`, un état de source qui manquait** (48ᵉ migration,
@@ -2438,11 +2477,12 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Un garde-fou « premier montage » ne tient pas sous le mode strict | `BaseMap` sautait le rechargement « au changement de fenêtre » à son premier passage pour ne pas redemander ce que le serveur venait de rendre ; le mode strict de React rejoue les effets, le second passage rechargeait, et une carte à lot fixe — la fiche, la relecture — voyait ses marqueurs remplacés par ceux de l'emprise (constaté le 15 septembre, en développement ; production épargnée par absence de mode strict, mais le code était faux). Corrigé par une condition sur ce que la carte **est** (`reloadOnMove`), pas sur le nombre de passages. **Règle** : un effet ne se garde jamais par « c'est la première fois » ; il se garde par une propriété | Continu |
 | Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |
 | Une source peut dater sa donnée en avance | `massifs` enregistrait `source_data_at` au **jour décrit** — le niveau du lendemain paraît la veille au soir — et non à l'instant de lecture. La fraîcheur en tirait un âge négatif, ramené à zéro puis formaté en « moins d'une minute » : le bandeau de toutes les pages a annoncé « maj il y a moins d'une minute » en permanence dès la mise en service (11 septembre). Connecteur corrigé, et deux garde-fous posés dans le domaine — `mostRecentPast` écarte du concours ce qui est horodaté en avance, `formatDataRecency` dit « dans 4 h 28 min » plutôt que de faire passer une avance pour une fraîcheur. **À vérifier à chaque nouveau connecteur** : `source_data_at` est l'instant de production, jamais l'échéance décrite | Continu |
-| Une panne de lecture devenait une absence d'événements | Constat 1 de l'audit externe du 15 septembre, reproduit sur les routes réelles : catalogue 200 vide mis en cache une minute, fiche 404, accueil « 0 événement ». **Traité le soir même** (§14) : `ReadResult` sur toutes les lectures d'événements, 503 `no-store` sur l'API, bandeaux sur les pages, panneau carte honnête aux deux échelles, 16 tests. Reste le même patron à étendre aux communes, territoires et informations officielles — `/communes/[insee]` répond encore 404 quand la commune elle-même est illisible | Prochaine session |
+| Une panne de lecture devenait une absence d'événements | Constat 1 de l'audit externe du 15 septembre, reproduit sur les routes réelles : catalogue 200 vide mis en cache une minute, fiche 404, accueil « 0 événement ». **Traité le soir même** (§14) : `ReadResult` sur toutes les lectures d'événements, 503 `no-store` sur l'API, bandeaux sur les pages, panneau carte honnête aux deux échelles, 16 tests. **Étendu le soir même** aux communes, territoires et informations officielles : `/communes/[insee]` et `/territoires/[slug]` rendent une page « indisponible » datée au lieu d'un 404, cinq routes de plus en 503 `no-store` (commune, recherche, localisation, territoires, territoire), bandeaux par section — liens officiels, publications, massifs, territoires rattachés, territoires ouverts de l'accueil —, 15 tests. Vérifié sous panne simulée. Restent les lectures d'air (`fetchAirSamples`, FR-125 : la panne rend vide par doctrine, la section dit « absence ») et d'administration | Traité |
 | Audit externe du 15 septembre — ce qui reste | Cinq constats vérifiés contre le dépôt et la production : **1** traité (ci-dessus) ; **2** cadence liée au poste — connu, §2, l'audit ajoute une **alerte extérieure d'absence de passes**, à poser ; **3** historique tronqué au-delà de 2 000 observations — traité le soir même, ci-dessous ; **4** MFA déclarée, pas imposée — déjà au plan ; **5** frontières peu testées — Playwright en J6, l'audit ajoute une **passe de regroupement exécutée sous `mapfeux_ingest` dans la CI**, le test qui aurait trouvé le cas de la 50ᵉ migration. Dette documentaire : README et verrou conda **traités le soir même** (lignes dédiées) ; restent les assertions TypeScript (ligne existante) et les gros fichiers — fiche 988 lignes, carte 950, accès aux événements 824, à découper au fil de l'eau | J5 (alerte), J6 (CI sous rôle) |
 | Historique tronqué au-delà de 2 000 observations | La route `state` et la relecture lisaient les 2 000 observations les plus récentes puis filtraient `at` en mémoire. Avec 2 001 observations, l'état à l'instant de la première rendait zéro observation. **Latent, pas actuel** — mesuré le 15 septembre : 1 033 observations au plus sur un événement (masqué, hors périmètre), 570 sur le plus gros événement public. **Traité le soir même, 51ᵉ migration** : `until_at` sur `api.fire_event_detections` (plafond sur l'instant, plus sur la vie de l'événement), `api.fire_event_state` pour les chiffres sans plafond, `api.fire_event_observation_times` pour les pas de la relecture ; la route annonce `observationsTruncated` et `observationLimit`, la relecture dit « partielle, sur N ». Vérifié en production sur Pontevès : 12 observations à la première heure, 570 à la dernière, 57 instants. Reste le tableau de la fiche, plafonné à 500 et annoncé depuis le 25 août, et son graphique de puissance par passage, qui ne voit que ces 500 — à alimenter par les instants d'observation | Traité |
 | ADR-027 dit que le regroupement n'alimente pas les masqués — le code les alimente | L'ADR et le commentaire de la 49ᵉ migration affirmaient qu'un événement masqué ne reçoit plus de détections ; `_existing_events` (`clustering.py`) n'exclut que `archived`. Vérifié en production : 53 rattachements à 14 événements déjà masqués depuis la migration. **Le code a raison** — un site étranger reste un seul événement au lieu d'en engendrer un par passe, et c'est ce qui permet au déclencheur de rendre la main si le point représentatif revient dans le périmètre. **Corrigé le soir même** : révision de l'ADR, commentaire de la 49ᵉ migration (SQL inchangé), docstring de `_existing_events`, et un test qui fige la clause — `TestEvenementsRattachables`, 460ᵉ test du worker | Traité |
 | README périmé | Annonçait encore la fiche événement et l'ingestion FIRMS « à construire », et une planification GitHub Actions retirée depuis le 13 septembre. **Corrigé le soir du 15** : état d'avancement, section « Ingestion planifiée » (planificateur, workflows sans cron, mêmes trois étapes pour le `.env` et le secret CI), note sur le seul cron restant (réconciliation) | Traité |
+| La recherche de commune expirait en production | Trouvé le 15 septembre au soir en vérifiant le patron étendu : « nice » sortait en 503 sur le chemin sain. `api.search_municipalities` testait le code postal par `q = any (postal_codes)`, que l'index GIN ne sert pas ; dans un `or` avec les deux prédicats trigramme, la table entière était parcourue — 316 lignes au pilote, **34 746 depuis l'import national** —, 3,1 s à froid contre les 3 s de `statement_timeout` d'`anon`. Personne ne l'avait vu : la route levait une exception traduite en 500, et le champ de recherche disait « erreur ». **Corrigé le soir même, 52ᵉ migration** : `postal_codes @> array[q]`, les trois index combinés en `BitmapOr`, 40 à 330 ms sous `anon` en production. Leçon : une cible de latence (§6.2, p95 < 300 ms) ne se vérifie pas sur 316 lignes ; à remesurer à chaque changement d'échelle d'une table | Traité |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
