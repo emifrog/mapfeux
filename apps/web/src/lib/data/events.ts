@@ -514,6 +514,15 @@ export interface DepartmentAggregateRow {
   departmentCode: string;
   departmentSlug: string;
   departmentStatus: string;
+  /**
+   * Nom et destination du département, publiés avec le compte : le registre
+   * public des territoires ne dit rien des départements « à venir »
+   * (FR-014), et la carte nationale doit pouvoir nommer et rejoindre les
+   * quatre-vingt-seize.
+   */
+  departmentName: string | null;
+  center: { longitude: number; latitude: number } | null;
+  defaultZoom: number | null;
   events: number;
   substantiated: number;
   lastDetectedAt: Date;
@@ -544,19 +553,38 @@ export async function fetchDepartmentAggregates(since: Date): Promise<Department
     department_code: string;
     department_slug: string;
     department_status: string;
+    department_name: string | null;
+    center_longitude: number | string | null;
+    center_latitude: number | string | null;
+    default_zoom: number | string | null;
     events: number;
     substantiated: number;
     last_detected_at: string;
   };
 
-  return ((data ?? []) as Row[]).map((row) => ({
-    departmentCode: row.department_code,
-    departmentSlug: row.department_slug,
-    departmentStatus: row.department_status,
-    events: row.events,
-    substantiated: row.substantiated,
-    lastDetectedAt: new Date(row.last_detected_at),
-  }));
+  // `numeric` et `double precision` peuvent arriver en chaîne par PostgREST :
+  // on lit des nombres, ou rien.
+  const toNumber = (value: number | string | null): number | null => {
+    if (value === null) return null;
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  return ((data ?? []) as Row[]).map((row) => {
+    const longitude = toNumber(row.center_longitude);
+    const latitude = toNumber(row.center_latitude);
+    return {
+      departmentCode: row.department_code,
+      departmentSlug: row.department_slug,
+      departmentStatus: row.department_status,
+      departmentName: row.department_name ?? null,
+      center: longitude === null || latitude === null ? null : { longitude, latitude },
+      defaultZoom: toNumber(row.default_zoom),
+      events: row.events,
+      substantiated: row.substantiated,
+      lastDetectedAt: new Date(row.last_detected_at),
+    };
+  });
 }
 
 /**

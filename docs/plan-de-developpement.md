@@ -24,8 +24,21 @@ que le registre attendait une cadence de donnée que la lecture ne promet
 pas. **Corrigé le même matin** : les bornes disent l'âge que notre chaîne
 peut promettre, `prefectures` date sa donnée de l'instant de lecture ;
 migration appliquée en production, le bandeau passe de « 4/8 » à **« 7/8
-sources en service »** (§15). Le VPS attend toujours sa souscription — le
-kit est prêt (`ops/vps/`), la bascule est décrite en §2.
+sources en service »** (§15).
+
+**Puis, en fin de matinée** — **`/carte` s'ouvre sur la France**, à deux
+échelles : sous le zoom 7 le lavis et la liste des départements concernés,
+au-delà les événements de la zone (§21.3). En cadrant les
+Pyrénées-Atlantiques — 80 événements annoncés, 7 dans le polygone —, la
+journée a trouvé son fait le plus lourd : **plus de la moitié des
+événements des sept derniers jours sont hors de France** — 716 dans la
+zone d'import, 322 en France —, attribués à la commune française la plus
+proche, et « Condé-sur-l'Escaut », la fiche modèle du matin, est un site
+industriel belge près de Gand. Les agrégats n'en comptent plus aucun
+(47ᵉ migration) ; l'accueil et la carte disent les mêmes nombres. Ce que
+fait l'ingestion des détections hors périmètre est **à trancher avant de
+montrer le projet** (§15). Le VPS attend toujours sa souscription — le kit
+est prêt (`ops/vps/`), la bascule est décrite en §2.
 
 **13 septembre 2026, soir** — **l'accueil s'ouvre
 sur la carte nationale vivante et trois chiffres réels**, la recherche est
@@ -211,7 +224,7 @@ build — vertes.
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
 | Worker | `pytest` | ✅ 459 tests |
-| Migrations | 45 migrations sur base vierge, en CI | ✅ CI verte sur le push `98bb101` du 15 septembre, les 45 rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
+| Migrations | 47 migrations sur base vierge, en CI | ✅ La 46ᵉ (`department_aggregates_named`) et la 47ᵉ (`department_aggregates_in_france`) appliquées en production le 15 septembre, la 46ᵉ rejouée sans effet, la 47ᵉ mesurée sous le rôle `anon` ; CI à confirmer sur le push du jour. CI verte sur le push `98bb101`, les 45 premières rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -1942,6 +1955,78 @@ parce qu'elle porte une carte.
   ni `::details-content`, la feuille reste partielle et le dit : l'annonce
   du pli porte son compte
 
+#### La carte s'ouvre sur la France — 15 septembre 2026, fin de matinée
+
+`/carte` s'ouvrait sur l'emprise pilote, se présentait « territoires pilotes
+06 et 83 » et annonçait quatorze événements, quand l'accueil en annonçait
+646 « France entière ». Un visiteur voyait deux services. C'était le seul
+écart que je tenais pour bloquant avant de montrer le projet.
+
+- ✅ **Une seule carte, deux échelles** (§21.3, §21.4). La carte s'ouvre sur
+  la France (FR-001). Sous le zoom 7, aucun événement n'est chargé — servir
+  la France entière en un appel irait contre « ne charger que l'emprise
+  visible », et le plafond de surface de l'API le refuse — : le lavis
+  départemental porte les comptes et la colonne liste les **départements
+  concernés**, du plus au moins touché, dans les mots de la liste
+  d'événements ; à partir du zoom 7, l'emprise tient sous le plafond, les
+  événements se chargent et la liste les suit (§8.6). Le plafond est
+  vérifié **avant** l'appel (`isWithinBboxCap`) — une emprise trop large
+  recevait un 400 à chaque déplacement. Le lavis suit désormais la fenêtre
+  de la barre temporelle, comme les marqueurs ; les marqueurs ont un zoom
+  plancher à 7 (`markersMinZoom`), sans quoi ceux de la dernière zone
+  visitée restaient posés sur la France. Choisir un département mène la
+  carte sur **son étendue** — lue dans les tuiles chargées —, pas sur son
+  centre : « Pyrénées-Atlantiques » au centre et au zoom 9 montrait une
+  zone sans événement, les siens étant à Hendaye. Rendu serveur sans
+  JavaScript : la liste des départements. Logique pure et testée
+  (`national-scope.ts`, sept tests)
+- ✅ **Les agrégats portent nom et destination** (46ᵉ migration,
+  `department_aggregates_named`, appliquée et rejouée en production) : le
+  registre public des territoires ne publie que les départements ouverts
+  (FR-014), la liste affichait donc des codes. La fonction joint déjà
+  `app.territories`, qui connaît les quatre-vingt-seize
+- ✅ **Un département ne compte que ce qui est chez lui** (47ᵉ migration,
+  `department_aggregates_in_france`). **Trouvé en cadrant les
+  Pyrénées-Atlantiques : 80 événements annoncés, 7 dans le polygone.** Les
+  73 autres lui venaient du repli « préfixe de la commune la plus proche »
+  — des points jusqu'à 41,0° de latitude et 5,7° ouest, le golfe de
+  Gascogne et le nord de l'Espagne, dont la commune française la plus
+  proche est Hendaye. **Sur sept jours, 716 événements dans la zone
+  d'import, 322 en France** ; sur vingt-quatre heures, 177 et 111. Le
+  repli est borné au littoral — le département le plus proche à moins de
+  0,05° —, en géométrie plane : la première version, sphéroïdale, dépassait
+  le délai de huit secondes du rôle `anon` et l'accueil a lu zéro pendant
+  deux minutes. Mesuré sous ce rôle et ce délai : 0,69 s sur sept jours,
+  0,06 s sur vingt-quatre heures, 0,27 s sur tout. L'accueil dit maintenant
+  111 événements sur 24 h et 76 départements pour 322 sur 7 jours, la
+  carte nationale les mêmes nombres
+- ✅ **Le double retrait de `fitBounds`**, trouvé en cadrant un
+  département : MapLibre 5 retranche lui-même les marges de la caméra —
+  les panneaux — dans `fitBounds` ; les repasser en option les doublait.
+  Sur la carte de la fiche, un cadrage plus serré que nécessaire ; sur un
+  département, « Map cannot fit within canvas » et une carte qui ne bougeait
+  plus. Corrigé aux deux endroits : une lisière de 24 px, rien d'autre. Et
+  `BaseMap` oublie ses gestionnaires quand la carte part — une carte
+  recréée repartait sans clic ni survol
+- ✅ Vérifié en 1 280 × 800, thème sombre, sans erreur de console : « 322
+  événements dans les 7 derniers jours, sur 76 départements » ; Moselle 17,
+  Gironde 15, Charente 13, Bouches-du-Rhône 12 ; un clic sur
+  Pyrénées-Atlantiques cadre le département au zoom 7,8, la liste passe
+  « Événements de la zone » et compte ce que l'emprise porte
+
+**Ce que la 47ᵉ migration révèle, et ne règle pas.** La zone d'import
+FIRMS est un rectangle qui déborde des frontières : plus de la moitié des
+événements des sept derniers jours sont en Espagne, en Belgique, en
+Allemagne, en Italie ou en mer. Ils ne comptent plus dans les agrégats,
+mais ils restent sur la carte à l'échelle d'une zone, dans le catalogue et
+dans des fiches — nommées d'après la commune française la plus proche,
+quelle que soit la distance : `MPF-VHR8YJ85`, « près de Condé-sur-l'Escaut
+», la fiche prise pour modèle toute la journée, est un site industriel
+belge près de Gand, à quelque quatre-vingts kilomètres de la commune. Ce
+n'est pas un défaut d'affichage : c'est le périmètre du service — « France
+métropolitaine et Corse » — qui n'est pas appliqué à l'ingestion. Dette
+posée au §15, décision à prendre avant de montrer le projet.
+
 #### Une affirmation devenue fausse, trouvée en refondant
 
 `/commune/[insee]` annonçait que « les détections thermiques satellitaires ne
@@ -2064,6 +2149,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar (préfixe `radar/`) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
 | Cadence de **toutes** les sources sous-quotidiennes étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme. **Mesuré le 13 septembre sur sept jours** : médiane réelle entre passes — firms 111 min (déclaré 10), radar 213 (5), vigilance 244 (60), prefectures 181 (15), arome 1 431 (180, soit une fois par jour) ; seul cams, quotidien, tient (1 436 pour 1 440). Tableau complet en stratégie §8.1. **Bloquait le critère de sortie de J4** — tranché le 13 septembre : planificateur Windows, sept tâches, crons Actions retirés (§14). **Premier relevé le 15 septembre, à 10 h 04** : les sept tâches en `ok`, ingestion passée à 10:03 pour la suivante à 10:13, radar à 10:03 pour 10:08, préfectures à 09:58, vigilance à 09:20 ; la timeline radar porte **18 frames au pas de cinq minutes**. Reste la mesure sur sept jours | §8.1 — tranché, à remesurer |
 | Le registre attend une cadence de donnée que la lecture ne promet pas | Trois lectures fausses le 15 septembre, aucune panne derrière. `arome` « trop ancienne » : la seule tâche est l'archive FWI, quotidienne à 10 h 45 UTC, et le registre attend 180 minutes — faux la plus grande partie de chaque journée. `cams` « retardée » chaque matin : le run de 00 h UTC est daté de son run, la tâche le lit à 08 h 45 UTC, et l'intervalle de 1 440 minutes compté depuis le run précédent est dépassé entre le petit matin et la lecture. `prefectures` « retardée » depuis huit jours : le connecteur date sa donnée de la **dernière publication** trouvée (`latest_published`, à minuit UTC), alors que le flux est lu toutes les quinze minutes sans erreur — l'inverse exact de la fausse assurance de `massifs`, une fausse alerte, et le bandeau de toutes les pages en descend à « 4/8 sources en service ». **Règle** : les bornes du registre disent l'âge que **notre chaîne** peut promettre — cadence de lecture plus délai entre l'instant dont la donnée est datée et celui où on la lit —, et ce que la source a publié en dernier est une autre information. **Traité le 15 septembre, même matinée** (migration `registre_cadence_de_lecture`, 45ᵉ, appliquée en production, trois lignes) : `arome` 32 h / 56 h (run de 06 h UTC lu le lendemain à 10 h 45, repli sur 03 h compris), `cams` 34 h / 58 h (run de 00 h lu à 08 h 45), `prefectures` 1 h / 6 h et datée de l'instant de lecture par le script, la dernière publication passant dans les métriques (`derniere_publication`). Vérifié sur `/statut` à 10 h 14 : les trois « à jour », préfectures « il y a moins d'une minute » sur la passe de 10 h 13 | Traité |
+| L'ingestion FIRMS importe hors de France | La zone d'import est un rectangle qui déborde des frontières : sur les sept jours au 15 septembre, **716 événements dans la zone, 322 en France** — le reste en Espagne, en Belgique, en Allemagne, en Italie ou en mer. Chaque événement reçoit la commune française la plus proche, quelle que soit la distance : `MPF-VHR8YJ85` « près de Condé-sur-l'Escaut » est un site industriel belge près de Gand, à quelque 80 km. Les agrégats départementaux n'en comptent plus aucun (47ᵉ migration), mais la carte à l'échelle d'une zone, le catalogue et les fiches les servent toujours. Le périmètre du service est « France métropolitaine et Corse » (§2.4, FR-001) ; il n'est pas appliqué à l'ingestion. **À trancher** : filtrer les détections à l'import par le polygone des départements — avec une lisière côtière, comme les agrégats —, ou les garder en base sans les publier (marquées hors périmètre, exclues des vues `api`). La première voie est la plus simple et la plus honnête ; les événements déjà créés hors périmètre sont à archiver ou à retirer après décision | Avant de montrer le projet |
 | Le poste Windows ingère sous le rôle `postgres` | Vu le 15 septembre en appliquant la 45ᵉ migration par la chaîne du worker (`services/geo-worker/.env`, `DATABASE_URL`) : la connexion s'ouvre en `postgres`. Les sept tâches planifiées tournent donc avec le superutilisateur, là où Actions employait `mapfeux_ingest` (`INGESTION_DATABASE_URL`, vingt-et-un droits de table) et où le runbook VPS l'exige. Transitoire par nature — le poste est un déclencheur provisoire — mais un script d'ingestion qui se trompe de table n'aurait aucun garde-fou. Geste de l'auteur : recopier la chaîne `mapfeux_ingest` dans `DATABASE_URL` du `.env` du worker, puis vérifier une passe de chaque tâche en `ok` ; la migration du jour est passée par ce rôle, une prochaine devra passer par `postgres` explicitement | Avant la remesure des sept jours |
 | Un garde-fou « premier montage » ne tient pas sous le mode strict | `BaseMap` sautait le rechargement « au changement de fenêtre » à son premier passage pour ne pas redemander ce que le serveur venait de rendre ; le mode strict de React rejoue les effets, le second passage rechargeait, et une carte à lot fixe — la fiche, la relecture — voyait ses marqueurs remplacés par ceux de l'emprise (constaté le 15 septembre, en développement ; production épargnée par absence de mode strict, mais le code était faux). Corrigé par une condition sur ce que la carte **est** (`reloadOnMove`), pas sur le nombre de passages. **Règle** : un effet ne se garde jamais par « c'est la première fois » ; il se garde par une propriété | Continu |
 | Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |

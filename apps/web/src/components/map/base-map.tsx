@@ -15,11 +15,13 @@ import {
   type HoverCardData,
 } from '@/lib/map/hover-card';
 import type { LoadedEventRow } from '@/lib/map/loaded-events';
+import { isWithinBboxCap } from '@/lib/map/national-scope';
 
 import { removeAirLayer, resolveAirTiles, setAirLayer, type AirTilesInfo } from './air-layer';
 import { removeRadarLayer, setRadarFrame, type RadarFrameDisplay } from './radar-layer';
 import {
   addDepartmentLayer,
+  departmentBounds,
   DEPARTMENTS_FILL_LAYER_ID,
   setDepartmentAggregates,
   type DepartmentAggregate,
@@ -73,15 +75,43 @@ async function resolveTilesUrl(): Promise<string | null> {
  * contours et les événements restent — une couche indisponible ne condamne
  * jamais la carte (§2.4).
  */
-async function loadDepartmentAggregates(map: maplibregl.Map): Promise<void> {
+async function loadDepartmentAggregates(
+  map: maplibregl.Map,
+  since: Date | undefined,
+  onLoaded?: (rows: DepartmentAggregate[]) => void,
+): Promise<void> {
   try {
-    const response = await fetch('/api/v1/events/departments');
+    const query = since === undefined ? '' : `?since=${since.toISOString()}`;
+    const response = await fetch(`/api/v1/events/departments${query}`);
     if (!response.ok) return;
     const payload = (await response.json()) as { data: DepartmentAggregate[] };
     setDepartmentAggregates(map, payload.data);
+    onLoaded?.(payload.data);
   } catch {
     // Silencieux : voir ci-dessus.
   }
+}
+
+/**
+ * Depuis quand agréger par département : la fenêtre de la barre temporelle,
+ * ou tout depuis l'origine pour « Tout ». Le lavis suit la même fenêtre que
+ * les marqueurs — une carte des sept derniers jours sous une barre réglée
+ * sur douze heures dirait deux choses à la fois.
+ */
+function aggregatesSince(windowHours: number | null): Date {
+  return windowHours === null ? new Date(0) : new Date(Date.now() - windowHours * 3_600_000);
+}
+
+/** Ce qu'un panneau peut demander à la carte, une fois qu'elle existe. */
+export interface MapControls {
+  /**
+   * Mène la carte sur un département : son étendue entière dans la zone
+   * visible si les tuiles la portent, sinon son centre au zoom donné.
+   */
+  focusDepartment: (
+    code: string,
+    fallback: { center: readonly [number, number]; zoom: number } | null,
+  ) => void;
 }
 
 /**
@@ -160,6 +190,25 @@ export interface BaseMapProps {
    * carte montre (§8.6), sans seconde requête et sans second compte.
    */
   onEventsLoaded?: (events: LoadedEventRow[]) => void;
+  /**
+   * Reçoit les agrégats départementaux du dernier chargement — la fenêtre
+   * courante, puisqu'ils la suivent —, pour que la colonne de lecture liste
+   * les départements concernés à l'échelle nationale (§21.3).
+   */
+  onDepartmentsLoaded?: (rows: DepartmentAggregate[]) => void;
+  /** Prévient à chaque fin de mouvement du zoom atteint : c'est lui qui fixe l'échelle lue. */
+  onViewChange?: (view: { zoom: number }) => void;
+  /** Remet au panneau, une fois la carte prête, ce qu'il peut lui demander. */
+  onControls?: (controls: MapControls) => void;
+  /**
+   * Un clic sur un département **sans page** — ni pilote ni actif. Ceux qui
+   * en ont une y mènent toujours (FR-015) ; les autres n'ont rien à
+   * promettre, sinon la carte rapprochée sur eux, et c'est au panneau de
+   * savoir où.
+   */
+  onDepartmentClick?: (department: { code: string }) => void;
+  /** Zoom en deçà duquel les marqueurs ne se dessinent pas — voir `EventLayerOptions`. */
+  markersMinZoom?: number;
   /**
    * Instant de référence pour la couleur d'âge des marqueurs, ISO 8601.
    * La relecture temporelle colore par l'âge **à l'instant rejoué** (FR-081) ;
@@ -247,9 +296,12 @@ async function reload(
   map: maplibregl.Map,
   windowHours: number | null,
 ): Promise<LoadedEventRow[] | null> {
-  const bbox = visibleBounds(map)
-    .map((value) => value.toFixed(4))
-    .join(',');
+  const bounds = visibleBounds(map);
+  // Une emprise plus large que le plafond de l'API ne se demande pas : la
+  // géométrie le dit avant tout aller-retour, et la carte lit alors la
+  // France par ses départements (§21.4).
+  if (!isWithinBboxCap(bounds)) return null;
+  const bbox = bounds.map((value) => value.toFixed(4)).join(',');
 
   // FR-005 : la fenêtre est un filtre **annoncé**, porté par le même
   // paramètre `since` que le catalogue — carte et liste comptent donc la
@@ -301,6 +353,11 @@ export default function BaseMap({
   fitBounds,
   windowHours = null,
   onEventsLoaded,
+  onDepartmentsLoaded,
+  onViewChange,
+  onControls,
+  onDepartmentClick,
+  markersMinZoom,
   ageReference,
   airPollutant = null,
   onAirInfo,
@@ -322,9 +379,15 @@ export default function BaseMap({
   // pas celle qui avait cours à sa pose.
   const windowHoursRef = useRef(windowHours);
   const onEventsLoadedRef = useRef(onEventsLoaded);
+  const onDepartmentsLoadedRef = useRef(onDepartmentsLoaded);
+  const onViewChangeRef = useRef(onViewChange);
+  const onDepartmentClickRef = useRef(onDepartmentClick);
   useEffect(() => {
     onEventsLoadedRef.current = onEventsLoaded;
-  }, [onEventsLoaded]);
+    onDepartmentsLoadedRef.current = onDepartmentsLoaded;
+    onViewChangeRef.current = onViewChange;
+    onDepartmentClickRef.current = onDepartmentClick;
+  }, [onEventsLoaded, onDepartmentsLoaded, onViewChange, onDepartmentClick]);
 
   // « Le style a fini de charger » se mémorise ici : `isStyleLoaded()` peut
   // répondre faux transitoirement bien après l'événement `load` (pendant un
@@ -421,17 +484,16 @@ export default function BaseMap({
     // L'étendue prime sur le centre quand elle est donnée. `duration: 0` :
     // au montage, il n'y a rien à animer depuis, et une animation d'ouverture
     // sur une carte de feux est un ornement.
+    // La marge de la caméra, posée juste au-dessus, est déjà comptée par
+    // `fitBounds` (MapLibre 5) : la repasser en option la doublait, et le
+    // cadrage était plus serré que la zone visible ne l'exigeait.
     if (fitBounds !== undefined) {
       map.fitBounds(
         [
           [fitBounds[0][0], fitBounds[0][1]],
           [fitBounds[1][0], fitBounds[1][1]],
         ],
-        {
-          ...(padding === undefined ? {} : { padding: fullPadding(padding) }),
-          maxZoom: zoom,
-          duration: 0,
-        },
+        { padding: 24, maxZoom: zoom, duration: 0 },
       );
     }
 
@@ -463,6 +525,7 @@ export default function BaseMap({
         map,
         eventsRef.current,
         reference === undefined ? undefined : new Date(reference),
+        markersMinZoom === undefined ? {} : { minzoom: markersMinZoom },
       );
 
       const placeDepartments = (tilesUrl: string): void => {
@@ -474,7 +537,13 @@ export default function BaseMap({
             map.moveLayer(layerId);
           }
         }
-        void loadDepartmentAggregates(map);
+        // Une carte qui suit l'emprise suit aussi la fenêtre pour ses
+        // lavis ; les autres gardent les sept jours de l'API.
+        void loadDepartmentAggregates(
+          map,
+          reloadOnMove ? aggregatesSince(windowHoursRef.current) : undefined,
+          onDepartmentsLoadedRef.current,
+        );
       };
 
       // L'alias des tuiles n'est résolu qu'une fois : une bascule de thème
@@ -507,19 +576,26 @@ export default function BaseMap({
     const wireHandlers = (): void => {
       // Un clic sur un département ouvert mène à sa page ; un département
       // « à venir » n'est pas cliquable — pas de page à promettre (FR-015).
+      // Les autres ne promettent que la carte rapprochée sur eux, si le
+      // panneau sait où — c'est lui qui tient le registre des territoires.
       map.on('click', DEPARTMENTS_FILL_LAYER_ID, (event) => {
         if (map.getZoom() >= 9) return;
         const properties = event.features?.[0]?.properties ?? {};
         const statut = properties['statut'];
         const slug = properties['slug'];
+        const code = properties['code'];
         if ((statut === 'pilot' || statut === 'active') && typeof slug === 'string') {
           router.push(`/territoires/${slug}`);
+        } else if (typeof code === 'string') {
+          onDepartmentClickRef.current?.({ code });
         }
       });
       map.on('mousemove', DEPARTMENTS_FILL_LAYER_ID, (event) => {
         if (map.getZoom() >= 9) return;
         const statut = event.features?.[0]?.properties?.['statut'];
-        map.getCanvas().style.cursor = statut === 'pilot' || statut === 'active' ? 'pointer' : '';
+        const clickable =
+          statut === 'pilot' || statut === 'active' || onDepartmentClickRef.current !== undefined;
+        map.getCanvas().style.cursor = clickable ? 'pointer' : '';
       });
       map.on('mouseleave', DEPARTMENTS_FILL_LAYER_ID, () => {
         map.getCanvas().style.cursor = '';
@@ -642,6 +718,9 @@ export default function BaseMap({
 
       if (reloadOnMove) {
         map.on('moveend', () => {
+          // L'échelle d'abord : le panneau doit savoir s'il lit la France
+          // ou une zone avant de recevoir — ou non — des événements.
+          onViewChangeRef.current?.({ zoom: map.getZoom() });
           void reload(map, windowHoursRef.current).then((loaded) => {
             if (loaded !== null) onEventsLoadedRef.current?.(loaded);
           });
@@ -658,6 +737,30 @@ export default function BaseMap({
       if (!handlersWiredRef.current) {
         handlersWiredRef.current = true;
         wireHandlers();
+        // La carte existe : le panneau apprend l'échelle d'ouverture et
+        // reçoit de quoi la mener — une fois, la caméra survit aux styles.
+        onViewChangeRef.current?.({ zoom: map.getZoom() });
+        onControls?.({
+          focusDepartment: (code, fallback) => {
+            const duration = prefersReducedMotion() ? 0 : 700;
+            const bounds = departmentBounds(map, code);
+            if (bounds !== null) {
+              // MapLibre 5 retranche lui-même les marges de la caméra —
+              // les panneaux — dans `fitBounds` ; les retrancher une
+              // seconde fois rendait la zone impossible à cadrer, et la
+              // carte ne bougeait plus (constaté le 15 septembre 2026,
+              // « Map cannot fit within canvas »). Ne reste qu'une lisière,
+              // pour que le contour ne touche pas les cartons.
+              map.fitBounds(bounds, { padding: 24, maxZoom: 9, duration });
+            } else if (fallback !== null) {
+              map.easeTo({
+                center: [fallback.center[0], fallback.center[1]],
+                zoom: fallback.zoom,
+                duration,
+              });
+            }
+          },
+        });
       }
     });
 
@@ -686,6 +789,10 @@ export default function BaseMap({
       unsubscribeTheme?.();
       mapRef.current?.remove();
       mapRef.current = null;
+      // Les gestionnaires appartiennent à l'instance qui vient de partir :
+      // une carte recréée — mode strict, remontage — repart sans.
+      handlersWiredRef.current = false;
+      styleReadyRef.current = false;
     };
     // Volontairement sans dépendances : la carte se crée une fois.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -775,6 +882,11 @@ export default function BaseMap({
       void reload(map, windowHours).then((loaded) => {
         if (loaded !== null) onEventsLoadedRef.current?.(loaded);
       });
+      void loadDepartmentAggregates(
+        map,
+        aggregatesSince(windowHours),
+        onDepartmentsLoadedRef.current,
+      );
     };
     if (styleReadyRef.current) {
       run();

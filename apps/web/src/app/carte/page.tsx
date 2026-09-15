@@ -1,19 +1,32 @@
 import { MAP_DISCLAIMER } from '@mapfeux/domain';
+import { DEFAULT_VIEW } from '@mapfeux/map-style';
 import type { Metadata } from 'next';
 
 import { CarteMapPanel } from '@/components/map/carte-map-panel';
 import { FloatingCard } from '@/components/map/floating-card';
 import { MunicipalitySearch } from '@/components/municipality-search';
-import { fetchEventsInBbox } from '@/lib/data/events';
-import { framingBounds, framingCenter } from '@/lib/map/framing';
+import { fetchDepartmentAggregates } from '@/lib/data/events';
+import { toDepartmentRows } from '@/lib/map/national-scope';
 import { DEFAULT_WINDOW_HOURS, windowSince } from '@/lib/map/time-windows';
 
 /**
  * Carte nationale. Cahier §7.1, FR-001 à FR-007.
  *
- * Le premier lot d'événements est chargé par le serveur : la liste textuelle
- * fonctionne sans JavaScript, et la carte affiche quelque chose sans attendre
- * un aller-retour. Les lots suivants suivent l'emprise (FR-007).
+ * ## Une seule carte, deux échelles — 15 septembre 2026
+ *
+ * La page s'ouvrait sur l'emprise pilote — le Var et les Alpes-Maritimes —
+ * et annonçait quatorze événements, quand l'accueil en annonçait 646
+ * « France entière » : un visiteur voyait deux services. Elle s'ouvre
+ * maintenant sur la France (FR-001), et ce qu'elle lit dépend de
+ * l'échelle (§21.3) : sous le zoom 7, le lavis départemental porte les
+ * comptes et la colonne liste les **départements concernés** ; à partir du
+ * zoom 7, les événements se chargent à l'emprise (FR-007) et la liste les
+ * suit (§8.6). Aucun événement n'est servi à l'échelle nationale — la
+ * France entière en un appel irait contre « ne charger que l'emprise
+ * visible » (§21.4), et le plafond de surface de l'API le refuse.
+ *
+ * Le premier état est rendu par le serveur : les départements concernés
+ * sur la fenêtre par défaut, lisibles sans JavaScript.
  *
  * ## Une coque d'application — refaite le 11 septembre 2026
  *
@@ -38,10 +51,6 @@ import { DEFAULT_WINDOW_HOURS, windowSince } from '@/lib/map/time-windows';
  * la règle qui manquait quand trois paragraphes d'explication occupaient la
  * colonne des commandes.
  *
- * La liste vit dans la coque et non ici : elle **suit la carte** (§8.6), et
- * ce que le serveur en rend n'est que son premier état — celui qui tient
- * sans JavaScript.
- *
  * Sous 640 px, rien ne flotte : la carte prend une hauteur franche et tout
  * s'empile dessous, dans l'ordre de lecture.
  */
@@ -54,51 +63,29 @@ export const metadata: Metadata = {
 
 export const revalidate = 120;
 
-// Emprise de départ : les territoires pilotes. Servir la France entière
-// dépasserait le plafond de surface de l'API, et n'aurait rien à montrer
-// ailleurs tant que l'ingestion n'est pas nationale.
-const INITIAL_BBOX = { minLon: 5.2, minLat: 42.6, maxLon: 8.0, maxLat: 44.6 };
-
 export default async function MapPage() {
   const now = new Date();
-  // Le premier lot arrive déjà dans la fenêtre par défaut : la carte et sa
-  // liste montrent la même chose, et le §17.4 tient — un événement archivé
-  // est « hors fenêtre d'affichage courant », pas un point de plus sur la
-  // carte du jour. La barre temporelle permet d'élargir jusqu'à « tout ».
-  const since = windowSince(DEFAULT_WINDOW_HOURS, now);
-  const events = await fetchEventsInBbox(INITIAL_BBOX, {
-    limit: 500,
-    ...(since === undefined ? {} : { since }),
-  });
-
-  // Le cadrage suit ce qu'il y a à montrer : sans cela, une page intitulée
-  // « anomalies thermiques observées » peut s'ouvrir sur une carte où l'on
-  // n'en voit aucune, pendant que sa propre liste en annonce neuf.
-  const locations = events.map((event) => event.location);
-  const center = framingCenter(locations, [
-    (INITIAL_BBOX.minLon + INITIAL_BBOX.maxLon) / 2,
-    (INITIAL_BBOX.minLat + INITIAL_BBOX.maxLat) / 2,
-  ]);
-  // L'étendue prend le relais côté client, où la largeur des panneaux est
-  // connue : elle seule garantit qu'aucun marqueur ne finit sous un carton.
-  const bounds = framingBounds(locations);
+  // La fenêtre par défaut : sept jours, la frontière que §17.4 donne à
+  // l'archivage. La barre temporelle permet de la resserrer ou d'élargir
+  // jusqu'à « tout ».
+  const since = windowSince(DEFAULT_WINDOW_HOURS, now) ?? new Date(0);
+  const aggregates = await fetchDepartmentAggregates(since);
+  // Les agrégats portent nom et destination de chaque département : le
+  // registre public des territoires ne dit rien des départements « à venir »
+  // (FR-014), et la liste doit nommer les quatre-vingt-seize.
+  const departments = toDepartmentRows(
+    aggregates.map((row) => ({ ...row, lastDetectedAt: row.lastDetectedAt.toISOString() })),
+  );
 
   return (
     <CarteMapPanel
-      center={center}
-      zoom={8}
+      center={DEFAULT_VIEW.center}
+      zoom={DEFAULT_VIEW.zoom}
       now={now}
-      listEvents={events}
-      bounds={bounds}
-      events={events.map((event) => ({
-        publicId: event.publicId,
-        freshnessStatus: event.freshnessStatus,
-        lastDetectedAt: event.lastDetectedAt.toISOString(),
-        confidence: event.confidenceLevel,
-        detectionCount: event.detectionCount,
-        location: event.location,
-        nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
-      }))}
+      listEvents={[]}
+      bounds={null}
+      departments={departments}
+      events={[]}
     >
       <FloatingCard>
         <nav aria-label="Fil d’Ariane" className="eyebrow flex flex-wrap items-center gap-1.5">
@@ -106,7 +93,7 @@ export default async function MapPage() {
           <span aria-hidden="true" className="text-(--border-strong)">
             /
           </span>
-          <span>territoires pilotes 06 et 83</span>
+          <span>France métropolitaine et Corse</span>
         </nav>
 
         {/*

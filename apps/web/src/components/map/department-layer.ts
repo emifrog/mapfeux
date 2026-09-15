@@ -46,6 +46,10 @@ export interface DepartmentAggregate {
   departmentCode: string;
   departmentSlug: string;
   departmentStatus: string;
+  /** Nom et destination, pour la liste nationale — nuls si le registre ne les a pas. */
+  departmentName: string | null;
+  center: { longitude: number; latitude: number } | null;
+  defaultZoom: number | null;
   events: number;
   substantiated: number;
   lastDetectedAt: string;
@@ -116,6 +120,54 @@ export function addDepartmentLayer(map: MapLibreMap, tilesUrl: string): void {
       'text-halo-width': 1,
     },
   });
+}
+
+/**
+ * L'étendue d'un département, lue dans les tuiles déjà chargées — ou `null`
+ * si elles ne le portent pas encore.
+ *
+ * Mener la carte au **centre** d'un département ne suffit pas : le
+ * 15 septembre 2026, « Pyrénées-Atlantiques · 80 événements » menait au
+ * zoom 9 sur son centre, où l'on n'en voyait aucun — ils étaient tous à
+ * Hendaye, au bord. L'étendue, elle, garantit que le département entier
+ * tient dans la zone visible. Les tuiles découpent un polygone par carreau,
+ * avec une marge : l'union des boîtes déborde d'un peu, jamais en dedans.
+ */
+export function departmentBounds(
+  map: MapLibreMap,
+  code: string,
+): [[number, number], [number, number]] | null {
+  const features = map.querySourceFeatures(DEPARTMENTS_SOURCE_ID, {
+    sourceLayer: SOURCE_LAYER,
+    filter: ['==', ['get', 'code'], code],
+  });
+
+  let minLon = Infinity;
+  let minLat = Infinity;
+  let maxLon = -Infinity;
+  let maxLat = -Infinity;
+  const visit = (coordinates: unknown): void => {
+    if (!Array.isArray(coordinates)) return;
+    if (typeof coordinates[0] === 'number' && typeof coordinates[1] === 'number') {
+      minLon = Math.min(minLon, coordinates[0]);
+      maxLon = Math.max(maxLon, coordinates[0]);
+      minLat = Math.min(minLat, coordinates[1]);
+      maxLat = Math.max(maxLat, coordinates[1]);
+      return;
+    }
+    for (const child of coordinates) visit(child);
+  };
+  for (const feature of features) {
+    if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
+      visit(feature.geometry.coordinates);
+    }
+  }
+
+  if (!Number.isFinite(minLon) || !Number.isFinite(minLat)) return null;
+  return [
+    [minLon, minLat],
+    [maxLon, maxLat],
+  ];
 }
 
 /**

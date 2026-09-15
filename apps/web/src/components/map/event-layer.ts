@@ -133,7 +133,23 @@ export function toFeatureCollection(events: MapEvent[], now = new Date()): Featu
   };
 }
 
-export function addEventLayer(map: MapLibreMap, events: MapEvent[], now = new Date()): void {
+export interface EventLayerOptions {
+  /**
+   * Zoom en deçà duquel aucun marqueur ne se dessine. `/carte` le pose à 7 :
+   * sous ce zoom, le lavis départemental est la représentation (§21.3), et
+   * les marqueurs d'une zone quittée ne doivent pas rester posés sur la
+   * France entière. Les autres cartes — catalogue, fiche — dessinent à tout
+   * zoom ce qu'on leur donne.
+   */
+  minzoom?: number;
+}
+
+export function addEventLayer(
+  map: MapLibreMap,
+  events: MapEvent[],
+  now = new Date(),
+  options: EventLayerOptions = {},
+): void {
   if (map.getSource(EVENTS_SOURCE_ID) !== undefined) return;
 
   map.addSource(EVENTS_SOURCE_ID, {
@@ -279,6 +295,12 @@ export function addEventLayer(map: MapLibreMap, events: MapEvent[], now = new Da
       'circle-stroke-color': PALETTE.boundary,
     },
   });
+
+  if (options.minzoom !== undefined) {
+    for (const layerId of EVENT_LAYER_IDS) {
+      map.setLayerZoomRange(layerId, options.minzoom, 24);
+    }
+  }
 }
 
 /** Couches cliquables : la traîne reste accessible au même titre. */

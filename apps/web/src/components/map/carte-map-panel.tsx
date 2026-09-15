@@ -7,11 +7,21 @@ import { EventList } from '@/components/event-list';
 import type { EventSummary } from '@/lib/data/events';
 import type { FramingBounds } from '@/lib/map/framing';
 import { toEventSummaries } from '@/lib/map/loaded-events';
+import {
+  nationalSummary,
+  scopeForZoom,
+  toDepartmentRows,
+  ZONE_MIN_ZOOM,
+  type DepartmentRow,
+  type MapScope,
+} from '@/lib/map/national-scope';
 import { overlayPadding, type Inset, type OverlayPanel } from '@/lib/map/overlay-padding';
 import { DEFAULT_WINDOW_HOURS, windowPhrase } from '@/lib/map/time-windows';
 import { resolveRadarTimeline, type RadarTimeline } from '@/lib/radar/timeline';
 
 import type { AirTilesInfo } from './air-layer';
+import type { MapControls } from './base-map';
+import { DepartmentList } from './department-list';
 import type { MapEvent } from './event-layer';
 import { FloatingCard } from './floating-card';
 import { LayersPanel } from './layers-panel';
@@ -146,6 +156,7 @@ export function CarteMapPanel({
   zoom,
   listEvents: initialListEvents,
   bounds,
+  departments: initialDepartments,
   now: initialNow,
   children,
 }: {
@@ -156,11 +167,31 @@ export function CarteMapPanel({
   listEvents: EventSummary[];
   /** Étendue des événements servis, à faire tenir dans la zone visible. */
   bounds: FramingBounds | null;
+  /**
+   * Les départements concernés sur la fenêtre par défaut, rendus par le
+   * serveur : c'est ce que la colonne lit à l'échelle nationale, et le seul
+   * état qui existe sans JavaScript.
+   */
+  departments: DepartmentRow[];
   /** Instant du rendu serveur : l'âge du premier lot se mesure contre lui. */
   now: Date;
   /** Cartons rendus par le serveur, en tête de la colonne de lecture. */
   children?: React.ReactNode;
 }) {
+  // L'échelle lue : la France par ses départements sous le zoom 7, une
+  // zone et ses événements au-delà (§21.3). La carte la dit à chaque fin
+  // de mouvement ; au rendu serveur, c'est le zoom d'ouverture qui tranche.
+  const [scope, setScope] = useState<MapScope>(scopeForZoom(zoom));
+  const [departmentRows, setDepartmentRows] = useState(initialDepartments);
+  const [departmentsAt, setDepartmentsAt] = useState(initialNow);
+  const controlsRef = useRef<MapControls | null>(null);
+
+  const focusDepartment = (row: DepartmentRow): void => {
+    controlsRef.current?.focusDepartment(
+      row.code,
+      row.center === null || row.zoom === null ? null : { center: row.center, zoom: row.zoom },
+    );
+  };
   // La fenêtre par défaut est celle du rendu serveur : le premier lot arrive
   // déjà filtré, la carte n'a rien à recharger au montage.
   const [windowHours, setWindowHours] = useState<number | null>(DEFAULT_WINDOW_HOURS);
@@ -252,6 +283,7 @@ export function CarteMapPanel({
     return () => clearInterval(timer);
   }, [playing, radarTimeline]);
 
+  const summary = nationalSummary(departmentRows);
   const airMissing = pollutant !== null && !loading && airInfo === null;
   const radarMissing = radarOn && !radarLoading && radarTimeline === null;
   const currentRadarFrame = radarTimeline?.frames[radarIndex];
@@ -278,10 +310,23 @@ export function CarteMapPanel({
           {...(padding === null ? {} : { padding })}
           {...(bounds === null ? {} : { fitBounds: bounds })}
           windowHours={windowHours}
+          markersMinZoom={ZONE_MIN_ZOOM}
+          onViewChange={(view) => setScope(scopeForZoom(view.zoom))}
           onEventsLoaded={(loaded) => {
             setListEvents(toEventSummaries(loaded));
             setListAt(new Date());
             setListFollowsMap(true);
+          }}
+          onDepartmentsLoaded={(rows) => {
+            setDepartmentRows(toDepartmentRows(rows));
+            setDepartmentsAt(new Date());
+          }}
+          onControls={(controls) => {
+            controlsRef.current = controls;
+          }}
+          onDepartmentClick={({ code }) => {
+            const row = departmentRows.find((candidate) => candidate.code === code);
+            if (row !== undefined) focusDepartment(row);
           }}
           airPollutant={pollutant}
           onAirInfo={(info) => {
@@ -331,25 +376,63 @@ export function CarteMapPanel({
               dit : une liste qui prétendrait suivre avant de suivre serait
               pire que celle qui ne suivait pas.
             */}
-            <FloatingCard labelledBy="liste">
-              <h2 id="liste" className="text-body font-bold tracking-tight">
-                Événements de la zone
-              </h2>
-              <p className="text-small text-(--text-2) mt-1.5 leading-relaxed" aria-live="polite">
-                <span className="mono">{listEvents.length}</span> événement
-                {listEvents.length > 1 ? 's' : ''} {windowPhrase(windowHours)}
-                {listFollowsMap ? ', dans l’emprise affichée.' : ', au chargement de la page.'}{' '}
-                Relevé à{' '}
-                <time dateTime={listAt.toISOString()} className="mono">
-                  {TIME.format(listAt)}
-                </time>
-                .
-              </p>
+            {scope === 'national' ? (
+              // L'échelle nationale : la France par ses départements. Aucun
+              // événement n'est chargé sous le zoom 7 — le lavis porte les
+              // comptes, cette liste les dit, et choisir un département
+              // mène la carte sur lui, où la liste devient celle de la zone.
+              <FloatingCard labelledBy="liste">
+                <h2 id="liste" className="text-body font-bold tracking-tight">
+                  Départements concernés
+                </h2>
+                <p className="text-small text-(--text-2) mt-1.5 leading-relaxed" aria-live="polite">
+                  <span className="mono">{summary.events}</span> événement
+                  {summary.events > 1 ? 's' : ''} {windowPhrase(windowHours)}, sur{' '}
+                  <span className="mono">{summary.departments}</span> département
+                  {summary.departments > 1 ? 's' : ''}. Relevé à{' '}
+                  <time dateTime={departmentsAt.toISOString()} className="mono">
+                    {TIME.format(departmentsAt)}
+                  </time>
+                  . Rapprochez la carte pour lire les événements d’une zone.
+                </p>
 
-              <div className="mt-4">
-                <EventList events={listEvents} now={listAt} />
-              </div>
-            </FloatingCard>
+                <div className="mt-3">
+                  <DepartmentList
+                    rows={departmentRows}
+                    now={departmentsAt}
+                    onFocus={focusDepartment}
+                  />
+                </div>
+              </FloatingCard>
+            ) : (
+              <FloatingCard labelledBy="liste">
+                <h2 id="liste" className="text-body font-bold tracking-tight">
+                  Événements de la zone
+                </h2>
+                <p className="text-small text-(--text-2) mt-1.5 leading-relaxed" aria-live="polite">
+                  {listFollowsMap ? (
+                    <>
+                      <span className="mono">{listEvents.length}</span> événement
+                      {listEvents.length > 1 ? 's' : ''} {windowPhrase(windowHours)}, dans l’emprise
+                      affichée. Relevé à{' '}
+                      <time dateTime={listAt.toISOString()} className="mono">
+                        {TIME.format(listAt)}
+                      </time>
+                      .
+                    </>
+                  ) : (
+                    // La carte vient de passer à l'échelle d'une zone et n'a
+                    // pas encore répondu : dire « 0 événement » serait
+                    // affirmer une absence qu'on n'a pas mesurée.
+                    <>Lecture des événements de l’emprise affichée…</>
+                  )}
+                </p>
+
+                <div className="mt-4">
+                  <EventList events={listEvents} now={listAt} />
+                </div>
+              </FloatingCard>
+            )}
 
             <MapLegend />
 
@@ -457,7 +540,7 @@ export function CarteMapPanel({
         <TimeBar
           windowHours={windowHours}
           onWindowHours={setWindowHours}
-          eventCount={listEvents.length}
+          eventCount={scope === 'national' ? summary.events : listEvents.length}
         />
       </div>
     </div>
