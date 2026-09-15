@@ -227,16 +227,34 @@ Les deux clés attendues sont posées et vivantes — `COPERNICUS_KEY` en
 secret GitHub, la clé d'application radar dans l'environnement : au
 contrôle du 11 septembre, `cams`, `radar`, `firms` et `vigilance` lisent
 toutes « à jour ». `arome` lit « en retard » — donnée de 09 h UTC quand le
-run de 12 h devrait être entré ; **cause non établie**, la cadence Actions
-en est la première suspecte, à instruire avant d'accuser.
+run de 12 h devrait être entré ; **cause établie le 15 septembre** : la
+seule tâche AROME est l'archive FWI, quotidienne à 10 h 45 UTC, et le
+registre attend une donnée toutes les 180 minutes — la source lit donc
+« trop ancienne » la plus grande partie de chaque journée, par
+construction. Ce n'est pas une panne, c'est une promesse fausse au
+registre ; voir la dette « intervalle attendu ≠ cadence de lecture »
+au §15.
 
-Restent aussi, hors critères : le coup d'œil réel sur les couches air et
-radar depuis un navigateur qui composite (réserve de J9 — **toujours
-ouvert**, mais plus pour la même raison : depuis le 15 septembre le
-panneau d'aperçu composite la toile MapLibre — les captures de la fiche
-montrent l'empreinte rendue — et `window.__mapfeuxMap`, poignée de
-développement, permet d'interroger les entités rendues ; le coup d'œil
-sur air et radar est donc faisable, il n'a pas été fait), et les décisions
+✅ **Le coup d'œil réel sur les couches air et radar est fait**, le
+15 septembre, depuis le panneau d'aperçu qui composite désormais la toile
+MapLibre. **Air** : PM2,5 rendu à l'échelle nationale en champ de mailles
+de 0,1° aux couleurs de la légende — teal « bon » sur l'essentiel du pays,
+olive et beige « moyen » à « dégradé » du Centre à l'Île-de-France, orange
+« mauvais » sur le Nord-Est ; couche posée sous les lavis et les
+événements ; la carte de provenance dit « prévision cams-europe-ensemble,
+run du 14/09 02:00, valide le 15/09 02:00 » — une échéance vieille de huit
+heures, servie parce que sous le seuil de péremption de douze heures, et
+dite. **Radar** : **18 frames** de 08:30 à 09:55, au pas de cinq minutes —
+la timeline est pleine, ce que le déclencheur Actions n'a jamais donné
+(2-3 frames par heure) ; frame la plus récente vieille de quatre minutes ;
+chaque PNG de 1 533 × 1 352 lu pixel par pixel : 374 à 1 328 pixels
+opaques par frame, un matin sec ; la cellule la plus dense — sur le Devon,
+dans l'emprise de la mosaïque — se dessine au zoom 9 en mailles d'un
+kilomètre aux quatre premières intensités de la légende, jusqu'à un pixel
+« forte ». Deux remarques, sans correction : l'air à 0,55 d'opacité
+teinte toute la carte, lisible mais lourd — la couche est optionnelle ;
+et la légende compacte du panneau ne porte pas l'heure de validité, que
+seule la carte de provenance de la colonne donne. Restent les décisions
 ouvertes — formulation du panache (§22.5), ADR du vent historique, §8.5 —
 plus l'**ordonnancement (§8.1)**, que le bandeau d'état rend maintenant
 lisible du public.
@@ -1074,9 +1092,9 @@ l'origine, se remplissent ici.
   pilotée par sa poignée de dev — le panneau sans compositing ne tire
   jamais `requestAnimationFrame`) : couche sous les six couches mapfeux,
   tuiles chargées sans erreur, bascule PM2,5/PM10, extinction propre.
-  ⚠️ Le rendu n'a pas encore été **regardé** dans un navigateur qui
-  composite — la leçon des 86 classes CSS vaut ici : un coup d'œil réel
-  reste dû au prochain passage sur le déploiement
+  ✅ **Regardé le 15 septembre** dans le panneau d'aperçu, qui composite
+  désormais : champ PM2,5 national aux couleurs de la légende, sous les
+  lavis et les événements, provenance et échéance dites — détail en §2
 - ✅ **Connecteur radar : frames, conversion contrôlée, timeline, expiration**
   (25 août nuit, §16.6, FR-123) — API DPRadar (arbre de liens OGC, **sans
   historique** : chaque production manquée est perdue, le cron colle aux
@@ -1160,8 +1178,9 @@ périmètres EFFIS réels de Pontevès portent source, nature, dates, méthode
 et confiance, leur remplacement conserve la version précédente (25 août) ;
 et couper CAMS puis le radar, exercé par interception, ne touche ni la
 carte ni les fiches : messages d'absence, détections intactes, console
-vide. Reste à J9, hors critère : le coup d'œil réel sur les couches depuis
-un navigateur qui composite (réserve déjà consignée).
+vide. La réserve hors critère — le coup d'œil réel sur les couches depuis
+un navigateur qui composite — est **soldée le 15 septembre** : air et
+radar regardés, rendus conformes à leurs légendes (§2).
 
 ---
 
@@ -2031,7 +2050,8 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
 | Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar (préfixe `radar/`) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
-| Cadence de **toutes** les sources sous-quotidiennes étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme. **Mesuré le 13 septembre sur sept jours** : médiane réelle entre passes — firms 111 min (déclaré 10), radar 213 (5), vigilance 244 (60), prefectures 181 (15), arome 1 431 (180, soit une fois par jour) ; seul cams, quotidien, tient (1 436 pour 1 440). Tableau complet en stratégie §8.1. **Bloquait le critère de sortie de J4** — tranché le 13 septembre : planificateur Windows, sept tâches, crons Actions retirés (§14). Reste à remesurer sur sept jours | §8.1 — tranché, à remesurer |
+| Cadence de **toutes** les sources sous-quotidiennes étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme. **Mesuré le 13 septembre sur sept jours** : médiane réelle entre passes — firms 111 min (déclaré 10), radar 213 (5), vigilance 244 (60), prefectures 181 (15), arome 1 431 (180, soit une fois par jour) ; seul cams, quotidien, tient (1 436 pour 1 440). Tableau complet en stratégie §8.1. **Bloquait le critère de sortie de J4** — tranché le 13 septembre : planificateur Windows, sept tâches, crons Actions retirés (§14). **Premier relevé le 15 septembre, à 10 h 04** : les sept tâches en `ok`, ingestion passée à 10:03 pour la suivante à 10:13, radar à 10:03 pour 10:08, préfectures à 09:58, vigilance à 09:20 ; la timeline radar porte **18 frames au pas de cinq minutes**. Reste la mesure sur sept jours | §8.1 — tranché, à remesurer |
+| Le registre attend une cadence de donnée que la lecture ne promet pas | Trois lectures fausses le 15 septembre, aucune panne derrière. `arome` « trop ancienne » : la seule tâche est l'archive FWI, quotidienne à 10 h 45 UTC, et le registre attend 180 minutes — faux la plus grande partie de chaque journée. `cams` « retardée » chaque matin : le run de 00 h UTC est daté de son run, la tâche le lit à 08 h 45 UTC, et l'intervalle de 1 440 minutes compté depuis le run précédent est dépassé entre le petit matin et la lecture. `prefectures` « retardée » depuis huit jours : le connecteur date sa donnée de la **dernière publication** trouvée (`latest_published`, à minuit UTC), alors que le flux est lu toutes les quinze minutes sans erreur — l'inverse exact de la fausse assurance de `massifs`, une fausse alerte, et le bandeau de toutes les pages en descend à « 4/8 sources en service ». **Règle** : `expected_interval` promet une cadence de **lecture**, `source_data_at` doit la refléter ; ce que la source a publié en dernier est une autre information, à porter à part si elle compte. À traiter comme `massifs` l'a été (11 septembre), en trois retouches : intervalle d'`arome` à 1 440, lecture CAMS avancée ou intervalle compté depuis la disponibilité, `prefectures` datée de l'instant de lecture | Avant la remesure des sept jours |
 | Un garde-fou « premier montage » ne tient pas sous le mode strict | `BaseMap` sautait le rechargement « au changement de fenêtre » à son premier passage pour ne pas redemander ce que le serveur venait de rendre ; le mode strict de React rejoue les effets, le second passage rechargeait, et une carte à lot fixe — la fiche, la relecture — voyait ses marqueurs remplacés par ceux de l'emprise (constaté le 15 septembre, en développement ; production épargnée par absence de mode strict, mais le code était faux). Corrigé par une condition sur ce que la carte **est** (`reloadOnMove`), pas sur le nombre de passages. **Règle** : un effet ne se garde jamais par « c'est la première fois » ; il se garde par une propriété | Continu |
 | Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |
 | Une source peut dater sa donnée en avance | `massifs` enregistrait `source_data_at` au **jour décrit** — le niveau du lendemain paraît la veille au soir — et non à l'instant de lecture. La fraîcheur en tirait un âge négatif, ramené à zéro puis formaté en « moins d'une minute » : le bandeau de toutes les pages a annoncé « maj il y a moins d'une minute » en permanence dès la mise en service (11 septembre). Connecteur corrigé, et deux garde-fous posés dans le domaine — `mostRecentPast` écarte du concours ce qui est horodaté en avance, `formatDataRecency` dit « dans 4 h 28 min » plutôt que de faire passer une avance pour une fraîcheur. **À vérifier à chaque nouveau connecteur** : `source_data_at` est l'instant de production, jamais l'échéance décrite | Continu |
