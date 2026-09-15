@@ -1,6 +1,22 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 13 septembre 2026, soir — **l'accueil s'ouvre
+**Dernière mise à jour** : 15 septembre 2026 — **la fiche événement,
+regardée avec le même œil que la carte**. Mesurée sur un événement du jour
+(57 observations à Condé-sur-l'Escaut), elle faisait 4 609 px et sa carte,
+au pixel 3 635 sous un tableau de 57 lignes, était **vide** — la fiche ne
+lui passait aucun événement. La carte est maintenant **en tête, à côté du
+titre, cadrée sur l'empreinte des observations** ; un **graphique de
+puissance radiative par passage**, rendu par le serveur, montre
+l'évolution que le tableau ne montrait pas ; le tableau garde ses douze
+lignes les plus récentes et **replie le reste**, qui s'ouvre à
+l'impression ; la carte au survol d'un point de l'empreinte dit
+l'observation dans les mots du tableau, sans proposer de clic depuis la
+fiche. Trouvé en vérifiant : `BaseMap` rechargeait l'API sur une carte à
+lot fixe sous le mode strict — corrigé. Le VPS attend toujours sa
+souscription — le kit est prêt (`ops/vps/`), la bascule est décrite en §2.
+Détail en [§14](#la-fiche-regardée-avec-le-même-œil--15-septembre-2026).
+
+**13 septembre 2026, soir** — **l'accueil s'ouvre
 sur la carte nationale vivante et trois chiffres réels**, la recherche est
 sur la carte, la coque au-dessus de `/carte` passe de 172 à 96 px, les
 contours et les marqueurs se lisent à l'échelle nationale, une lueur dit
@@ -8,8 +24,7 @@ ce qui a moins de vingt-quatre heures, **une carte au survol** dit d'un
 marqueur ce que la liste en dit sans cliquer, et le zoom intermédiaire a
 ses **grappes** et ses **noms de départements**. Comparaison faite au même
 format contre ensemblepourlaforet.fr et GISFire : l'écart était d'abord sur
-l'accueil. Le VPS attend sa souscription — le kit est prêt (`ops/vps/`),
-la bascule est décrite en §2. Les Canadair sont écartés.
+l'accueil. Les Canadair sont écartés.
 
 **Le même soir, un peu avant** — **le déclencheur est
 passé au planificateur Windows**. Sept tâches aux cadences qu'Actions
@@ -173,14 +188,14 @@ posées dans `next.config.ts` ; la fonction SQL `fires_in_bbox` garde son nom,
 interne. Portes repassées après renommage : format, lint, typecheck, tests,
 build — vertes.
 
-### Portes de qualité — dernier passage (13 septembre, soir)
+### Portes de qualité — dernier passage (15 septembre)
 
 | Chaîne | Commande | Résultat |
 |---|---|---|
 | Web | `pnpm format:check` | ✅ |
 | Web | `pnpm lint` | ✅ 5 paquets |
 | Web | `pnpm typecheck` | ✅ 5 paquets, TypeScript strict |
-| Web | `pnpm test` | ✅ 157 tests (54 domaine, 58 web, 37 map-style, 8 contrats) |
+| Web | `pnpm test` | ✅ 180 tests (54 domaine, 81 web, 37 map-style, 8 contrats) |
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
@@ -217,9 +232,11 @@ en est la première suspecte, à instruire avant d'accuser.
 
 Restent aussi, hors critères : le coup d'œil réel sur les couches air et
 radar depuis un navigateur qui composite (réserve de J9 — **toujours
-ouvert** : le panneau d'aperçu de septembre affiche la page mais ne
-composite pas la toile MapLibre ; ce qui a pu être vérifié à l'écran l'a
-été par l'arbre d'accessibilité et les mesures du DOM), et les décisions
+ouvert**, mais plus pour la même raison : depuis le 15 septembre le
+panneau d'aperçu composite la toile MapLibre — les captures de la fiche
+montrent l'empreinte rendue — et `window.__mapfeuxMap`, poignée de
+développement, permet d'interroger les entités rendues ; le coup d'œil
+sur air et radar est donc faisable, il n'a pas été fait), et les décisions
 ouvertes — formulation du panache (§22.5), ADR du vent historique, §8.5 —
 plus l'**ordonnancement (§8.1)**, que le bandeau d'état rend maintenant
 lisible du public.
@@ -2015,6 +2032,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
 | Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar (préfixe `radar/`) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |
 | Cadence de **toutes** les sources sous-quotidiennes étranglée par GitHub Actions | Le cron `*/5` tourne à ~une passe par heure (mesuré les 25-26 août : 06:21, 07:22, 08:06) : la timeline porte 2-3 frames au lieu de 24, l'animation est courte, et les bornes de fraîcheur du registre sont calées sur cette réalité (1 h / 3 h) plutôt que sur les cinq minutes du produit — annoncer cinq minutes afficherait « En retard » en permanence, le signal exact et faux de la leçon vigilance. L'[ordonnancement propre](strategie.md#81-ordonnancement--revenir-à-celery-et-redis) (§8.1, décision ouverte) ramènera cadence et bornes aux cinq minutes. ⚠️ **La dette est sortie des journaux** le 11 septembre : le bandeau d'état annonçant désormais la prochaine donnée attendue, une passe manquée se lit **en page d'accueil**. Une source servie à une passe par heure contre un `expected_interval` d'une heure vit sur la frontière de `delayed` en permanence — le radar a été vu `stale` en cours de journée, `fresh` le soir même, et AROME lisait `delayed` à l'instant du contrôle (cause propre non établie, voir §2). Ce n'est pas un défaut d'affichage : le bandeau dit juste, et ce qu'il dit est le symptôme. **Mesuré le 13 septembre sur sept jours** : médiane réelle entre passes — firms 111 min (déclaré 10), radar 213 (5), vigilance 244 (60), prefectures 181 (15), arome 1 431 (180, soit une fois par jour) ; seul cams, quotidien, tient (1 436 pour 1 440). Tableau complet en stratégie §8.1. **Bloquait le critère de sortie de J4** — tranché le 13 septembre : planificateur Windows, sept tâches, crons Actions retirés (§14). Reste à remesurer sur sept jours | §8.1 — tranché, à remesurer |
+| Un garde-fou « premier montage » ne tient pas sous le mode strict | `BaseMap` sautait le rechargement « au changement de fenêtre » à son premier passage pour ne pas redemander ce que le serveur venait de rendre ; le mode strict de React rejoue les effets, le second passage rechargeait, et une carte à lot fixe — la fiche, la relecture — voyait ses marqueurs remplacés par ceux de l'emprise (constaté le 15 septembre, en développement ; production épargnée par absence de mode strict, mais le code était faux). Corrigé par une condition sur ce que la carte **est** (`reloadOnMove`), pas sur le nombre de passages. **Règle** : un effet ne se garde jamais par « c'est la première fois » ; il se garde par une propriété | Continu |
 | Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |
 | Une source peut dater sa donnée en avance | `massifs` enregistrait `source_data_at` au **jour décrit** — le niveau du lendemain paraît la veille au soir — et non à l'instant de lecture. La fraîcheur en tirait un âge négatif, ramené à zéro puis formaté en « moins d'une minute » : le bandeau de toutes les pages a annoncé « maj il y a moins d'une minute » en permanence dès la mise en service (11 septembre). Connecteur corrigé, et deux garde-fous posés dans le domaine — `mostRecentPast` écarte du concours ce qui est horodaté en avance, `formatDataRecency` dit « dans 4 h 28 min » plutôt que de faire passer une avance pour une fraîcheur. **À vérifier à chaque nouveau connecteur** : `source_data_at` est l'instant de production, jamais l'échéance décrite | Continu |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
