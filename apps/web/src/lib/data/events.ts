@@ -800,3 +800,25 @@ export async function fetchEventsNearMunicipality(
     .filter((event) => event.nearestMunicipality?.insee === municipality.insee)
     .slice(0, options.limit ?? 100);
 }
+
+/**
+ * L'identifiant désigne-t-il un événement **hors du périmètre** du service —
+ * importé, jamais publié (ADR-027) ? Pour que la fiche dise pourquoi un lien
+ * partagé ne mène à rien, plutôt qu'un 404 muet. `false` aussi quand la base
+ * ne répond pas : on ne prétend rien qu'on n'a pas lu.
+ */
+export async function isEventOutsideTerritory(publicId: string): Promise<boolean> {
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase.rpc('event_outside_territory', {
+    event_public_id: publicId,
+  });
+  if (error !== null) {
+    console.error('[events] périmètre illisible', {
+      publicId,
+      code: error.code,
+      message: error.message,
+    });
+    return false;
+  }
+  return data === true;
+}

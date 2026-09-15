@@ -38,6 +38,7 @@ import {
   fetchEventDetections,
   fetchEventPerimeters,
   fetchEventView,
+  isEventOutsideTerritory,
   resolveEventAlias,
   type FireEvent,
 } from '@/lib/data/events';
@@ -95,7 +96,11 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const event = await fetchEvent(publicId);
 
   if (event === null) {
-    return { title: 'Événement introuvable', robots: { index: false, follow: false } };
+    const outside = await isEventOutsideTerritory(publicId);
+    return {
+      title: outside ? 'Hors du périmètre du service' : 'Événement introuvable',
+      robots: { index: false, follow: false },
+    };
   }
 
   const place = event.nearestMunicipality?.name ?? event.territory?.name ?? 'France';
@@ -229,6 +234,38 @@ function StatusPanel({ event, now }: { event: FireEvent; now: Date }) {
   );
 }
 
+/**
+ * Un identifiant hors du périmètre du service (ADR-027). Les détections ont
+ * été importées, l'événement n'est pas publié — et la page le dit, sans rien
+ * montrer de plus que ce fait.
+ */
+function OutsideTerritory({ publicId }: { publicId: string }) {
+  return (
+    <article className="shell max-w-[68ch] py-12">
+      <p className="eyebrow mb-3">{publicId} / hors périmètre</p>
+      <h1 className="text-display max-w-[19ch] text-balance font-extrabold leading-[1.06] tracking-[-0.033em]">
+        Hors du périmètre du service
+      </h1>
+      <p className="text-lead text-(--text-2) mt-4">
+        Cet identifiant correspond à des détections thermiques observées hors de France
+        métropolitaine et de Corse — le périmètre de MapFeux. Elles ont été importées mais ne sont
+        pas publiées : aucune fiche, aucun marqueur, aucun compte n’en rend compte.
+      </p>
+      <p className="text-(--text-2) mt-4">
+        Les services de veille des pays voisins couvrent leur territoire. Pour la France, la{' '}
+        <Link href="/carte" className="underline underline-offset-4">
+          carte
+        </Link>{' '}
+        et le{' '}
+        <Link href="/evenements" className="underline underline-offset-4">
+          catalogue
+        </Link>{' '}
+        montrent ce qui est observé.
+      </p>
+    </article>
+  );
+}
+
 export default async function EventPage({ params }: PageParams) {
   const { publicId } = await params;
 
@@ -240,6 +277,12 @@ export default async function EventPage({ params }: PageParams) {
     const canonical = await resolveEventAlias(publicId);
     if (canonical !== null && canonical !== publicId) {
       permanentRedirect(`/evenements/${canonical}`);
+    }
+    // Hors du périmètre du service (ADR-027) : la page le dit, plutôt qu'un
+    // 404 muet sur un lien qui a pu circuler — 716 événements publiés sur
+    // sept jours, dont 394 hors de France, jusqu'au 15 septembre 2026.
+    if (await isEventOutsideTerritory(publicId)) {
+      return <OutsideTerritory publicId={publicId} />;
     }
     notFound();
   }
