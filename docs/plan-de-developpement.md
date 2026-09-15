@@ -78,7 +78,11 @@ rend un résultat explicite — lu, vide compris, ou pas lu —, l'API répond
 la place du chiffre qu'ils n'ont pas pu établir ; vérifié en navigateur
 sur une panne simulée. Les quatre autres constats de l'audit sont
 vérifiés et rangés en §15 — trois étaient déjà au plan, le quatrième est
-latent. Détail en
+latent. Puis **trois corrections courtes** : l'ADR-027 disait le
+regroupement à l'envers (le code avait raison, un test le fige), le README
+annonçait encore la fiche « à construire », et le worker a enfin son
+**verrou conda** — dont le premier passage en CI a trouvé que GDAL 3.13
+casse l'écriture des COG en mémoire, d'où une borne motivée. Détail en
 [§14](#une-panne-de-lecture-nest-plus-une-absence-dévénements--15-septembre-2026-soir).
 
 **13 septembre 2026, soir** — **l'accueil s'ouvre
@@ -282,8 +286,8 @@ build — vertes.
 | Web | `pnpm build` | ✅ Next 16.2.12, Turbopack |
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
-| Worker | `pytest` | ✅ 459 tests |
-| Migrations | 50 migrations sur base vierge, en CI | ✅ CI verte sur les pushes `19a2099`, `881195f`, `dec7a93` et `687c284` du 15 septembre — les 50 rejouées sur base vierge, dont un `drop function` puis `create` et un déclencheur reposé ; la 50ᵉ (`point_in_territory_definer`) appliquée en production. Le secret `INGESTION_DATABASE_URL`, réaligné le soir en forme pooler, prouvé par un `vigilance` déclenché à la main : passe écrite en base depuis un runner GitHub sous `mapfeux_ingest`. Les 46ᵉ à 49ᵉ (`department_aggregates_named`, `department_aggregates_in_france`, `source_status_manual`, `events_hors_perimetre`) appliquées en production le même jour, la 46ᵉ et la 49ᵉ rejouées sans effet, la 47ᵉ mesurée sous le rôle `anon`. CI verte sur le push `98bb101`, les 45 premières rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
+| Worker | `pytest` | ✅ 460 tests — le 460ᵉ fige la clause du regroupement : seul `archived` est écarté, un masqué reste rattachable (ADR-027 révisé) |
+| Migrations | 50 migrations sur base vierge, en CI | ✅ CI verte sur les pushes `b8b738c` et `1db3f4f` du 15 au soir — entre les deux, `6418979` rouge sur le worker seul : le premier verrou conda avait pris GDAL 3.13, corrigé par le suivant ; le worker y tourne désormais sur le verrou. CI verte sur les pushes `19a2099`, `881195f`, `dec7a93` et `687c284` du 15 septembre — les 50 rejouées sur base vierge, dont un `drop function` puis `create` et un déclencheur reposé ; la 50ᵉ (`point_in_territory_definer`) appliquée en production. Le secret `INGESTION_DATABASE_URL`, réaligné le soir en forme pooler, prouvé par un `vigilance` déclenché à la main : passe écrite en base depuis un runner GitHub sous `mapfeux_ingest`. Les 46ᵉ à 49ᵉ (`department_aggregates_named`, `department_aggregates_in_france`, `source_status_manual`, `events_hors_perimetre`) appliquées en production le même jour, la 46ᵉ et la 49ᵉ rejouées sans effet, la 47ᵉ mesurée sous le rôle `anon`. CI verte sur le push `98bb101`, les 45 premières rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -2197,6 +2201,43 @@ comme actuel (§21.5). Reste à étendre le même résultat aux lectures hors
 même panne, `/communes/06004` répond encore 404 parce que la commune
 elle-même n'a pas pu être lue (§15).
 
+#### Trois corrections courtes après l'audit — 15 septembre 2026, soir
+
+L'audit externe laissait, à côté de ses cinq constats, trois choses que
+le dépôt pouvait corriger en une soirée.
+
+- **L'ADR-027 disait le regroupement à l'envers.** Elle affirmait, avec le
+  commentaire de la 49ᵉ migration, qu'un événement masqué n'est plus
+  alimenté ; `_existing_events` n'écarte que `archived`, et la production
+  le confirmait — 53 rattachements à 14 événements déjà masqués depuis la
+  migration. Le code a raison : un site étranger persistant reste **un
+  seul** événement masqué au lieu d'en engendrer un par passe, et c'est le
+  rattachement qui déplace le point représentatif et permet au déclencheur
+  de rendre la main. Révision de l'ADR, commentaire de migration corrigé
+  (SQL inchangé), docstring, et un test qui lit la clause — contre l'usage
+  de ce fichier de tests, parce qu'ici la règle **est** la clause.
+- **Le README disait le projet d'août.** Fiche et ingestion « à
+  construire », chaîne « toutes les dix minutes via GitHub Actions »,
+  avertissement sur les crons désactivés. Réécrit : l'état du 15 septembre,
+  le planificateur, les workflows sans cron qui gardent le déclenchement
+  manuel pour prouver un secret, le seul cron restant (réconciliation).
+- **Le worker a son verrou.** `environment.yml` promettait depuis
+  l'ADR-014 un fichier de lock qui n'existait pas ; chaque recréation
+  laissait le solveur choisir. `conda-lock.yml` fixe désormais les versions
+  et leurs empreintes pour linux-64 (CI, VPS) et win-64 (poste), consommé
+  par la CI, par l'archive AROME et par `ops/vps/install.sh` ;
+  `environment.yml` reste la source et dit comment régénérer. **Le premier
+  passage en CI a fait son travail** : la résolution fraîche prenait GDAL
+  3.13.3, et deux tests des rasters CAMS ont cassé — un COG float32 écrit
+  en mémoire par rasterio 1.5 est créé en Byte à l'écriture, −5,75 relu
+  251. Reproduit en local sur un environnement créé depuis le verrou,
+  bissecté paquet par paquet : rasterio 1.5.0 n'y change rien, GDAL 3.12.4
+  relit exactement avec le même numpy 2.5.3. Borne `gdal <3.13` posée avec
+  ce motif, verrou régénéré, suite complète rejouée sur l'environnement du
+  verrou avant de pousser. L'environnement du poste, créé avant le verrou,
+  en diffère légèrement (GDAL 3.12.3, rasterio 1.5.0) ; à recréer depuis le
+  verrou à un moment où les tâches ne tournent pas (§15).
+
 #### L'import manuel est un état, et la commune lit ses événements — 15 septembre 2026, midi
 
 - ✅ **`manual`, un état de source qui manquait** (48ᵉ migration,
@@ -2352,17 +2393,18 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Portes vertes sur des chemins qu'on n'emprunte pas | L'attribution IGN de la carte était **vide** en production (constaté le 11 septembre, `maplibregl-attrib-empty`, 0 × 0 pixel) alors qu'un test la vérifiait : il portait sur le style **raster**, qui n'est que le repli, tandis que le style **vectoriel** servi ne déclare rien sur ses sources. Même motif que les 86 classes CSS du §14 — ce n'est pas l'absence de test qui coûte, c'est le test qui rassure ailleurs. À chaque assertion sur un artefact servi, se demander **quelle variante l'utilisateur reçoit** | Continu |
 | Une source peut dater sa donnée en avance | `massifs` enregistrait `source_data_at` au **jour décrit** — le niveau du lendemain paraît la veille au soir — et non à l'instant de lecture. La fraîcheur en tirait un âge négatif, ramené à zéro puis formaté en « moins d'une minute » : le bandeau de toutes les pages a annoncé « maj il y a moins d'une minute » en permanence dès la mise en service (11 septembre). Connecteur corrigé, et deux garde-fous posés dans le domaine — `mostRecentPast` écarte du concours ce qui est horodaté en avance, `formatDataRecency` dit « dans 4 h 28 min » plutôt que de faire passer une avance pour une fraîcheur. **À vérifier à chaque nouveau connecteur** : `source_data_at` est l'instant de production, jamais l'échéance décrite | Continu |
 | Une panne de lecture devenait une absence d'événements | Constat 1 de l'audit externe du 15 septembre, reproduit sur les routes réelles : catalogue 200 vide mis en cache une minute, fiche 404, accueil « 0 événement ». **Traité le soir même** (§14) : `ReadResult` sur toutes les lectures d'événements, 503 `no-store` sur l'API, bandeaux sur les pages, panneau carte honnête aux deux échelles, 16 tests. Reste le même patron à étendre aux communes, territoires et informations officielles — `/communes/[insee]` répond encore 404 quand la commune elle-même est illisible | Prochaine session |
-| Audit externe du 15 septembre — ce qui reste | Cinq constats vérifiés contre le dépôt et la production : **1** traité (ci-dessus) ; **2** cadence liée au poste — connu, §2, l'audit ajoute une **alerte extérieure d'absence de passes**, à poser ; **3** historique tronqué au-delà de 2 000 observations — ci-dessous ; **4** MFA déclarée, pas imposée — déjà au plan ; **5** frontières peu testées — Playwright en J6, l'audit ajoute une **passe de regroupement exécutée sous `mapfeux_ingest` dans la CI**, le test qui aurait trouvé le cas de la 50ᵉ migration. Dette documentaire exacte : README périmé (ci-dessous), aucun fichier de lock conda (ligne existante), assertions TypeScript (ligne existante), gros fichiers — fiche 988 lignes, carte 950, accès aux événements 824, à découper au fil de l'eau | J5 (alerte), J6 (CI sous rôle) |
+| Audit externe du 15 septembre — ce qui reste | Cinq constats vérifiés contre le dépôt et la production : **1** traité (ci-dessus) ; **2** cadence liée au poste — connu, §2, l'audit ajoute une **alerte extérieure d'absence de passes**, à poser ; **3** historique tronqué au-delà de 2 000 observations — ci-dessous ; **4** MFA déclarée, pas imposée — déjà au plan ; **5** frontières peu testées — Playwright en J6, l'audit ajoute une **passe de regroupement exécutée sous `mapfeux_ingest` dans la CI**, le test qui aurait trouvé le cas de la 50ᵉ migration. Dette documentaire : README et verrou conda **traités le soir même** (lignes dédiées) ; restent les assertions TypeScript (ligne existante) et les gros fichiers — fiche 988 lignes, carte 950, accès aux événements 824, à découper au fil de l'eau | J5 (alerte), J6 (CI sous rôle) |
 | Historique tronqué au-delà de 2 000 observations | La route `state` lit les 2 000 observations les plus récentes puis filtre `at` en mémoire ; la fiche a le même plafond. Avec 2 001 observations, l'état à l'instant de la première rend zéro observation. **Latent, pas actuel** — mesuré le 15 septembre : 1 033 observations au plus sur un événement (masqué, hors périmètre), 570 sur le plus gros événement public, aucun au-delà de 2 000. Correction : passer `at` à la fonction SQL et calculer les agrégats en base, annoncer la troncature | Avant J6 |
-| ADR-027 dit que le regroupement n'alimente pas les masqués — le code les alimente | L'ADR et le commentaire de la 49ᵉ migration affirment qu'un événement masqué ne reçoit plus de détections ; `_existing_events` (`clustering.py`) n'exclut que `archived`. Vérifié en production : 53 rattachements à 14 événements déjà masqués depuis la migration. **Le code a raison** — un site étranger reste un seul événement au lieu d'en engendrer un par passe, et c'est ce qui permet au déclencheur de rendre la main si le point représentatif revient dans le périmètre. À corriger : le texte de l'ADR, le commentaire de migration, et un test de regroupement qui fige le comportement | Prochaine session |
-| README périmé | Annonce encore la fiche événement et l'ingestion FIRMS « à construire », et une planification GitHub Actions retirée depuis le 13 septembre. Trois passages, relevés par l'audit | Prochaine session |
+| ADR-027 dit que le regroupement n'alimente pas les masqués — le code les alimente | L'ADR et le commentaire de la 49ᵉ migration affirmaient qu'un événement masqué ne reçoit plus de détections ; `_existing_events` (`clustering.py`) n'exclut que `archived`. Vérifié en production : 53 rattachements à 14 événements déjà masqués depuis la migration. **Le code a raison** — un site étranger reste un seul événement au lieu d'en engendrer un par passe, et c'est ce qui permet au déclencheur de rendre la main si le point représentatif revient dans le périmètre. **Corrigé le soir même** : révision de l'ADR, commentaire de la 49ᵉ migration (SQL inchangé), docstring de `_existing_events`, et un test qui fige la clause — `TestEvenementsRattachables`, 460ᵉ test du worker | Traité |
+| README périmé | Annonçait encore la fiche événement et l'ingestion FIRMS « à construire », et une planification GitHub Actions retirée depuis le 13 septembre. **Corrigé le soir du 15** : état d'avancement, section « Ingestion planifiée » (planificateur, workflows sans cron, mêmes trois étapes pour le `.env` et le secret CI), note sur le seul cron restant (réconciliation) | Traité |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
 | ADR-001 à 013 non rédigés | Décisions actées, non documentées | Au fil des jalons |
 | Schémas `air` et `radar` vides | Traité le 25 août : les trois tables sont en production (§13.17-18). Les schémas restent sans données tant que les connecteurs n'ont pas leurs clés — voir §2 | Traité |
 | `app.official_messages` inutilisable par une ingestion | La table exige un `created_by` humain et un `validated_by` : la vigilance a donc ses propres tables. La [décision §8.3](strategie.md#83-validation-humaine-des-informations-officielles) reste ouverte pour les sources en texte libre | J4 |
-| Pas de fichier de lock conda | Parité d'environnement non garantie | Avant le premier déploiement |
+| Pas de fichier de lock conda | Parité d'environnement non garantie — promis par l'ADR-014, relevé par l'audit du 15 septembre. **Traité le soir même** : `services/geo-worker/conda-lock.yml` (conda-lock, linux-64 et win-64, 281 paquets), consommé par la CI, l'archive AROME et `ops/vps/install.sh` ; `environment.yml` reste la source et dit comment régénérer ; CI verte sur le push `1db3f4f`, suite complète rejouée en local sur un environnement créé depuis le verrou. Reste : l'environnement du poste, créé avant le verrou, en diffère (GDAL 3.12.3 contre 3.12.4) — à recréer depuis le verrou à un moment où les tâches ne tournent pas | Traité |
+| GDAL 3.13 casse l'écriture des COG en mémoire | Trouvé par le premier verrou : sous GDAL 3.13.3, un COG float32 écrit par rasterio 1.5 dans un `MemoryFile` est créé en Byte à l'écriture, les valeurs relues sont tronquées (−5,75 → 251) ; 3.12.4 relit exactement avec le même numpy. Borne `gdal <3.13` dans `environment.yml`, avec le motif. À lever quand rasterio et GDAL s'accordent, ou en écrivant le COG par copie explicite (`rasterio.shutil.copy` depuis un GTiff), ce qui rendrait `cog_bytes` indépendant de ce chemin | J9 ou libre |
 | Schémas `air` et `radar` déclarés au registre | Traité le 26 août : les deux sources sont `active` après leurs premières passes planifiées, `/statut` les dit « À jour ». Aucune phrase d'attente à retirer côté web — l'affichage « à venir » venait du statut au registre, et s'est résolu avec lui. Les intervalles radar (1 h / 3 h) sont calés sur la cadence Actions réelle, voir la dette dédiée | Traité |
 | Regroupement encore lent | Chiffré le 9 août : **11,2 h de CPU saturé sans terminer un seul regroupement complet des quatorze saisons** (337 757 détections, recherche de candidats en mémoire). Les passes incrémentales de production restent rapides (orphelines seules), mais tout recalcul complet à l'échelle est impraticable — la structure de voisinage se paie par détection × événements. À traiter avant la montée en charge (§6.3) | J6 |
 | Coût d'un jeu de calibration | Borné par le sous-corpus (16 544 détections) : 102 à 161 s par jeu (mesure du 6 août, `data/calibration/axes-sous-corpus.csv`). La calibration est close ; le banc reste prêt pour une v2 des règles | Traité |
