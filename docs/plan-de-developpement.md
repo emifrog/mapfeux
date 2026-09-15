@@ -8,9 +8,12 @@ d'œil air et radar, trois retouches du registre, la carte nationale à deux
 échelles, l'état « import manuel », la page commune, une mesure de cadence
 rejouable — et tranché le fait le plus lourd, trouvé en chemin : **61 % des
 événements regroupés depuis août étaient hors de France** (ADR-027, masqués
-en base). Restent deux gestes à l'auteur : la bascule du déclencheur sur le
-VPS — le poste n'a tourné qu'un tiers du temps, mesuré — et la validation
-du titre de l'accueil. Le fil de la journée suit, du matin au soir.
+en base). Le soir, **le poste ingère sous `mapfeux_ingest`** — et la
+bascule a trouvé, avant de casser, un déclencheur du jour qui aurait fait
+échouer chaque écriture sous ce rôle (50ᵉ migration). Restent deux gestes
+à l'auteur : la bascule du déclencheur sur le VPS — le poste n'a tourné
+qu'un tiers du temps, mesuré — et la validation du titre de l'accueil. Le
+fil de la journée suit, du matin au soir.
 
 **15 septembre 2026, matin** — **la fiche événement,
 regardée avec le même œil que la carte**. Mesurée sur un événement du jour
@@ -166,7 +169,8 @@ nationale, et depuis ce jour **seuls les événements de France sont publiés**
 72 départements, lus par la carte nationale à deux échelles, le catalogue,
 les pages communes et l'accueil, qui disent les mêmes nombres. Neuf sources
 au registre, **9/9 en service** — sept lues par le planificateur Windows aux
-cadences déclarées quand le poste tourne, deux à la main (IGN, EFFIS). La
+cadences déclarées quand le poste tourne, sous le rôle d'ingestion
+`mapfeux_ingest` depuis le 15 au soir, deux à la main (IGN, EFFIS). La
 fiche événement, la carte, l'accueil et l'état des données sont au niveau
 où on les montre ; le déclencheur, lui, n'a tourné qu'un tiers du temps
 depuis sa bascule sur le poste, et attend le VPS (§2). Les paragraphes
@@ -256,7 +260,7 @@ build — vertes.
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
 | Worker | `pytest` | ✅ 459 tests |
-| Migrations | 50 migrations sur base vierge, en CI | ✅ CI verte sur les pushes `19a2099`, `881195f` et `dec7a93` du 15 septembre — 49 rejouées sur base vierge, dont un `drop function` puis `create` et un déclencheur reposé ; la 50ᵉ (`point_in_territory_definer`) appliquée en production, à confirmer en CI sur le push suivant. Les 46ᵉ à 49ᵉ (`department_aggregates_named`, `department_aggregates_in_france`, `source_status_manual`, `events_hors_perimetre`) appliquées en production le même jour, la 46ᵉ et la 49ᵉ rejouées sans effet, la 47ᵉ mesurée sous le rôle `anon`. CI verte sur le push `98bb101`, les 45 premières rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
+| Migrations | 50 migrations sur base vierge, en CI | ✅ CI verte sur les pushes `19a2099`, `881195f`, `dec7a93` et `687c284` du 15 septembre — les 50 rejouées sur base vierge, dont un `drop function` puis `create` et un déclencheur reposé ; la 50ᵉ (`point_in_territory_definer`) appliquée en production. Le secret `INGESTION_DATABASE_URL`, réaligné le soir en forme pooler, prouvé par un `vigilance` déclenché à la main : passe écrite en base depuis un runner GitHub sous `mapfeux_ingest`. Les 46ᵉ à 49ᵉ (`department_aggregates_named`, `department_aggregates_in_france`, `source_status_manual`, `events_hors_perimetre`) appliquées en production le même jour, la 46ᵉ et la 49ᵉ rejouées sans effet, la 47ᵉ mesurée sous le rôle `anon`. CI verte sur le push `98bb101`, les 45 premières rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -280,9 +284,10 @@ tant que la bascule n'est pas faite ; c'est le seul point qui ne tient
 qu'à vous, avec la validation du titre de l'accueil. Le kit VPS
 (`ops/vps/`, Hostinger KVM 1, Ubuntu 24.04) est écrit et vérifié ; ce
 qu'il reste ne peut pas être fait d'ici : provisionner, remplir `.env`
-avec la chaîne `mapfeux_ingest`, lancer `install.sh` deux fois,
+avec la chaîne `mapfeux_ingest` que le poste emploie depuis le 15 au soir
+— la forme pooler, celle du secret CI —, lancer `install.sh` deux fois,
 **désactiver** les tâches Windows, constater `environment: production`
-dans `ingest.import_runs`. Le runbook est `ops/vps/README.md`. Ensuite :
+dans les journaux des tâches. Le runbook est `ops/vps/README.md`. Ensuite :
 sept jours de cadence mesurée, le critère des trente minutes de J4 sur la
 première publication réelle, et J5 — administration, supervision, mode
 dégradé.
@@ -2193,7 +2198,7 @@ trimestrielle reste sur Actions.
   retour arrière. Vérifié ici : syntaxe, sept paires d'unités aux
   expressions attendues, scripts marqués exécutables dans git
 - ⬜ **Basculer** — provisionner, `.env`, installer, désactiver Windows,
-  constater `environment: production` en base (geste de l'auteur)
+  constater `environment: production` dans les journaux (geste de l'auteur)
 - ⬜ **Remesurer la cadence sur sept jours**, comme celle qui a condamné
   Actions — sur le VPS cette fois
 
