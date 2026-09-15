@@ -2238,6 +2238,39 @@ le dépôt pouvait corriger en une soirée.
   en diffère légèrement (GDAL 3.12.3, rasterio 1.5.0) ; à recréer depuis le
   verrou à un moment où les tâches ne tournent pas (§15).
 
+#### L'état à un instant se calcule en base — 15 septembre 2026, soir
+
+Constat 3 de l'audit, latent mais réel : la route `/state?at=` et la
+relecture lisaient les 2 000 observations les plus récentes de toute la
+vie de l'événement, puis filtraient `at` en mémoire. Avec 2 001
+observations, l'état à l'instant de la première rendait zéro observation
+et `effectiveAt` nul ; les comptes et les maxima étaient sous-estimés.
+Aucun événement ne dépasse 2 000 aujourd'hui — 1 033 au plus, masqué —,
+mais un plafond qui tronque l'histoire en silence n'est pas un plafond.
+
+La 51ᵉ migration déplace la question en base, là où le plafond ne peut
+pas mordre sur ce qu'il ne voit pas :
+
+- `api.fire_event_detections` prend un `until_at` : les observations
+  servies sont celles **à l'instant demandé**, les plus récentes d'abord,
+  et le plafond de 2 000 porte sur cet ensemble. L'ancienne signature est
+  supprimée — deux surcharges aux mêmes paramètres nommés seraient
+  ambiguës pour PostgREST, la leçon du 9 août.
+- `api.fire_event_state` calcule compte, dernière observation effective,
+  capteurs et FRP maximale **sans plafond**. C'est la source des chiffres.
+- `api.fire_event_observation_times` donne les instants d'acquisition
+  distincts, les pas de la relecture, sans plafond : 57 lignes pour
+  Pontevès là où les observations sont 570.
+
+La route `/state` annonce `observationsTruncated` et `observationLimit`
+quand la liste est plus courte que le compte ; la relecture dit « partielle,
+sur N ; les chiffres ci-dessous sont complets » et tire ses instants de la
+base. Vérifié en production sur Pontevès sous `anon` : 12 observations à
+la première heure, 570 à la dernière. Sept tests de plus — la couche de
+données passe `until_at`, l'état se lit en nombres, la route prend ses
+chiffres de la base quel que soit le contenu de la liste, et une liste
+courte est annoncée.
+
 #### L'import manuel est un état, et la commune lit ses événements — 15 septembre 2026, midi
 
 - ✅ **`manual`, un état de source qui manquait** (48ᵉ migration,
@@ -2394,7 +2427,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | Une source peut dater sa donnée en avance | `massifs` enregistrait `source_data_at` au **jour décrit** — le niveau du lendemain paraît la veille au soir — et non à l'instant de lecture. La fraîcheur en tirait un âge négatif, ramené à zéro puis formaté en « moins d'une minute » : le bandeau de toutes les pages a annoncé « maj il y a moins d'une minute » en permanence dès la mise en service (11 septembre). Connecteur corrigé, et deux garde-fous posés dans le domaine — `mostRecentPast` écarte du concours ce qui est horodaté en avance, `formatDataRecency` dit « dans 4 h 28 min » plutôt que de faire passer une avance pour une fraîcheur. **À vérifier à chaque nouveau connecteur** : `source_data_at` est l'instant de production, jamais l'échéance décrite | Continu |
 | Une panne de lecture devenait une absence d'événements | Constat 1 de l'audit externe du 15 septembre, reproduit sur les routes réelles : catalogue 200 vide mis en cache une minute, fiche 404, accueil « 0 événement ». **Traité le soir même** (§14) : `ReadResult` sur toutes les lectures d'événements, 503 `no-store` sur l'API, bandeaux sur les pages, panneau carte honnête aux deux échelles, 16 tests. Reste le même patron à étendre aux communes, territoires et informations officielles — `/communes/[insee]` répond encore 404 quand la commune elle-même est illisible | Prochaine session |
 | Audit externe du 15 septembre — ce qui reste | Cinq constats vérifiés contre le dépôt et la production : **1** traité (ci-dessus) ; **2** cadence liée au poste — connu, §2, l'audit ajoute une **alerte extérieure d'absence de passes**, à poser ; **3** historique tronqué au-delà de 2 000 observations — ci-dessous ; **4** MFA déclarée, pas imposée — déjà au plan ; **5** frontières peu testées — Playwright en J6, l'audit ajoute une **passe de regroupement exécutée sous `mapfeux_ingest` dans la CI**, le test qui aurait trouvé le cas de la 50ᵉ migration. Dette documentaire : README et verrou conda **traités le soir même** (lignes dédiées) ; restent les assertions TypeScript (ligne existante) et les gros fichiers — fiche 988 lignes, carte 950, accès aux événements 824, à découper au fil de l'eau | J5 (alerte), J6 (CI sous rôle) |
-| Historique tronqué au-delà de 2 000 observations | La route `state` lit les 2 000 observations les plus récentes puis filtre `at` en mémoire ; la fiche a le même plafond. Avec 2 001 observations, l'état à l'instant de la première rend zéro observation. **Latent, pas actuel** — mesuré le 15 septembre : 1 033 observations au plus sur un événement (masqué, hors périmètre), 570 sur le plus gros événement public, aucun au-delà de 2 000. Correction : passer `at` à la fonction SQL et calculer les agrégats en base, annoncer la troncature | Avant J6 |
+| Historique tronqué au-delà de 2 000 observations | La route `state` et la relecture lisaient les 2 000 observations les plus récentes puis filtraient `at` en mémoire. Avec 2 001 observations, l'état à l'instant de la première rendait zéro observation. **Latent, pas actuel** — mesuré le 15 septembre : 1 033 observations au plus sur un événement (masqué, hors périmètre), 570 sur le plus gros événement public. **Traité le soir même, 51ᵉ migration** : `until_at` sur `api.fire_event_detections` (plafond sur l'instant, plus sur la vie de l'événement), `api.fire_event_state` pour les chiffres sans plafond, `api.fire_event_observation_times` pour les pas de la relecture ; la route annonce `observationsTruncated` et `observationLimit`, la relecture dit « partielle, sur N ». Vérifié en production sur Pontevès : 12 observations à la première heure, 570 à la dernière, 57 instants. Reste le tableau de la fiche, plafonné à 500 et annoncé depuis le 25 août, et son graphique de puissance par passage, qui ne voit que ces 500 — à alimenter par les instants d'observation | Traité |
 | ADR-027 dit que le regroupement n'alimente pas les masqués — le code les alimente | L'ADR et le commentaire de la 49ᵉ migration affirmaient qu'un événement masqué ne reçoit plus de détections ; `_existing_events` (`clustering.py`) n'exclut que `archived`. Vérifié en production : 53 rattachements à 14 événements déjà masqués depuis la migration. **Le code a raison** — un site étranger reste un seul événement au lieu d'en engendrer un par passe, et c'est ce qui permet au déclencheur de rendre la main si le point représentatif revient dans le périmètre. **Corrigé le soir même** : révision de l'ADR, commentaire de la 49ᵉ migration (SQL inchangé), docstring de `_existing_events`, et un test qui fige la clause — `TestEvenementsRattachables`, 460ᵉ test du worker | Traité |
 | README périmé | Annonçait encore la fiche événement et l'ingestion FIRMS « à construire », et une planification GitHub Actions retirée depuis le 13 septembre. **Corrigé le soir du 15** : état d'avancement, section « Ingestion planifiée » (planificateur, workflows sans cron, mêmes trois étapes pour le `.env` et le secret CI), note sur le seul cron restant (réconciliation) | Traité |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |

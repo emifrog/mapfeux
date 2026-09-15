@@ -22,8 +22,10 @@ const {
   fetchDepartmentAggregates,
   fetchEvent,
   fetchEventDetections,
+  fetchEventObservationTimes,
   fetchEventsCatalog,
   fetchEventsNearMunicipality,
+  fetchEventState,
   isEventOutsideTerritory,
   lookupEvent,
 } = await import('./events');
@@ -88,6 +90,78 @@ describe('la panne se dit, le vide se lit', () => {
 
     rpc.mockResolvedValueOnce({ data: true, error: null });
     expect(await isEventOutsideTerritory('MPF-AAAAAAAA')).toEqual({ readable: true, value: true });
+  });
+});
+
+describe('l’état à un instant se lit en base, sans plafond', () => {
+  const AT = new Date('2026-08-01T01:00:00Z');
+
+  it('les observations sont demandées à l’instant, ou sans borne', async () => {
+    rpc.mockResolvedValue(NOTHING);
+    await fetchEventDetections('MPF-AAAAAAAA', 2000, { until: AT });
+    expect(rpc).toHaveBeenLastCalledWith('fire_event_detections', {
+      event_public_id: 'MPF-AAAAAAAA',
+      max_results: 2000,
+      until_at: AT.toISOString(),
+    });
+    await fetchEventDetections('MPF-AAAAAAAA');
+    expect(rpc).toHaveBeenLastCalledWith('fire_event_detections', {
+      event_public_id: 'MPF-AAAAAAAA',
+      max_results: 500,
+      until_at: null,
+    });
+  });
+
+  it('état : la ligne d’agrégat se lit en nombres, les chaînes PostgREST comprises', async () => {
+    rpc.mockResolvedValueOnce({
+      data: [
+        {
+          observation_count: '2001',
+          effective_at: '2026-08-01T01:00:00+00:00',
+          sensors: ['MODIS', 'VIIRS'],
+          frp_max_mw: '2197.4',
+        },
+      ],
+      error: null,
+    });
+    expect(await fetchEventState('MPF-AAAAAAAA', AT)).toEqual({
+      readable: true,
+      value: {
+        observationCount: 2001,
+        effectiveAt: new Date('2026-08-01T01:00:00Z'),
+        sensors: ['MODIS', 'VIIRS'],
+        frpMaxMw: 2197.4,
+      },
+    });
+    expect(rpc).toHaveBeenLastCalledWith('fire_event_state', {
+      event_public_id: 'MPF-AAAAAAAA',
+      until_at: AT.toISOString(),
+    });
+  });
+
+  it('état : rien d’observé à cet instant est un zéro lu, une erreur ne l’est pas', async () => {
+    rpc.mockResolvedValueOnce({
+      data: [{ observation_count: 0, effective_at: null, sensors: [], frp_max_mw: null }],
+      error: null,
+    });
+    expect(await fetchEventState('MPF-AAAAAAAA', AT)).toEqual({
+      readable: true,
+      value: { observationCount: 0, effectiveAt: null, sensors: [], frpMaxMw: null },
+    });
+
+    rpc.mockResolvedValueOnce(FAILURE);
+    expect(await fetchEventState('MPF-AAAAAAAA', AT)).toEqual({ readable: false });
+  });
+
+  it('instants d’observation : lus en dates et en nombres', async () => {
+    rpc.mockResolvedValueOnce({
+      data: [{ acquired_at: '2026-08-01T01:00:00+00:00', observation_count: '3' }],
+      error: null,
+    });
+    expect(await fetchEventObservationTimes('MPF-AAAAAAAA')).toEqual({
+      readable: true,
+      value: [{ at: new Date('2026-08-01T01:00:00Z'), observationCount: 3 }],
+    });
   });
 });
 

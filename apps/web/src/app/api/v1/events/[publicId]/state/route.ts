@@ -2,7 +2,12 @@ import { publicEventIdSchema } from '@mapfeux/contracts';
 import type { NextRequest } from 'next/server';
 
 import { jsonError, jsonSuccess, jsonUnavailable, newRequestId } from '@/lib/api/response';
-import { fetchEvent, fetchEventDetections, fetchEventTimeline } from '@/lib/data/events';
+import {
+  fetchEvent,
+  fetchEventDetections,
+  fetchEventState,
+  fetchEventTimeline,
+} from '@/lib/data/events';
 
 /**
  * GET /api/v1/events/{publicId}/state?at= — état reconstitué. Cahier §15.5.
@@ -12,7 +17,18 @@ import { fetchEvent, fetchEventDetections, fetchEventTimeline } from '@/lib/data
  * demandé — d'`effectiveAt` — la dernière observation réellement disponible à
  * cet instant : entre les deux, rien n'a été observé, et la réponse le dit
  * plutôt que d'interpoler (FR-084).
+ *
+ * Les chiffres — compte, capteurs, FRP maximale, `effectiveAt` — se calculent
+ * **en base, sans plafond** ; la liste des observations est plafonnée à
+ * `OBSERVATION_LIMIT` à l'instant demandé, et la réponse dit quand elle est
+ * partielle. Jusqu'au 15 septembre 2026, la route lisait les 2 000
+ * observations les plus récentes de toute la vie de l'événement puis filtrait
+ * `at` en mémoire : avec 2 001 observations, l'état à la première rendait
+ * zéro observation (constat 3 de l'audit externe).
  */
+
+/** Le plafond de la fonction SQL, nommé pour être annoncé. */
+const OBSERVATION_LIMIT = 2000;
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ publicId: string }> },
@@ -38,31 +54,32 @@ export async function GET(
     return jsonError('VALIDATION_ERROR', 'Paramètre at invalide, attendu ISO 8601.', requestId);
   }
 
-  const [detectionsRead, timelineRead] = await Promise.all([
-    fetchEventDetections(parsed.data, 2000),
+  const [stateRead, detectionsRead, timelineRead] = await Promise.all([
+    fetchEventState(parsed.data, requestedAt),
+    fetchEventDetections(parsed.data, OBSERVATION_LIMIT, { until: requestedAt }),
     fetchEventTimeline(parsed.data),
   ]);
   // Un état reconstitué sur des observations non lues serait un état faux,
   // mis en cache cinq minutes : mieux vaut ne pas répondre.
-  if (!detectionsRead.readable || !timelineRead.readable) return jsonUnavailable(requestId);
-  const detections = detectionsRead.value;
+  if (!stateRead.readable || !detectionsRead.readable || !timelineRead.readable) {
+    return jsonUnavailable(requestId);
+  }
+  const state = stateRead.value;
+  const visible = detectionsRead.value;
   const timeline = timelineRead.value;
-
-  const visible = detections.filter((d) => d.acquiredAt.getTime() <= requestedAt.getTime());
-  const effectiveAt =
-    visible.length > 0 ? new Date(Math.max(...visible.map((d) => d.acquiredAt.getTime()))) : null;
 
   return jsonSuccess(
     {
       id: event.publicId,
       requestedAt: requestedAt.toISOString(),
-      effectiveAt: effectiveAt?.toISOString() ?? null,
-      observationCount: visible.length,
-      sensors: [...new Set(visible.map((d) => d.sensor))].sort(),
-      frpMaxMw: visible.reduce<number | null>(
-        (max, d) => (d.frpMw === null ? max : Math.max(max ?? 0, d.frpMw)),
-        null,
-      ),
+      effectiveAt: state.effectiveAt?.toISOString() ?? null,
+      observationCount: state.observationCount,
+      sensors: state.sensors,
+      frpMaxMw: state.frpMaxMw,
+      // La liste est plafonnée, les chiffres ne le sont pas : quand elle est
+      // partielle, la réponse le dit, et dit à combien elle s'arrête.
+      observationLimit: OBSERVATION_LIMIT,
+      observationsTruncated: state.observationCount > visible.length,
       observations: visible.map((d) => ({
         acquiredAt: d.acquiredAt.toISOString(),
         location: {

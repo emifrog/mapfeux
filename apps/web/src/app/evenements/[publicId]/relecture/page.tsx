@@ -8,7 +8,9 @@ import { EventUnavailable } from '@/components/event-unavailable';
 import { MapView } from '@/components/map/map-view';
 import {
   fetchEventDetections,
+  fetchEventObservationTimes,
   fetchEventPerimeters,
+  fetchEventState,
   fetchEventTimeline,
   lookupEvent,
 } from '@/lib/data/events';
@@ -76,50 +78,58 @@ export default async function ReplayPage({
   if (lookup.value.kind === 'missing') notFound();
   const { event } = lookup.value;
 
-  // Plafond de l'API : 2 000 observations. Atteint, il est annoncé — une
-  // relecture tronquée en silence raconterait un feu plus petit que le vrai.
+  // L'instant demandé se résout avant toute lecture : observations et état
+  // se lisent **à cet instant**, en base — et non sur les 2 000 plus
+  // récentes de toute la vie de l'événement filtrées en mémoire, où la
+  // première heure d'un événement de 2 001 observations n'existait plus
+  // (constat 3 de l'audit du 15 septembre 2026).
+  const rawAt = typeof query['at'] === 'string' ? query['at'] : undefined;
+  const parsedAt = rawAt === undefined ? undefined : new Date(rawAt);
+  const at =
+    parsedAt === undefined || Number.isNaN(parsedAt.getTime()) ? event.lastDetectedAt : parsedAt;
+
+  // Plafond de l'API : 2 000 observations **à l'instant demandé**. Atteint, il
+  // est annoncé — une relecture tronquée en silence raconterait un feu plus
+  // petit que le vrai. Les chiffres, eux, viennent de la base sans plafond.
   const DETECTION_CEILING = 2000;
-  const [detectionsRead, timelineRead, perimetersRead] = await Promise.all([
-    fetchEventDetections(publicId, DETECTION_CEILING),
+  const [stateRead, detectionsRead, timesRead, timelineRead, perimetersRead] = await Promise.all([
+    fetchEventState(publicId, at),
+    fetchEventDetections(publicId, DETECTION_CEILING, { until: at }),
+    fetchEventObservationTimes(publicId),
     fetchEventTimeline(publicId),
     fetchEventPerimeters(publicId),
   ]);
   // Une relecture sur des données partiellement lues rejouerait un feu qui
   // n'a pas existé : tout ou rien.
-  if (!detectionsRead.readable || !timelineRead.readable || !perimetersRead.readable) {
+  if (
+    !stateRead.readable ||
+    !detectionsRead.readable ||
+    !timesRead.readable ||
+    !timelineRead.readable ||
+    !perimetersRead.readable
+  ) {
     return <EventUnavailable publicId={publicId} what="relecture" />;
   }
-  const detections = detectionsRead.value;
+  const state = stateRead.value;
+  const visible = detectionsRead.value;
   const timeline = timelineRead.value;
   const perimeters = perimetersRead.value;
-  const truncated = detections.length === DETECTION_CEILING;
+  const truncated = state.observationCount > visible.length;
 
   // Les instants de la relecture sont les passages satellitaires — chaque
-  // heure d'acquisition distincte est un état consultable (FR-080) — plus
-  // les publications de périmètres : une version connue est un instant de
-  // relecture à part entière, sans quoi les cartographies publiées après la
-  // dernière observation n'apparaîtraient jamais (FR-094).
-  const passTimes = [...new Set(detections.map((d) => d.acquiredAt.getTime()))];
+  // heure d'acquisition distincte est un état consultable (FR-080), lue en
+  // base sans plafond — plus les publications de périmètres : une version
+  // connue est un instant de relecture à part entière, sans quoi les
+  // cartographies publiées après la dernière observation n'apparaîtraient
+  // jamais (FR-094).
+  const passTimes = timesRead.value.map((pass) => pass.at.getTime());
   const perimeterTimes = [...new Set(perimeters.map((p) => p.knownAt.getTime()))];
   const instants = [
     ...passTimes.map((t) => ({ at: new Date(t), kind: 'pass' as const })),
     ...perimeterTimes.map((t) => ({ at: new Date(t), kind: 'perimeter' as const })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
 
-  const rawAt = typeof query['at'] === 'string' ? query['at'] : undefined;
-  const parsedAt = rawAt === undefined ? undefined : new Date(rawAt);
-  const at =
-    parsedAt === undefined || Number.isNaN(parsedAt.getTime()) ? event.lastDetectedAt : parsedAt;
-
-  const visible = detections.filter((d) => d.acquiredAt.getTime() <= at.getTime());
-  const effectiveAt =
-    visible.length > 0 ? new Date(Math.max(...visible.map((d) => d.acquiredAt.getTime()))) : null;
-
-  const sensors = [...new Set(visible.map((d) => d.sensor))].sort();
-  const frpMax = visible.reduce<number | null>(
-    (max, d) => (d.frpMw === null ? max : Math.max(max ?? 0, d.frpMw)),
-    null,
-  );
+  const { effectiveAt, sensors, frpMaxMw: frpMax } = state;
 
   const visibleTimeline = timeline.filter((entry) => entry.occurredAt.getTime() <= at.getTime());
 
@@ -177,8 +187,10 @@ export default async function ReplayPage({
           <>
             {' '}
             <strong>
-              Relecture partielle : seules les 2 000 observations les plus récentes sont
-              reconstituées.
+              Relecture partielle : seules les {DETECTION_CEILING.toLocaleString('fr-FR')}{' '}
+              observations les plus récentes à cet instant sont dessinées, sur{' '}
+              {state.observationCount.toLocaleString('fr-FR')} ; les chiffres ci-dessous sont
+              complets.
             </strong>
           </>
         )}
@@ -196,7 +208,7 @@ export default async function ReplayPage({
           <dl className="text-small mt-3 grid max-w-[58ch] grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
             <div>
               <dt className="text-(--text-3)">Observations</dt>
-              <dd className="mono text-lg">{visible.length}</dd>
+              <dd className="mono text-lg">{state.observationCount.toLocaleString('fr-FR')}</dd>
             </div>
             <div>
               <dt className="text-(--text-3)">Capteurs</dt>

@@ -784,14 +784,25 @@ export async function fetchEventPerimeters(
   );
 }
 
+/**
+ * Les observations membres, les plus récentes d'abord, plafonnées à `limit`
+ * (2 000 au plus, la borne de la fonction SQL). Avec `until`, ce sont les
+ * observations **à cet instant** — le plafond mord sur elles, pas sur toute
+ * la vie de l'événement : lire les 2 000 plus récentes puis filtrer en
+ * mémoire perdait la première heure d'un événement de 2 001 observations
+ * (constat 3 de l'audit du 15 septembre 2026). Les comptes d'un instant se
+ * lisent dans `fetchEventState`, sans plafond.
+ */
 export async function fetchEventDetections(
   publicId: string,
   limit = 500,
+  options: { until?: Date } = {},
 ): Promise<ReadResult<EventDetection[]>> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase.rpc('fire_event_detections', {
     event_public_id: publicId,
     max_results: limit,
+    until_at: options.until?.toISOString() ?? null,
   });
 
   if (error !== null) {
@@ -825,6 +836,97 @@ export async function fetchEventDetections(
       frpMw: row.frp_mw === null ? null : Number(row.frp_mw),
       dayNight: row.day_night,
       isKnownThermalSource: row.is_known_thermal_source,
+    })),
+  );
+}
+
+/** L'état d'un événement à un instant, calculé en base sur toutes ses observations. */
+export interface EventStateSummary {
+  observationCount: number;
+  /** La dernière observation réellement disponible à cet instant ; nulle si aucune. */
+  effectiveAt: Date | null;
+  sensors: string[];
+  frpMaxMw: number | null;
+}
+
+/**
+ * Compte, dernière observation effective, capteurs et FRP maximale à un
+ * instant — **sans plafond** (FR-084, FR-086). C'est la source des chiffres
+ * de l'état reconstitué et de la relecture ; la liste des observations, elle,
+ * est plafonnée et l'annonce.
+ */
+export async function fetchEventState(
+  publicId: string,
+  until: Date,
+): Promise<ReadResult<EventStateSummary>> {
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase.rpc('fire_event_state', {
+    event_public_id: publicId,
+    until_at: until.toISOString(),
+  });
+
+  if (error !== null) {
+    console.error('[events] état à un instant illisible', {
+      publicId,
+      code: error.code,
+      message: error.message,
+    });
+    return unreadable();
+  }
+
+  type Row = {
+    observation_count: number | string;
+    effective_at: string | null;
+    sensors: string[] | null;
+    frp_max_mw: number | string | null;
+  };
+  const row = ((data ?? []) as Row[])[0];
+  // Une fonction d'agrégat rend toujours une ligne ; l'absence en serait une
+  // de PostgREST, et se lit comme « rien d'observé ».
+  if (row === undefined) {
+    return readable({ observationCount: 0, effectiveAt: null, sensors: [], frpMaxMw: null });
+  }
+  return readable({
+    observationCount: Number(row.observation_count),
+    effectiveAt: row.effective_at === null ? null : new Date(row.effective_at),
+    sensors: row.sensors ?? [],
+    frpMaxMw: row.frp_max_mw === null ? null : Number(row.frp_max_mw),
+  });
+}
+
+/** Un instant d'acquisition distinct et le nombre d'observations qu'il porte. */
+export interface ObservationTime {
+  at: Date;
+  observationCount: number;
+}
+
+/**
+ * Les instants d'acquisition d'un événement, du plus ancien au plus récent —
+ * les pas de la relecture (FR-080) —, sans plafond : quelques centaines au
+ * plus, là où les observations se comptent en milliers.
+ */
+export async function fetchEventObservationTimes(
+  publicId: string,
+): Promise<ReadResult<ObservationTime[]>> {
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase.rpc('fire_event_observation_times', {
+    event_public_id: publicId,
+  });
+
+  if (error !== null) {
+    console.error('[events] instants d’observation illisibles', {
+      publicId,
+      code: error.code,
+      message: error.message,
+    });
+    return unreadable();
+  }
+
+  type Row = { acquired_at: string; observation_count: number | string };
+  return readable(
+    ((data ?? []) as Row[]).map((row) => ({
+      at: new Date(row.acquired_at),
+      observationCount: Number(row.observation_count),
     })),
   );
 }
