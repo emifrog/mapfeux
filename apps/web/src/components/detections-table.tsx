@@ -18,6 +18,10 @@ import type { EventDetection } from '@/lib/data/events';
  * Rien n'est masqué au sens du cahier : tout est dans la page, rendu par
  * le serveur, et s'ouvre sans JavaScript. Le pli est un repli de lecture,
  * pas une omission — et il annonce son compte.
+ *
+ * À l'impression, le pli s'ouvre (FR-068) : par la feuille de style
+ * (`::details-content`) là où le navigateur le permet, par `PrintUnfold`
+ * partout où JavaScript tourne. La feuille imprimée porte tout le tableau.
  */
 
 export const VISIBLE_DETECTIONS = 12;

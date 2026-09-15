@@ -1879,9 +1879,20 @@ parce qu'elle porte une carte.
   au survol dit « cliquer pour ouvrir la fiche MPF-… ». Vérifié sur les
   deux pages ; sept tests de plus (`hover-card`, `event-layer`)
 
-Reste, vu en passant : l'impression ne porte que les douze premières
-lignes du tableau et l'annonce du pli, un `<details>` fermé ne s'ouvrant
-pas à l'impression.
+- ✅ **Le pli s'ouvre à l'impression** (même jour, suite). Imprimé fermé,
+  le tableau ne portait que ses douze lignes et l'annonce du pli — la
+  feuille disait « les 45 observations plus anciennes » et rien dessous
+  (FR-068). Deux voies, sans toucher au balisage : la feuille de style
+  rend visible le contenu d'un `<details>` fermé à l'impression par
+  `::details-content` — le navigateur le cache par `content-visibility:
+  hidden`, il suffit de l'inverser sous `@media print` — et, là où
+  JavaScript tourne, `PrintUnfold` pose `open` à `beforeprint` et le
+  retire à `afterprint`, sur les seuls plis qu'il a ouverts lui-même.
+  Vérifié : le pseudo-élément est connu du navigateur du panneau, la
+  règle est dans la feuille servie, et l'événement `beforeprint` rend les
+  45 lignes repliées visibles, refermées à `afterprint`. Sans JavaScript
+  ni `::details-content`, la feuille reste partielle et le dit : l'annonce
+  du pli porte son compte
 
 #### Une affirmation devenue fausse, trouvée en refondant
 

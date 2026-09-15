@@ -207,6 +207,26 @@
   :root {
     --bg: #ffffff;
   }
+
+  /*
+   * Un pli replié s'ouvre sur papier. Le tableau des observations garde
+   * ses douze lignes les plus récentes à l'écran et replie le reste dans
+   * un `<details>` ; imprimé fermé, il ne portait que l'annonce du pli —
+   * constaté le 15 septembre 2026. Le navigateur cache le contenu d'un
+   * `<details>` fermé par `content-visibility: hidden` sur
+   * `::details-content` : le rendre visible à l'impression suffit, sans
+   * toucher à l'attribut `open`. Les navigateurs qui ne connaissent pas
+   * ce pseudo-élément passent par `PrintUnfold`, qui ouvre les plis à
+   * `beforeprint` et les referme après.
+   */
+  details:not([open])::details-content {
+    content-visibility: visible;
+    display: block;
+  }
+
+  summary {
+    list-style: none;
+  }
 }
 
 @page {

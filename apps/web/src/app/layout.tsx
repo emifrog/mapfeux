@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, Instrument_Sans } from 'next/font/google';
 import Link from 'next/link';
 
 import { Logo } from '@/components/logo';
+import { PrintUnfold } from '@/components/print-unfold';
 import { SourceHealth } from '@/components/source-health';
 import { THEME_SCRIPT, ThemeToggle } from '@/components/theme-toggle';
 
@@ -84,6 +85,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
+        <PrintUnfold />
         <a
           href="#contenu"
           className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2"
