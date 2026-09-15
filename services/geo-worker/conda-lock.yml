@@ -13,8 +13,8 @@
 version: 1
 metadata:
   content_hash:
-    linux-64: 15230c8d0f60b1d27a25c97826cf7df2ae1047aa6e4658f42ce7b855269325e8
-    win-64: 48b959ab0376891eec5eea2bb279278400dea4d3f4cb301c4c48a931099e4862
+    linux-64: 0e1646ea06ff997a74fc2784a46605765d95658ba07d72f93e1de01df80d7796
+    win-64: 196ae71bde83ca2165bfdcaf7cf31726403d043dbd09dea441c7ac454b5d4aa8
   channels:
   - url: conda-forge
     used_env_vars: []
@@ -2002,17 +2002,17 @@ package:
     click: '>=8.0,<9.dev0'
     click-plugins: '>=1.0'
     cligj: '>=0.5'
-    libgcc: '>=15'
-    libgdal-core: '>=3.13.3,<3.14.0a0'
-    libstdcxx: '>=15'
+    libgcc: '>=14'
+    libgdal-core: '>=3.12.1,<3.13.0a0'
+    libstdcxx: '>=14'
     pyparsing: ''
-    python: ''
+    python: '>=3.12,<3.13.0a0'
     python_abi: 3.12.*
     shapely: ''
-  url: https://conda.anaconda.org/conda-forge/linux-64/fiona-1.10.1-py312ha17e7ad_7.conda
+  url: https://conda.anaconda.org/conda-forge/linux-64/fiona-1.10.1-py312h053e1f3_6.conda
   hash:
-    md5: 27561c3dba1d77f3d5852318965df012
-    sha256: 4a5696a5fb891fe9f822905c47d0b092710213cf38a0bd79b477217f654c2d49
+    md5: a68cae58a81a937a6edcb3e4e6f0bbe7
+    sha256: 801274da37e28d0cff6d091b679d34b10df718420a97d8fe577a968805f396d3
   category: main
   optional: false
 - name: fiona
@@ -2024,18 +2024,18 @@ package:
     click: '>=8.0,<9.dev0'
     click-plugins: '>=1.0'
     cligj: '>=0.5'
-    libgdal-core: '>=3.13.3,<3.14.0a0'
+    libgdal-core: '>=3.12.1,<3.13.0a0'
     pyparsing: ''
-    python: ''
+    python: '>=3.12,<3.13.0a0'
     python_abi: 3.12.*
     shapely: ''
     ucrt: '>=10.0.20348.0'
     vc: '>=14.3,<15'
     vc14_runtime: '>=14.44.35208'
-  url: https://conda.anaconda.org/conda-forge/win-64/fiona-1.10.1-py312h1a518b5_7.conda
+  url: https://conda.anaconda.org/conda-forge/win-64/fiona-1.10.1-py312h3f2e00f_6.conda
   hash:
-    md5: defdab471c214f16aa4845fa1dd2ff59
-    sha256: 8607a8a920bf3fbfe8e4a597c9315d635e8b8007c794c8d587282a500eb5686c
+    md5: cc679ec1a1dd027e5b0ae5721d9df2b2
+    sha256: 075511c84efaea59dddc8380a10a96d0813f14fa41878b171dd86fe514488c95
   category: main
   optional: false
 - name: folium
@@ -2414,7 +2414,7 @@ package:
   category: main
   optional: false
 - name: gdal
-  version: 3.13.3
+  version: 3.12.4
   manager: conda
   platform: linux-64
   dependencies:
@@ -2429,7 +2429,7 @@ package:
     libdeflate: '>=1.25,<1.26.0a0'
     libexpat: '>=2.8.1,<3.0a0'
     libgcc: '>=15'
-    libgdal-core: 3.13.3.*
+    libgdal-core: 3.12.4.*
     libiconv: '>=1.18,<2.0a0'
     libjpeg-turbo: '>=3.2.0,<4.0a0'
     libjxl: '>=0.12.0,<0.13.0a0'
@@ -2441,26 +2441,26 @@ package:
     libstdcxx: '>=15'
     libwebp-base: '>=1.6.0,<2.0a0'
     libxml2: ''
-    libxml2-16: '>=2.15.3'
+    libxml2-16: '>=2.14.6'
     libzlib: '>=1.3.2,<2.0a0'
     lz4-c: '>=1.10.0,<1.11.0a0'
     muparser: '>=2.3.5,<2.4.0a0'
     numpy: '>=1.25,<3'
-    openssl: '>=3.5.8,<4.0a0'
+    openssl: '>=3.5.7,<4.0a0'
     pcre2: '>=10.47,<10.48.0a0'
     proj: '>=9.8.1,<9.9.0a0'
     python: ''
     python_abi: 3.12.*
     xerces-c: '>=3.3.0,<3.4.0a0'
     zstd: '>=1.5.7,<1.6.0a0'
-  url: https://conda.anaconda.org/conda-forge/linux-64/gdal-3.13.3-np2py312hde5bc3b_1.conda
+  url: https://conda.anaconda.org/conda-forge/linux-64/gdal-3.12.4-np2py312h1d9bf2b_5.conda
   hash:
-    md5: 8f43ef9291699cabeaed9369e87ed9b4
-    sha256: 6e2d64fdcc870a95bbad8b7e720c766637cd722fe352152bb3bbff7970959bca
+    md5: c5e934b4c801c78552b9fd465bf7f08b
+    sha256: 27212d7e7a23bc203efc35250f34e59f2c7db9f99afd01a76a8336d98cac4fd9
   category: main
   optional: false
 - name: gdal
-  version: 3.13.3
+  version: 3.12.4
   manager: conda
   platform: win-64
   dependencies:
@@ -2471,7 +2471,7 @@ package:
     libcurl: '>=8.21.0,<9.0a0'
     libdeflate: '>=1.25,<1.26.0a0'
     libexpat: '>=2.8.1,<3.0a0'
-    libgdal-core: 3.13.3.*
+    libgdal-core: 3.12.4.*
     libiconv: '>=1.18,<2.0a0'
     libjpeg-turbo: '>=3.2.0,<4.0a0'
     libjxl: '>=0.12.0,<0.13.0a0'
@@ -2482,12 +2482,12 @@ package:
     libsqlite: '>=3.53.4,<4.0a0'
     libwebp-base: '>=1.6.0,<2.0a0'
     libxml2: ''
-    libxml2-16: '>=2.15.3'
+    libxml2-16: '>=2.14.6'
     libzlib: '>=1.3.2,<2.0a0'
     lz4-c: '>=1.10.0,<1.11.0a0'
     muparser: '>=2.3.5,<2.4.0a0'
     numpy: '>=1.25,<3'
-    openssl: '>=3.5.8,<4.0a0'
+    openssl: '>=3.5.7,<4.0a0'
     pcre2: '>=10.47,<10.48.0a0'
     proj: '>=9.8.1,<9.9.0a0'
     python: ''
@@ -2497,10 +2497,10 @@ package:
     vc14_runtime: '>=14.44.35208'
     xerces-c: '>=3.3.0,<3.4.0a0'
     zstd: '>=1.5.7,<1.6.0a0'
-  url: https://conda.anaconda.org/conda-forge/win-64/gdal-3.13.3-np2py312h792ba28_1.conda
+  url: https://conda.anaconda.org/conda-forge/win-64/gdal-3.12.4-np2py312h54caec3_5.conda
   hash:
-    md5: 8dd0145c55236890fd4319f0308f6c19
-    sha256: 2cc334ed8cdd6a1d18d0ebe87c883ef973d0f1cc296388cca3c444937d7bbbf7
+    md5: 0b5f4553163967f2c7948416b0c7db23
+    sha256: 8d06d6a640d07d4c95fef082f132392ee8cdd89f9f59919c879f34b50667e25d
   category: main
   optional: false
 - name: geopandas
@@ -4071,7 +4071,7 @@ package:
   category: main
   optional: false
 - name: libgdal-core
-  version: 3.13.3
+  version: 3.12.4
   manager: conda
   platform: linux-64
   dependencies:
@@ -4097,23 +4097,23 @@ package:
     libstdcxx: '>=15'
     libwebp-base: '>=1.6.0,<2.0a0'
     libxml2: ''
-    libxml2-16: '>=2.15.3'
+    libxml2-16: '>=2.14.6'
     libzlib: '>=1.3.2,<2.0a0'
     lz4-c: '>=1.10.0,<1.11.0a0'
     muparser: '>=2.3.5,<2.4.0a0'
-    openssl: '>=3.5.8,<4.0a0'
+    openssl: '>=3.5.7,<4.0a0'
     pcre2: '>=10.47,<10.48.0a0'
     proj: '>=9.8.1,<9.9.0a0'
     xerces-c: '>=3.3.0,<3.4.0a0'
     zstd: '>=1.5.7,<1.6.0a0'
-  url: https://conda.anaconda.org/conda-forge/linux-64/libgdal-core-3.13.3-h31aba09_1.conda
+  url: https://conda.anaconda.org/conda-forge/linux-64/libgdal-core-3.12.4-h5fdb907_5.conda
   hash:
-    md5: 44c6780e3082468d8676aebdcd5068a6
-    sha256: b447ca08212fe296e1788bb4ba74336fddfb40abf037cd377fe28aea4a625277
+    md5: 13e691ba803adfed23773eb0a46e78fc
+    sha256: 386644b941e727549a88af3da791764478d6aecf42630012f6dcf0e8006fa93c
   category: main
   optional: false
 - name: libgdal-core
-  version: 3.13.3
+  version: 3.12.4
   manager: conda
   platform: win-64
   dependencies:
@@ -4134,11 +4134,11 @@ package:
     libsqlite: '>=3.53.4,<4.0a0'
     libwebp-base: '>=1.6.0,<2.0a0'
     libxml2: ''
-    libxml2-16: '>=2.15.3'
+    libxml2-16: '>=2.14.6'
     libzlib: '>=1.3.2,<2.0a0'
     lz4-c: '>=1.10.0,<1.11.0a0'
     muparser: '>=2.3.5,<2.4.0a0'
-    openssl: '>=3.5.8,<4.0a0'
+    openssl: '>=3.5.7,<4.0a0'
     pcre2: '>=10.47,<10.48.0a0'
     proj: '>=9.8.1,<9.9.0a0'
     ucrt: '>=10.0.20348.0'
@@ -4146,10 +4146,10 @@ package:
     vc14_runtime: '>=14.44.35208'
     xerces-c: '>=3.3.0,<3.4.0a0'
     zstd: '>=1.5.7,<1.6.0a0'
-  url: https://conda.anaconda.org/conda-forge/win-64/libgdal-core-3.13.3-hcd51406_1.conda
+  url: https://conda.anaconda.org/conda-forge/win-64/libgdal-core-3.12.4-hbfeefb7_5.conda
   hash:
-    md5: 0553b074c878e31b9090ec0542228ac1
-    sha256: 08a7f54d669392f34fd95ef53da1fd7babd10c7735bf8762992f98c0c9cdd74f
+    md5: 6f86ca570061dd7f251ab5554eb610a5
+    sha256: 9ab0d75d60952f422e59ead3b24d59871c8718b9179b0a708b86057d37d6a7ef
   category: main
   optional: false
 - name: libgfortran
@@ -7044,30 +7044,30 @@ package:
   category: main
   optional: false
 - name: pyogrio
-  version: 0.13.0
+  version: 0.12.1
   manager: conda
   platform: linux-64
   dependencies:
     __glibc: '>=2.17,<3.0.a0'
     libgcc: '>=14'
-    libgdal-core: '>=3.13.1,<3.14.0a0'
+    libgdal-core: '>=3.12.0,<3.13.0a0'
     libstdcxx: '>=14'
     numpy: ''
     packaging: ''
     python: '>=3.12,<3.13.0a0'
     python_abi: 3.12.*
-  url: https://conda.anaconda.org/conda-forge/linux-64/pyogrio-0.13.0-py312hdb6ebaa_0.conda
+  url: https://conda.anaconda.org/conda-forge/linux-64/pyogrio-0.12.1-py312h053e1f3_0.conda
   hash:
-    md5: 0b2a0e17bd514b53e2d12b8ac16225ae
-    sha256: 99e8fdd42f008ef9e955690efd1790a1182ae5d2eb48e8d8da6f6a1e59bd2899
+    md5: f8e7e5ddfbdca16b65335b0b6615eb4c
+    sha256: 2b0a366d9066e3d9f495369b95cdb1b9d3dba2f59577e4560b7d1086e1fe3d70
   category: main
   optional: false
 - name: pyogrio
-  version: 0.13.0
+  version: 0.12.1
   manager: conda
   platform: win-64
   dependencies:
-    libgdal-core: '>=3.13.1,<3.14.0a0'
+    libgdal-core: '>=3.12.0,<3.13.0a0'
     numpy: ''
     packaging: ''
     python: '>=3.12,<3.13.0a0'
@@ -7075,10 +7075,10 @@ package:
     ucrt: '>=10.0.20348.0'
     vc: '>=14.3,<15'
     vc14_runtime: '>=14.44.35208'
-  url: https://conda.anaconda.org/conda-forge/win-64/pyogrio-0.13.0-py312h0e78342_0.conda
+  url: https://conda.anaconda.org/conda-forge/win-64/pyogrio-0.12.1-py312h3f2e00f_0.conda
   hash:
-    md5: d915f85f4ddce1a8827055b6dcd8d217
-    sha256: 49101652d46dd049fdd3e652be24a6335daf7804d8b210d0ef91666b3a5aef69
+    md5: d63733f2a0893b5d42fc4e005d5dc265
+    sha256: ce75abd4eecdffac3160c3230119e9fc6f77875ca90deb04b84986832ec91b1f
   category: main
   optional: false
 - name: pyparsing
@@ -7586,7 +7586,7 @@ package:
   category: main
   optional: false
 - name: rasterio
-  version: 1.5.1
+  version: 1.5.0
   manager: conda
   platform: linux-64
   dependencies:
@@ -7598,7 +7598,7 @@ package:
     click-plugins: ''
     cligj: '>=0.5'
     libgcc: '>=14'
-    libgdal-core: '>=3.13.2,<3.14.0a0'
+    libgdal-core: '>=3.12.4,<3.13.0a0'
     libstdcxx: '>=14'
     numpy: '>=1.25,<3'
     proj: '>=9.8.1,<9.9.0a0'
@@ -7606,14 +7606,14 @@ package:
     python_abi: 3.12.*
     setuptools: '>=0.9.8'
     snuggs: '>=1.4.1'
-  url: https://conda.anaconda.org/conda-forge/linux-64/rasterio-1.5.1-py312h5d657d5_1.conda
+  url: https://conda.anaconda.org/conda-forge/linux-64/rasterio-1.5.0-py312heb112dd_1.conda
   hash:
-    md5: c0d4e6e0b2f6a3e73ab81630deab839d
-    sha256: 75a098544de4e265b36f05f26655bf2c62a64549d5baa0e2060d52fdbe807fcf
+    md5: 38f624a32029e9fced9ed40fa8c644db
+    sha256: 273497d08e9742690399a6e738d227ccd6b7ca62f0fe9faa6cb3a91d5e4ba991
   category: main
   optional: false
 - name: rasterio
-  version: 1.5.1
+  version: 1.5.0
   manager: conda
   platform: win-64
   dependencies:
@@ -7623,7 +7623,7 @@ package:
     click: '>=4,!=8.2.*'
     click-plugins: ''
     cligj: '>=0.5'
-    libgdal-core: '>=3.13.2,<3.14.0a0'
+    libgdal-core: '>=3.12.4,<3.13.0a0'
     numpy: '>=1.25,<3'
     proj: '>=9.8.1,<9.9.0a0'
     python: '>=3.12,<3.13.0a0'
@@ -7633,10 +7633,10 @@ package:
     ucrt: '>=10.0.20348.0'
     vc: '>=14.3,<15'
     vc14_runtime: '>=14.44.35208'
-  url: https://conda.anaconda.org/conda-forge/win-64/rasterio-1.5.1-py312hdeb0b3f_1.conda
+  url: https://conda.anaconda.org/conda-forge/win-64/rasterio-1.5.0-py312hfd11b06_1.conda
   hash:
-    md5: 7aee92d224805434a72784ce205856f5
-    sha256: 451bb1c7d5b6fd919ba67918d2dc29d7a2c4310cafe3f39dceda9d4ee4cd57de
+    md5: e343cab1dd7d47fbf8efff6f763db004
+    sha256: 17c7e91f151ff057cb034c7a2e0dc4b7a447fb35dec1b0d873ef2848942de44d
   category: main
   optional: false
 - name: re2

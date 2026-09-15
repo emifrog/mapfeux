@@ -32,9 +32,16 @@ dependencies:
   - python=3.12
 
   # Pile géospatiale — binaires conda-forge obligatoires
-  # GDAL n'est pas épinglé : le solveur choisit la version compatible avec le
-  # reste de la pile. Le verrouillage se fait dans `conda-lock.yml`, pas ici.
-  - gdal
+  # GDAL est borné par le haut, pas épinglé : le solveur choisit la dernière
+  # 3.12 compatible avec le reste de la pile, et le verrouillage exact se fait
+  # dans `conda-lock.yml`. La borne date du 15 septembre 2026 : sous GDAL
+  # 3.13.3, un COG float32 écrit en mémoire par rasterio 1.5 (`MemoryFile`,
+  # `driver="COG"`) est créé en **Byte** à l'écriture — les valeurs relues
+  # sont tronquées (−5,75 devient 251) — alors que 3.12.4 relit exactement,
+  # avec le même numpy. Deux tests des rasters CAMS l'ont vu au premier
+  # passage de la CI sur le verrou. À lever quand rasterio et GDAL 3.13
+  # s'accordent, ou en écrivant le COG par copie explicite (`rasterio.shutil.copy`).
+  - gdal <3.13
   - eccodes
   - proj
   - geos
