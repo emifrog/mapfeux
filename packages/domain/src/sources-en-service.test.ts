@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isInService, SOURCE_FRESHNESS, type SourceFreshness } from './vocabulary';
+import { isHealthy, isInService, SOURCE_FRESHNESS, type SourceFreshness } from './vocabulary';
 
 /**
  * Décompte des sources affiché au public — cahier FR-150 et §8.1.
@@ -72,5 +72,26 @@ describe('décompte affiché', () => {
     // `total` à zéro : l'appelant doit traiter ce cas, faute de quoi « 0/0 »
     // passerait pour un service complet.
     expect(compter(['upcoming', 'upcoming'])).toEqual({ total: 0, sains: 0 });
+  });
+});
+
+describe('import manuel', () => {
+  it('compte une source lue à la main parmi celles en service', () => {
+    expect(isInService('manual')).toBe(true);
+  });
+
+  it('la tient pour saine : elle est là où elle doit être', () => {
+    expect(isHealthy('manual')).toBe(true);
+    expect(isHealthy('fresh')).toBe(true);
+  });
+
+  it('ne tient pour saine ni un retard ni une panne', () => {
+    for (const freshness of ['delayed', 'stale', 'unavailable'] as const) {
+      expect(isHealthy(freshness)).toBe(false);
+    }
+  });
+
+  it('figure au vocabulaire, pour que les contrats le connaissent', () => {
+    expect(SOURCE_FRESHNESS).toContain('manual');
   });
 });

@@ -224,7 +224,7 @@ build — vertes.
 | Worker | `ruff check` / `ruff format --check` | ✅ 110 fichiers (79 worker + 31 scripts) |
 | Worker | `mypy src` + `mypy scripts` | ✅ strict, 47 + 31 fichiers |
 | Worker | `pytest` | ✅ 459 tests |
-| Migrations | 47 migrations sur base vierge, en CI | ✅ La 46ᵉ (`department_aggregates_named`) et la 47ᵉ (`department_aggregates_in_france`) appliquées en production le 15 septembre, la 46ᵉ rejouée sans effet, la 47ᵉ mesurée sous le rôle `anon` ; CI à confirmer sur le push du jour. CI verte sur le push `98bb101`, les 45 premières rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
+| Migrations | 48 migrations sur base vierge, en CI | ✅ CI verte sur le push `19a2099` (47 rejouées sur base vierge, dont un `drop function` puis `create`). La 46ᵉ (`department_aggregates_named`), la 47ᵉ (`department_aggregates_in_france`) et la 48ᵉ (`source_status_manual`) appliquées en production le 15 septembre, la 46ᵉ rejouée sans effet, la 47ᵉ mesurée sous le rôle `anon` ; la 48ᵉ à confirmer en CI sur le push suivant. CI verte sur le push `98bb101`, les 45 premières rejouées sur base vierge ; la 45ᵉ (`registre_cadence_de_lecture`) appliquée en production — 3 lignes — et vérifiée sur `/statut`. La 44ᵉ (`official_sources_in_service`) appliquée **et rejouée** en production — 2 lignes puis 0 —, et la 43ᵉ (`source_next_data`) vérifiée en service — nulle pour `ign_admin_express`, qui n'a jamais rapporté de donnée, exactement ce que la vue promet. **Contrôle du 28 août** : 20 objets matériels sondés, 20 présents ; le registre `supabase_migrations` n'existe pas — `db push` n'a jamais servi, la voie réelle est l'application directe idempotente, couverte par la CI base vierge |
 
 ⚠️ Aucune de ces portes ne voit la couleur ni la taille effectives d'un
 élément. Les 86 classes CSS invalides du §14 les ont toutes passées.
@@ -2027,6 +2027,33 @@ n'est pas un défaut d'affichage : c'est le périmètre du service — « France
 métropolitaine et Corse » — qui n'est pas appliqué à l'ingestion. Dette
 posée au §15, décision à prendre avant de montrer le projet.
 
+#### L'import manuel est un état, et la commune lit ses événements — 15 septembre 2026, midi
+
+- ✅ **`manual`, un état de source qui manquait** (48ᵉ migration,
+  `source_status_manual`, appliquée en production). Deux sources ne sont
+  lues par aucune tâche : les limites IGN, une édition par an importée à la
+  main, et les surfaces brûlées EFFIS, chargées lors d'un grand feu. La vue
+  n'avait pas de mot pour ça : IGN lisait « Retardée · aucune donnée » — un
+  import d'août attendu tous les trente jours, la même famille que les
+  trois retouches du matin — et EFFIS « Maintenance », `disabled` après
+  avoir livré. `settings->>'import_mode' = 'manual'` est le marqueur ; une
+  source manuelle qui a livré une fois lit `manual`, sans échéance — un
+  geste humain n'en promet pas. Vocabulaire du domaine, libellé « Import
+  manuel », compteur public : `isHealthy` tient une source manuelle pour
+  saine, elle est là où elle doit être. Vérifié sur `/statut` : les neuf
+  sources en service, **« 9/9 sources en service »** au bandeau, EFFIS et
+  IGN « Import manuel · chargée à la main, dernier import le … ». Quatre
+  tests de plus au domaine
+- ✅ **La page commune lit ses événements** (FR-022, dette J3 soldée). Le
+  rattachement existait en base depuis l'ingestion ; la page disait depuis
+  le 5 août que « l'affichage par commune n'est pas encore en service » —
+  une phrase d'attente de plus. Elle liste maintenant les événements dont
+  la commune est la plus proche sur trente jours, dans les formes de la
+  liste de la carte, et sa carte les porte. Lecture bornée à un quart de
+  degré du centroïde, et la phrase dit « rattaché » et non « sur » : le
+  rattachement ne connaît pas de distance. Vérifié sur Fos-sur-Mer : trois
+  observations isolées listées, trois marqueurs sur la carte
+
 #### Une affirmation devenue fausse, trouvée en refondant
 
 `/commune/[insee]` annonçait que « les détections thermiques satellitaires ne
@@ -2143,7 +2170,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 |---|---|---|
 | Décisions ouvertes restantes | Réponse à la première erreur publique (§8.5), qui couvre aussi le canal de republication (ADR-026). Validation humaine (§8.3) tranchée le 26 août — liste blanche automatique, [ADR-026](adr/026-republication-automatique-liste-blanche.md) ; préfixe (§8.4) tranché le 10 août ; ⚠️ l'ordonnancement (§8.1), « tranché » par un retour à plus tard, presse désormais : il étrangle radar et capture préfectorale | Réponse avant J6 ; §8.1 à réexaminer |
 | Mesures faussées par le cache Vercel | `Cache-Control: no-cache` ne traverse pas le cache de bordure : on conclut sur un rendu vieux de plusieurs jours en croyant lire l'état courant. Lire `x-vercel-cache` et `age`, ou interroger la base. `/statut` répondait `STALE` le 6 août | Continu |
-| Affichage des détections par commune | `/communes/[insee]` renvoie vers la carte faute de le porter. Le rattachement existe en base, la requête et le bloc restent à écrire | J3 |
+| Affichage des détections par commune | Traité le 15 septembre : la page liste les événements rattachés à la commune sur trente jours et sa carte les porte (§14). Reste vrai que le rattachement ne connaît pas de distance — voir « l'ingestion FIRMS importe hors de France » | Traité |
 | Phrases d'attente à relire à chaque mise en service | Une phrase écrite quand une brique manquait devient fausse le jour où elle arrive. Celle de `/commune` a survécu un jour à l'ingestion | Continu |
 | Aucune purge de rétention | `raw` est annoncé à trente jours au registre, rien ne l'applique. Le job devra exclure `cold` **explicitement**, et non par omission (§29) | J5 |
 | Rétention des rasters CAMS et radar | ~100 objets et 4 Mo par run CAMS quotidien (préfixe `cams/`), plus ~33 ko par frame radar (préfixe `radar/`) dans le compartiment public `tiles`, aucune purge d'objets. Les frames radar **expirent en base** (statut) mais leurs PNG restent ; garder la fenêtre servie suffit. À traiter avec la purge de `raw` | J5 |

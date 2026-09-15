@@ -21,6 +21,12 @@
  * - `upcoming` — déclarée au registre mais jamais mise en service : le
  *   connecteur n'existe pas encore. Ce n'est pas une panne, et la compter comme
  *   telle fait passer un service inachevé pour un service cassé (FR-150).
+ * - `manual` — lue à la main et a livré au moins une fois : limites
+ *   administratives annuelles, surfaces brûlées chargées lors d'un grand feu.
+ *   Ni en retard ni en maintenance, et sans échéance à promettre. Avant le
+ *   15 septembre 2026, ces sources lisaient « retardée » ou « maintenance »
+ *   faute de mot, et le compteur public en descendait sans qu'aucune panne
+ *   existe (§5.13).
  */
 export const SOURCE_FRESHNESS = [
   'fresh',
@@ -29,6 +35,7 @@ export const SOURCE_FRESHNESS = [
   'unavailable',
   'maintenance',
   'upcoming',
+  'manual',
 ] as const;
 export type SourceFreshness = (typeof SOURCE_FRESHNESS)[number];
 
@@ -42,6 +49,17 @@ export type SourceFreshness = (typeof SOURCE_FRESHNESS)[number];
  */
 export function isInService(freshness: SourceFreshness): boolean {
   return freshness !== 'upcoming' && freshness !== 'maintenance';
+}
+
+/**
+ * Une source en service est-elle dans l'état qu'elle promet ?
+ *
+ * « À jour » pour une lecture planifiée ; « import manuel » pour une source
+ * lue à la main, qui est exactement là où elle doit être. Le numérateur du
+ * compteur public compte les deux : ni l'une ni l'autre n'a rien à signaler.
+ */
+export function isHealthy(freshness: SourceFreshness): boolean {
+  return freshness === 'fresh' || freshness === 'manual';
 }
 
 /**

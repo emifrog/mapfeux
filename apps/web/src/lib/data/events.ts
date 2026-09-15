@@ -768,3 +768,35 @@ export async function fetchEventDetections(
     isKnownThermalSource: row.is_known_thermal_source,
   }));
 }
+
+/**
+ * Les événements rattachés à une commune — ceux dont elle est la commune la
+ * plus proche —, du plus récent au plus ancien. Cahier FR-022.
+ *
+ * Le rattachement existe en base depuis l'ingestion ; la page commune
+ * l'affiche depuis le 15 septembre 2026. Il n'y a pas de fonction SQL par
+ * commune : on lit l'emprise autour du centroïde — un quart de degré, une
+ * vingtaine de kilomètres — et l'on ne garde que ce qui est rattaché à
+ * **cette** commune. Un événement rattaché de plus loin — cela existe, le
+ * rattachement ne connaît pas de distance — n'est pas « sur cette commune »
+ * au sens où un lecteur l'entend, et n'apparaît pas ici.
+ */
+export async function fetchEventsNearMunicipality(
+  municipality: { insee: string; centroid: { longitude: number; latitude: number } },
+  options: { since?: Date; limit?: number } = {},
+): Promise<EventSummary[]> {
+  const reach = 0.25;
+  const { longitude, latitude } = municipality.centroid;
+  const events = await fetchEventsInBbox(
+    {
+      minLon: longitude - reach,
+      minLat: latitude - reach,
+      maxLon: longitude + reach,
+      maxLat: latitude + reach,
+    },
+    { limit: 500, ...(options.since === undefined ? {} : { since: options.since }) },
+  );
+  return events
+    .filter((event) => event.nearestMunicipality?.insee === municipality.insee)
+    .slice(0, options.limit ?? 100);
+}

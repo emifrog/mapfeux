@@ -4,9 +4,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { EventList } from '@/components/event-list';
 import { MapView } from '@/components/map/map-view';
 import { MunicipalityAir } from '@/components/municipality-air';
+import { fetchEventsNearMunicipality } from '@/lib/data/events';
 import { fetchMunicipality } from '@/lib/data/municipalities';
+
+/** Les événements rattachés à la commune sur les trente derniers jours. */
+const EVENTS_WINDOW_DAYS = 30;
 
 /**
  * Synthèse communale. Cahier §7.1 et FR-022.
@@ -44,6 +49,10 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
 
   const municipality = await fetchMunicipality(parsed.data);
   if (municipality === null) notFound();
+
+  const now = new Date();
+  const since = new Date(now.getTime() - EVENTS_WINDOW_DAYS * 24 * 3_600_000);
+  const events = await fetchEventsNearMunicipality(municipality, { since });
 
   return (
     <div className="shell max-w-[880px] py-10">
@@ -90,6 +99,15 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
           center={[municipality.centroid.longitude, municipality.centroid.latitude]}
           zoom={11}
           className="h-full w-full"
+          events={events.map((event) => ({
+            publicId: event.publicId,
+            freshnessStatus: event.freshnessStatus,
+            lastDetectedAt: event.lastDetectedAt.toISOString(),
+            confidence: event.confidenceLevel,
+            detectionCount: event.detectionCount,
+            location: event.location,
+            nearestMunicipalityName: event.nearestMunicipality?.name ?? null,
+          }))}
         />
       </div>
       <p className="text-small text-(--text-2) mt-3 max-w-[68ch]">{MAP_DISCLAIMER}</p>
@@ -99,45 +117,38 @@ export default async function MunicipalityPage({ params }: { params: Promise<{ i
           Détections sur cette commune
         </h2>
         {/*
-          Cette section annonçait que « les détections ne sont pas encore
-          importées ». C'était vrai jusqu'au 5 août 2026 ; l'ingestion tourne
-          depuis, et la phrase est devenue une affirmation fausse sur une page
-          publique — le contraire de ce que §2.4 demande.
-          Le rattachement d'un événement à sa commune existe en base ; son
-          affichage ici reste à écrire. D'ici là, la page dit ce qu'elle sait et
-          renvoie où l'information se trouve.
+          Les événements dont cette commune est la plus proche, sur trente
+          jours, dans les mots et les formes de la liste de la carte (§8.6).
+          Cette section a longtemps dit que « l'affichage par commune n'est
+          pas encore en service » — vrai du 5 août au 15 septembre 2026,
+          et une phrase d'attente de plus à surveiller (plan §15). Le
+          rattachement existait en base depuis l'ingestion ; il est lu ici.
 
-          Depuis l'import national des communes, cette page existe aussi hors
-          des territoires pilotes. La formulation est conditionnée à la donnée
-          — le département est-il un territoire ouvert ? — et non au
-          calendrier : elle bascule d'elle-même le jour où le territoire
-          ouvre, sans qu'il faille se souvenir de cette page.
-
-          Corrigé le 8 août : la première version de la branche « non ouvert »
-          affirmait que les détections n'y étaient pas importées. C'était
-          faux — l'ingestion FIRMS est nationale depuis le 5 août, seule la
-          couche territoriale (page dédiée, liens officiels) est pilote. Les
-          agrégats départementaux l'ont rendu visible. Être « ouvert » parle
-          d'éditorial, jamais de couverture des données.
+          « Rattaché », pas « sur » : un événement reçoit la commune
+          française la plus proche, sans limite de distance. La lecture se
+          borne à une vingtaine de kilomètres du centroïde, et la phrase le
+          dit — un site étranger rattaché à une commune frontalière n'est
+          pas « sur cette commune » au sens où un lecteur l'entend.
         */}
-        {municipality.departmentSlug !== null ? (
-          <p className="text-(--text-2) mt-3 max-w-[68ch]">
-            Les détections thermiques sont importées et regroupées sur ce territoire, mais leur
-            affichage par commune n’est pas encore en service. En attendant, la{' '}
-            <Link href="/carte" className="underline underline-offset-4">
-              carte
-            </Link>{' '}
-            montre les événements de la zone, et l’
-            <Link href="/statut" className="underline underline-offset-4">
-              état des données
-            </Link>{' '}
-            indique depuis quand la donnée date.
-          </p>
-        ) : (
-          <p className="text-(--text-2) mt-3 max-w-[68ch]">
-            Les détections thermiques sont importées sur la France entière, mais ce département
-            n’est pas encore un territoire ouvert : sa page dédiée et ses liens officiels vérifiés
-            restent à venir. La{' '}
+        <p className="text-small text-(--text-2) mt-2 max-w-[68ch]">
+          Événements dont cette commune est la plus proche, sur les {EVENTS_WINDOW_DAYS} derniers
+          jours. Relevé à{' '}
+          <time dateTime={now.toISOString()} className="mono">
+            {new Intl.DateTimeFormat('fr-FR', {
+              dateStyle: 'short',
+              timeStyle: 'short',
+              timeZone: 'Europe/Paris',
+            }).format(now)}
+          </time>
+          .
+        </p>
+        <div className="mt-4 max-w-[68ch]">
+          <EventList events={events} now={now} />
+        </div>
+        {municipality.departmentSlug === null && (
+          <p className="text-small text-(--text-2) mt-4 max-w-[68ch]">
+            Ce département n’est pas encore un territoire ouvert : sa page dédiée et ses liens
+            officiels vérifiés restent à venir. La{' '}
             <Link href="/carte" className="underline underline-offset-4">
               carte
             </Link>{' '}

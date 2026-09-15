@@ -1,4 +1,4 @@
-import { isInService, MAP_DISCLAIMER } from '@mapfeux/domain';
+import { isHealthy, isInService, MAP_DISCLAIMER } from '@mapfeux/domain';
 import { DEFAULT_VIEW } from '@mapfeux/map-style';
 import Link from 'next/link';
 
@@ -55,7 +55,7 @@ export default async function HomePage() {
   const events7d = last7d.reduce((sum, row) => sum + row.events, 0);
   const departmentsTouched = last7d.length;
   const inService = status.sources.filter((source) => isInService(source.freshness));
-  const healthy = inService.filter((source) => source.freshness === 'fresh').length;
+  const healthy = inService.filter((source) => isHealthy(source.freshness)).length;
 
   const figures = [
     {

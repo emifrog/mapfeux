@@ -111,4 +111,8 @@ export const SOURCE_FRESHNESS_LABELS: Record<SourceFreshness, string> = {
   // Déclarée au registre, connecteur pas encore écrit. « Indisponible »
   // annonçait une panne pour ce qui n'est qu'un chantier à venir.
   upcoming: 'À venir',
+  // Lue à la main — limites administratives annuelles, surfaces brûlées
+  // chargées lors d'un grand feu. Ni en retard ni en maintenance : c'est
+  // ainsi qu'elle est lue, et elle a livré.
+  manual: 'Import manuel',
 };

@@ -1,4 +1,10 @@
-import { earliestUpcoming, formatDataRecency, isInService, mostRecentPast } from '@mapfeux/domain';
+import {
+  earliestUpcoming,
+  formatDataRecency,
+  isHealthy,
+  isInService,
+  mostRecentPast,
+} from '@mapfeux/domain';
 
 import { fetchSourceStatus } from '@/lib/sources';
 
@@ -68,7 +74,9 @@ export async function SourceHealth() {
 
   const inService = result.sources.filter((source) => isInService(source.freshness));
   const total = inService.length;
-  const healthy = inService.filter((source) => source.freshness === 'fresh').length;
+  // « Sain » : à jour, ou lu à la main et livré — une source manuelle est
+  // là où elle doit être, elle ne fait pas descendre le compteur.
+  const healthy = inService.filter((source) => isHealthy(source.freshness)).length;
 
   // La fraîcheur affichée est celle des sources en service. Une source à venir
   // n'a par définition aucune donnée, et une source en maintenance en a de

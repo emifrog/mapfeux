@@ -40,7 +40,14 @@ const FRESHNESS_STYLES: Record<string, { background: string; color: string }> = 
   // source qui n'existe pas encore n'a pas à occuper l'œil autant qu'une
   // source tombée.
   upcoming: { background: 'var(--surface-muted)', color: 'var(--text-3)' },
+  // Lue à la main : ni retard ni panne, la sobriété d'« à jour ».
+  manual: { background: 'var(--surface-muted)', color: 'var(--text)' },
 };
+
+const DATE_ONLY = new Intl.DateTimeFormat('fr-FR', {
+  dateStyle: 'short',
+  timeZone: 'Europe/Paris',
+});
 
 /**
  * Libellé d'un état, y compris d'un état que ce front ne connaît pas encore.
@@ -98,10 +105,19 @@ function SourceRow({ source, now }: { source: SourceStatusRow; now: Date }) {
         )}
       </td>
       <td className="text-small py-3.5">
-        {source.incident_message === null ? (
-          <span className="text-(--text-3)">—</span>
-        ) : (
+        {source.incident_message !== null ? (
           <span className="text-degraded">{source.incident_message}</span>
+        ) : source.freshness === 'manual' && source.last_successful_import_at !== null ? (
+          // Pas un incident : la nature de la lecture, et sa date. Une
+          // source manuelle n'a pas d'échéance ; elle a un dernier geste.
+          <span className="text-(--text-3)">
+            Chargée à la main, dernier import le{' '}
+            <time dateTime={source.last_successful_import_at} className="mono">
+              {DATE_ONLY.format(new Date(source.last_successful_import_at))}
+            </time>
+          </span>
+        ) : (
+          <span className="text-(--text-3)">—</span>
         )}
       </td>
     </tr>
