@@ -1,6 +1,6 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 15 septembre 2026, fin de journée — **le projet
+**Dernière mise à jour** : 15 septembre 2026, soir — **le projet
 peut être montré.** Ce qu'un visiteur voit dit vrai : la France et ses
 départements, les événements de France seulement, l'état de chaque source.
 La journée a livré la fiche regardée avec le même œil que la carte, le coup
@@ -15,10 +15,15 @@ soirée, un **audit externe** a reproduit ce que personne n'avait regardé :
 la base muette, le site affichait « 0 événement », un 404 sur une fiche qui
 existe et un catalogue vide mis en cache. **Traité le soir même** — chaque
 lecture d'événements dit si elle a lu, l'API répond 503 non cachée, les
-pages portent un bandeau. Restent deux gestes à l'auteur : la bascule du
-déclencheur sur le VPS — le poste n'a tourné qu'un tiers du temps, mesuré —
-et la validation du titre de l'accueil. Le fil de la journée suit, du matin
-au soir.
+pages portent un bandeau —, puis les trois corrections courtes que l'audit
+laissait — l'ADR-027 remise à l'endroit, le README, le **verrou conda**
+dont le premier passage en CI a trouvé que GDAL 3.13 casse les COG en
+mémoire — et son constat 3 : **l'état d'un événement à un instant se
+calcule en base**, sans plafond (51ᵉ migration). Le dépôt compte 51
+migrations, 215 tests web et paquets, 460 au worker, tous verts en CI.
+Restent deux gestes à l'auteur : la bascule du déclencheur sur le VPS — le
+poste n'a tourné qu'un tiers du temps, mesuré — et la validation du titre
+de l'accueil. Le fil de la journée suit, du matin au soir.
 
 **15 septembre 2026, matin** — **la fiche événement,
 regardée avec le même œil que la carte**. Mesurée sur un événement du jour
@@ -200,7 +205,9 @@ cadences déclarées quand le poste tourne, sous le rôle d'ingestion
 fiche événement, la carte, l'accueil et l'état des données sont au niveau
 où on les montre — et depuis le soir du 15, **ils disent la panne quand la
 base ne répond pas** au lieu d'afficher zéro événement, un 404 ou un
-catalogue vide mis en cache (constat 1 d'un audit externe, §14) ; le
+catalogue vide mis en cache (constat 1 d'un audit externe, §14), l'état
+d'un événement à un instant se calcule en base sans plafond (51ᵉ
+migration), et le worker a son verrou conda, validé par la CI ; le
 déclencheur, lui, n'a tourné qu'un tiers du temps depuis sa bascule sur le
 poste, et attend le VPS (§2). Les paragraphes suivants sont l'histoire, du
 plus ancien au plus récent.
@@ -314,15 +321,17 @@ qu'à vous, avec la validation du titre de l'accueil. Le kit VPS
 (`ops/vps/`, Hostinger KVM 1, Ubuntu 24.04) est écrit et vérifié ; ce
 qu'il reste ne peut pas être fait d'ici : provisionner, remplir `.env`
 avec la chaîne `mapfeux_ingest` que le poste emploie depuis le 15 au soir
-— la forme pooler, celle du secret CI —, lancer `install.sh` deux fois,
+— la forme pooler, celle du secret CI —, lancer `install.sh` deux fois —
+l'environnement Python y vient du verrou `conda-lock.yml`, celui que la CI
+valide depuis le 15 au soir —,
 **désactiver** les tâches Windows, constater `environment: production`
 dans les journaux des tâches. Le runbook est `ops/vps/README.md`. Ensuite :
 sept jours de cadence mesurée, le critère des trente minutes de J4 sur la
 première publication réelle, et J5 — administration, supervision, mode
 dégradé. L'audit externe du 15 septembre (§14, §15) donne le même ordre
-une fois les indisponibilités rendues honnêtes — fait le soir même :
-continuité des imports, puis l'historique au-delà des plafonds, puis
-l'administration (MFA) et les tests de frontières.
+une fois les indisponibilités rendues honnêtes et l'historique calculé en
+base — faits le soir même : continuité des imports, puis l'administration
+(MFA) et les tests de frontières.
 
 Les deux clés attendues sont posées et vivantes — `COPERNICUS_KEY` en
 secret GitHub, la clé d'application radar dans l'environnement : au
@@ -2347,7 +2356,9 @@ trimestrielle reste sur Actions.
   aux deux déclencheurs, `ops/tasks.json`, en UTC comme les crons remplacés
   (`tasks.psd1` a disparu ; le côté Windows lit le JSON et convertit en
   local, réenregistré et exercé). `install.sh` rejouable, qui refuse
-  d'écrire un secret et teste l'IPv6 pour dire s'il faut le pooler ;
+  d'écrire un secret, teste l'IPv6 pour dire s'il faut le pooler et, depuis
+  le 15 septembre au soir, crée l'environnement depuis le verrou
+  `conda-lock.yml` — les versions exactes que la CI valide sur linux-64 ;
   `env.template` sans secret ; `status.sh` ; runbook avec la bascule et le
   retour arrière. Vérifié ici : syntaxe, sept paires d'unités aux
   expressions attendues, scripts marqués exécutables dans git
