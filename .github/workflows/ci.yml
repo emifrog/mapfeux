@@ -204,3 +204,39 @@ jobs:
             end if;
           end $$;
           SQL
+
+      # Une passe complète sous le rôle qui l'exécute en production. Les
+      # droits de tables se vérifient ci-dessus ; ce qu'un déclencheur ou une
+      # fonction lit *en chemin*, seule la passe le révèle — la 50ᵉ migration
+      # (un déclencheur de périmètre qui lisait `app.territories` sous le rôle
+      # de l'appelant) aurait fait échouer cette étape, et non la production.
+      # Audit du 15 septembre 2026, constat 5.
+      #
+      # Le mot de passe est celui d'un conteneur jetable, pas un secret. Le
+      # Var reçoit un contour carré : le seed ne porte aucune géométrie, et le
+      # périmètre (ADR-027) se juge dessus.
+      - name: Préparer la passe sous le rôle d'ingestion
+        run: |
+          psql "postgresql://postgres:postgres@localhost:5432/postgres" -v ON_ERROR_STOP=1 <<'SQL'
+          alter role mapfeux_ingest password 'passe-ci';
+          update app.territories
+             set geometry = extensions.st_multi(extensions.st_geomfromtext(
+                   'POLYGON((5.6 42.95, 7.0 42.95, 7.0 43.95, 5.6 43.95, 5.6 42.95))', 4326))
+           where type = 'department' and code = '83';
+          SQL
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/geo-worker/requirements-ingestion.txt
+
+      # `requirements-ingestion.txt`, comme les workflows d'ingestion : la
+      # passe n'a besoin ni d'ecCodes ni de la pile raster.
+      - name: Dépendances de la chaîne d'ingestion
+        run: pip install -r services/geo-worker/requirements-ingestion.txt
+
+      - name: Une passe complète sous mapfeux_ingest
+        env:
+          DATABASE_URL: postgresql://mapfeux_ingest:passe-ci@localhost:5432/postgres
+        run: python scripts/verify-ingestion-pass.py
