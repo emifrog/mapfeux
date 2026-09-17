@@ -9,6 +9,7 @@ import type {
   VerificationStatus,
 } from '@mapfeux/domain';
 
+import type { SatellitePass } from '@/lib/events/passes';
 import { createPublicReadClient } from '@/lib/supabase/server';
 
 import { readable, unreadable, type ReadResult } from './read-result';
@@ -927,6 +928,51 @@ export async function fetchEventObservationTimes(
     ((data ?? []) as Row[]).map((row) => ({
       at: new Date(row.acquired_at),
       observationCount: Number(row.observation_count),
+    })),
+  );
+}
+
+/**
+ * Les passages satellitaires d'un événement, calculés en base sur **toutes**
+ * ses observations — la règle de `lib/events/passes.ts`, sans le plafond du
+ * tableau : le graphique de la fiche voyait les passages des 500 dernières
+ * observations et perdait les premiers d'un grand feu (plan §15, reste du
+ * constat 3 de l'audit du 15 septembre 2026). `groupByPass` reste le repli,
+ * annoncé, quand cette lecture manque.
+ */
+export async function fetchEventPasses(publicId: string): Promise<ReadResult<SatellitePass[]>> {
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase.rpc('fire_event_passes', {
+    event_public_id: publicId,
+  });
+
+  if (error !== null) {
+    console.error('[events] passages illisibles', {
+      publicId,
+      code: error.code,
+      message: error.message,
+    });
+    return unreadable();
+  }
+
+  type Row = {
+    pass_at: string;
+    satellite: string;
+    sensor: string;
+    pixels: number | string;
+    frp_total_mw: number | string | null;
+    frp_max_mw: number | string | null;
+    day_night: 'D' | 'N' | null;
+  };
+  return readable(
+    ((data ?? []) as Row[]).map((row) => ({
+      at: new Date(row.pass_at),
+      satellite: row.satellite,
+      sensor: row.sensor,
+      pixels: Number(row.pixels),
+      frpTotalMw: row.frp_total_mw === null ? null : Number(row.frp_total_mw),
+      frpMaxMw: row.frp_max_mw === null ? null : Number(row.frp_max_mw),
+      dayNight: row.day_night,
     })),
   );
 }

@@ -38,6 +38,7 @@ import {
   eventPath,
   fetchEvent,
   fetchEventDetections,
+  fetchEventPasses,
   fetchEventPerimeters,
   fetchEventView,
   isEventOutsideTerritory,
@@ -316,14 +317,16 @@ export default async function EventPage({ params }: PageParams) {
   // que lui l'affiche partiel et le dit (dette §15 — la relecture annonçait
   // déjà le sien, la fiche pas encore).
   const DETECTION_TABLE_LIMIT = 500;
-  const [detectionsRead, officialLinksRead, perimetersRead, officialItemsRead] = await Promise.all([
-    fetchEventDetections(event.publicId, DETECTION_TABLE_LIMIT),
-    event.territory === null
-      ? Promise.resolve(readable<OfficialLink[]>([]))
-      : fetchOfficialLinks(event.territory.slug),
-    fetchEventPerimeters(event.publicId),
-    fetchEventOfficialItems(event.publicId),
-  ]);
+  const [detectionsRead, officialLinksRead, perimetersRead, officialItemsRead, passesRead] =
+    await Promise.all([
+      fetchEventDetections(event.publicId, DETECTION_TABLE_LIMIT),
+      event.territory === null
+        ? Promise.resolve(readable<OfficialLink[]>([]))
+        : fetchOfficialLinks(event.territory.slug),
+      fetchEventPerimeters(event.publicId),
+      fetchEventOfficialItems(event.publicId),
+      fetchEventPasses(event.publicId),
+    ]);
   // L'événement a été lu ; une section qui ne l'a pas été le dit à sa place,
   // sans emporter la fiche.
   const detections = valueOr(detectionsRead, []);
@@ -374,7 +377,12 @@ export default async function EventPage({ params }: PageParams) {
     },
   }));
   const footprintBounds = framingBounds(detections.map((detection) => detection.location));
-  const passes = groupByPass(detections);
+  // Les passages viennent de la base, sur toutes les observations — le
+  // graphique ne dépend plus du plafond du tableau. Si cette lecture manque,
+  // le regroupement local sur les observations servies prend le relais, et
+  // la fiche dit alors sur quoi il porte.
+  const passes = passesRead.readable ? passesRead.value : groupByPass(detections);
+  const passesFromTable = !passesRead.readable;
 
   return (
     <article className="shell py-10">
@@ -629,9 +637,10 @@ export default async function EventPage({ params }: PageParams) {
           dit aucune évolution.
         */}
           <FrpChart passes={passes} timeZone={event.timeZone} />
-          {detectionsTruncated && passes.length > 1 && (
+          {passesFromTable && detectionsTruncated && passes.length > 1 && (
             <p className="text-small text-(--text-3) mt-2">
-              Passages reconstitués sur les {DETECTION_TABLE_LIMIT} observations les plus récentes.
+              Passages reconstitués sur les {DETECTION_TABLE_LIMIT} observations les plus récentes :
+              la lecture complète des passages n’a pas répondu.
             </p>
           )}
 

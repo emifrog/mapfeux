@@ -23,6 +23,7 @@ const {
   fetchEvent,
   fetchEventDetections,
   fetchEventObservationTimes,
+  fetchEventPasses,
   fetchEventsCatalog,
   fetchEventsNearMunicipality,
   fetchEventState,
@@ -151,6 +152,58 @@ describe('l’état à un instant se lit en base, sans plafond', () => {
 
     rpc.mockResolvedValueOnce(FAILURE);
     expect(await fetchEventState('MPF-AAAAAAAA', AT)).toEqual({ readable: false });
+  });
+
+  it('passages : lus en dates et en nombres, une erreur ne devient pas « aucun passage »', async () => {
+    rpc.mockResolvedValueOnce({
+      data: [
+        {
+          pass_at: '2026-07-21T11:28:00+00:00',
+          satellite: 'N20',
+          sensor: 'VIIRS',
+          pixels: '12',
+          frp_total_mw: '333.5',
+          frp_max_mw: '120.25',
+          day_night: 'D',
+        },
+        {
+          pass_at: '2026-07-21T21:17:00+00:00',
+          satellite: 'N',
+          sensor: 'VIIRS',
+          pixels: 3,
+          frp_total_mw: null,
+          frp_max_mw: null,
+          day_night: null,
+        },
+      ],
+      error: null,
+    });
+    expect(await fetchEventPasses('MPF-AAAAAAAA')).toEqual({
+      readable: true,
+      value: [
+        {
+          at: new Date('2026-07-21T11:28:00Z'),
+          satellite: 'N20',
+          sensor: 'VIIRS',
+          pixels: 12,
+          frpTotalMw: 333.5,
+          frpMaxMw: 120.25,
+          dayNight: 'D',
+        },
+        {
+          at: new Date('2026-07-21T21:17:00Z'),
+          satellite: 'N',
+          sensor: 'VIIRS',
+          pixels: 3,
+          frpTotalMw: null,
+          frpMaxMw: null,
+          dayNight: null,
+        },
+      ],
+    });
+
+    rpc.mockResolvedValueOnce(FAILURE);
+    expect(await fetchEventPasses('MPF-AAAAAAAA')).toEqual({ readable: false });
   });
 
   it('instants d’observation : lus en dates et en nombres', async () => {
