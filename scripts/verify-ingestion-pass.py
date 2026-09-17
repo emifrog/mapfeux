@@ -148,8 +148,10 @@ def verify(conn: psycopg.Connection[Any], result: ClusteringResult) -> list[str]
     faults: list[str] = []
     if result.created != 2:
         faults.append(f"{result.created} evenement(s) cree(s), 2 attendus")
-    if result.attached != 4:
-        faults.append(f"{result.attached} rattachement(s), 4 attendus")
+    # `created` compte les evenements nes d'un premier pixel, `attached` les
+    # pixels rattaches ensuite : quatre pixels traites, deux et deux.
+    if result.processed != 4:
+        faults.append(f"{result.processed} detection(s) traitee(s), 4 attendues")
 
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
