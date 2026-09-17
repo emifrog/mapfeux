@@ -194,7 +194,11 @@ Puis déclencher une fois à la main — onglet Actions, workflow « Ingestion �
 avant de le poser dans le `.env` du planificateur ; c'est ainsi que la forme
 pooler a été prouvée le 15 septembre 2026.
 
-> Seule la réconciliation trimestrielle (`reconcile-firms.yml`) garde un cron.
+> Deux workflows gardent un cron : la réconciliation trimestrielle
+> (`reconcile-firms.yml`) et la **veille des passes** (`veille-passes.yml`),
+> qui lit l'état public toutes les heures et échoue — donc écrit à l'auteur —
+> quand une source automatique est « trop ancienne » ou que le site ne répond
+> pas.
 > GitHub désactive les workflows planifiés après soixante jours sans activité
 > sur le dépôt, et ne les déclenche que depuis la branche par défaut.
 

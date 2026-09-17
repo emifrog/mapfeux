@@ -1,0 +1,46 @@
+# =============================================================================
+# Veille des passes — plan §15, audit du 15 septembre 2026, constat 2.
+#
+# Le déclencheur d'ingestion tourne sur une machine — un poste Windows en
+# transition, le VPS ensuite — qui peut s'arrêter sans que rien ne le dise :
+# le site répond, /statut vieillit, personne ne regarde. Mesuré le
+# 15 septembre : le poste n'a tourné qu'un tiers du temps.
+#
+# Ce workflow est l'**extérieur** : un runner GitHub lit l'état public du
+# site toutes les heures et échoue quand une source automatique en service
+# est « trop ancienne » ou n'a jamais livré, ou quand le site ne répond pas.
+# Un workflow planifié qui échoue, c'est un courriel de GitHub à l'auteur
+# (réglage « Actions : échecs seulement », par défaut) — aucun service de
+# plus, aucun secret : le script lit la même API que /statut, sans clé.
+#
+# « En retard » ne fait pas échouer : c'est l'échéance attendue qui glisse,
+# pas la chaîne qui manque ; la borne suivante tranche. Le résumé de la
+# tâche porte le tableau complet, alerte ou non.
+#
+# Le cron court aussi longtemps que le dépôt est actif : GitHub désactive les
+# workflows planifiés après soixante jours sans activité (README).
+# =============================================================================
+
+name: Veille des passes
+
+on:
+  schedule:
+    # Toutes les heures, à la 23e minute : décalé des heures rondes, où les
+    # runners partagés sont les plus lents.
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  veille:
+    name: Les passes arrivent-elles encore ?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # Bibliothèque standard seulement : pas d'installation, pas de cache.
+      - name: Lire l'état public et trancher
+        run: python3 scripts/veille-passes.py --site https://mapfeux.vercel.app
