@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>MapFeux — Dossier de présentation</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 18mm 16mm; }
+  :root {
+    --ink: #111827; --ink-2: #374151; --ink-3: #6b7280;
+    --line: #d9dee5; --wash: #f4f6f8; --accent: #d9542a; --accent-wash: #fbeee8;
+    --navy: #0f172a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink); font-size: 10.6pt; line-height: 1.5;
+  }
+  .page { page-break-after: always; position: relative; min-height: 255mm; padding-bottom: 9mm; }
+  .page:last-child { page-break-after: auto; }
+  h1 { font-size: 30pt; line-height: 1.08; letter-spacing: -0.02em; margin: 0 0 8pt; }
+  h2 { font-size: 17pt; line-height: 1.2; letter-spacing: -0.01em; margin: 0 0 10pt; padding-bottom: 6pt; border-bottom: 2px solid var(--ink); }
+  h3 { font-size: 11.5pt; margin: 14pt 0 4pt; }
+  p { margin: 0 0 8pt; }
+  .eyebrow { font-family: Consolas, "Courier New", monospace; font-size: 8.5pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6pt; }
+  .lead { font-size: 12pt; color: var(--ink-2); }
+  .muted { color: var(--ink-3); }
+  .small { font-size: 9pt; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; }
+  .box { border: 1px solid var(--line); border-radius: 6px; padding: 9pt 11pt; background: var(--wash); }
+  .box h3 { margin-top: 0; }
+  .callout { border-left: 3px solid var(--accent); background: var(--accent-wash); padding: 8pt 11pt; border-radius: 4px; margin: 10pt 0; }
+  .callout strong { color: var(--ink); }
+  figure { margin: 0 0 10pt; }
+  figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+  figure .crop { overflow: hidden; border: 1px solid var(--line); border-radius: 6px; }
+  figure .crop img { border: 0; border-radius: 0; }
+  figcaption { font-size: 8.8pt; color: var(--ink-3); margin-top: 4pt; }
+  table { width: 100%; border-collapse: collapse; font-size: 9.2pt; }
+  th, td { text-align: left; vertical-align: top; padding: 5pt 6pt; border-bottom: 1px solid var(--line); }
+  th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); border-bottom: 1.5px solid var(--ink); }
+  ul { margin: 0 0 8pt 16pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+  .figures { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6pt; margin: 8pt 0 12pt; }
+  .figures div { border: 1px solid var(--line); border-radius: 6px; padding: 8pt 9pt; }
+  .figures b { display: block; font-size: 18pt; letter-spacing: -0.02em; line-height: 1; margin-bottom: 4pt; }
+  .figures span { font-size: 8.8pt; color: var(--ink-2); }
+  .footer { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 8pt; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 4pt; }
+  .cover { min-height: 255mm; display: flex; flex-direction: column; }
+  .cover .brand { display: flex; align-items: baseline; gap: 6pt; font-weight: 800; font-size: 14pt; }
+  .cover .brand em { color: var(--accent); font-style: normal; }
+  .cover h1 { font-size: 34pt; max-width: 150mm; margin-top: 26mm; }
+  .cover .sub { font-size: 13pt; color: var(--ink-2); max-width: 150mm; }
+  .cover figure { margin-top: auto; }
+  .cover .meta { margin-top: 10pt; font-size: 9pt; color: var(--ink-3); display: flex; gap: 18pt; }
+  .todo { border: 1.5px dashed var(--accent); border-radius: 6px; padding: 8pt 11pt; background: #fff; }
+  .todo strong { color: var(--accent); }
+  .tight p { margin-bottom: 5pt; }
+</style>
+</head>
+<body>
+
+<!-- ============================ COUVERTURE ============================ -->
+<section class="page cover">
+  <div class="brand">Map<em>Feux</em> <span class="muted" style="font-weight:400;font-size:9.5pt">· observation satellitaire des anomalies thermiques</span></div>
+  <h1>Les détections thermiques satellitaires, rendues lisibles à la maille communale</h1>
+  <p class="sub">Une page de référence par événement : permanente, sourcée, horodatée, et lisible même quand le reste tombe. France métropolitaine et Corse.</p>
+  <div class="meta"><span>Dossier de présentation</span><span>21 septembre 2026</span><span>mapfeux.vercel.app</span></div>
+  <figure>
+    <img src="captures/accueil.png" alt="Page d'accueil de MapFeux : carte nationale des sept derniers jours et trois chiffres">
+    <figcaption>L'accueil, tel qu'il est servi le 21 septembre 2026 : la carte nationale des sept derniers jours, les chiffres lus en base à l'instant du rendu, et l'avertissement qui précède toute lecture.</figcaption>
+  </figure>
+</section>
+
+<!-- ============================ EN BREF ============================ -->
+<section class="page">
+  <p class="eyebrow">1 · en bref</p>
+  <h2>Ce qu'est MapFeux</h2>
+  <p class="lead">Les détections thermiques satellitaires sont publiques et gratuites depuis des années, mais diffusées sous une forme difficile à lire : des points sur une carte mondiale, sans commune, sans heure locale, sans explication de ce qu'un point signifie.</p>
+  <p>MapFeux ne produit aucune donnée nouvelle. Il rend lisible ce qui existe déjà, à la maille communale, en français, en indiquant systématiquement <strong>qui a observé quoi et quand</strong>. Chaque événement a une page permanente : ses observations, sa chronologie, sa fiabilité, et les informations officielles qui le concernent quand elles existent.</p>
+
+  <div class="figures">
+    <div><b>9</b><span>sources de données publiques au registre, toutes en service</span></div>
+    <div><b>96</b><span>départements couverts, 34 746 communes nommées</span></div>
+    <div><b>10 min</b><span>cadence de lecture des détections NASA FIRMS</span></div>
+    <div><b>5 août 2026</b><span>mise en service sur données réelles</span></div>
+  </div>
+
+  <div class="cols">
+    <div class="box">
+      <h3>À qui il s'adresse</h3>
+      <p>À qui veut savoir, pour une commune ou un département, ce que les satellites ont observé et depuis quand : habitants, élus, journalistes, services qui souhaitent une vue indépendante et datée. Lisible sans JavaScript, sur un téléphone, et pendant une crise, quand la charge monte.</p>
+    </div>
+    <div class="box">
+      <h3>Ce qu'il n'est pas</h3>
+      <p><strong>Pas un système d'alerte :</strong> il ne prévient personne, ne déclenche rien et ne remplace aucun canal officiel.</p>
+      <p><strong>Pas une source de confirmation :</strong> une détection thermique n'est pas un incendie confirmé, et l'absence de détection n'est pas l'absence de feu.</p>
+      <p><strong>Pas un outil opérationnel :</strong> aucune donnée de moyens, de personnels ou d'intervention n'y figure, et aucune n'y figurera.</p>
+      <p><strong>Rattaché à aucune administration :</strong> ni service d'incendie et de secours, ni préfecture. Chaque page le dit dans un bandeau permanent.</p>
+    </div>
+  </div>
+
+  <h3>Ce qui le distingue</h3>
+  <ul>
+    <li><strong>L'événement, pas la carte.</strong> Une fiche permanente par événement, à l'adresse stable, que l'on peut citer et relire des mois plus tard.</li>
+    <li><strong>L'attribution avant la fraîcheur.</strong> Chaque bloc dit d'où il vient et de quand il date ; un chiffre calculé est présenté comme tel, jamais comme une observation. Et quand le service ne sait pas, il le dit.</li>
+  </ul>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>2</span></div>
+</section>
+
+<!-- ============================ CE QUE VOIT UN VISITEUR — CARTE ============================ -->
+<section class="page">
+  <p class="eyebrow">2 · ce que voit un visiteur</p>
+  <h2>La carte, à deux échelles</h2>
+  <p>À l'échelle de la France, la carte ne montre pas des points : elle montre les <strong>départements concernés</strong> sur la fenêtre choisie, sept jours par défaut, avec un lavis dont l'intensité suit le nombre d'événements, et une liste qui les nomme. Rapprocher la carte fait apparaître les événements d'une zone, colorés par l'âge de leur dernière observation — moins de trois heures, trois à douze, douze à vingt-quatre, davantage — et la liste suit la carte : elle dit exactement ce que l'emprise affichée contient.</p>
+  <figure>
+    <img src="captures/carte.png" alt="La carte nationale : départements concernés sur sept jours, liste à gauche, calques à droite, barre temporelle en bas">
+    <figcaption>La carte nationale le 21 septembre 2026 : 191 événements dans les sept derniers jours, sur 67 départements. La barre du bas règle la fenêtre — 12 h, 24 h, 48 h, 7 jours, tout — et porte la clé de lecture des couleurs. Les calques atmosphère (qualité de l'air modélisée) et précipitations (radar) s'appellent à droite, éteints par défaut.</figcaption>
+  </figure>
+  <div class="cols tight">
+    <div>
+      <h3>Ce que la couleur dit</h3>
+      <p>L'âge de la dernière observation, jamais la gravité. Un disque plein est un événement étayé, observé plusieurs fois ou par plusieurs capteurs ; un anneau est une observation isolée, conservée et consultable, mais dont on ne peut presque rien dire.</p>
+    </div>
+    <div>
+      <h3>Ce que la taille dit</h3>
+      <p>Le nombre d'observations satellitaires, et non la surface ou l'intensité du phénomène, que MapFeux ne connaît pas. La légende le répète sous la carte, en toutes lettres.</p>
+    </div>
+  </div>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>3</span></div>
+</section>
+
+<!-- ============================ FICHE ÉVÉNEMENT ============================ -->
+<section class="page">
+  <p class="eyebrow">2 · ce que voit un visiteur</p>
+  <h2>La fiche événement</h2>
+  <p>C'est l'objet central du service. Une adresse permanente par événement, rendue par le serveur et lisible sans JavaScript. Elle s'ouvre sur l'empreinte des observations, puis dit trois choses que l'on pourrait croire redondantes et qui répondent à trois questions différentes : <strong>quand remonte la dernière observation</strong> (fraîcheur technique), <strong>ce que l'on sait de l'existence de l'événement</strong> (niveau de vérification), et <strong>ce qu'une autorité en a publié</strong> (statut officiel) — ce dernier n'apparaît que sourcé et daté, jamais déduit.</p>
+  <figure>
+    <div class="crop" style="height:100mm"><img src="captures/fiche-longue.png" style="object-fit:cover;object-position:top;width:100%;height:100%" alt="Fiche d'un événement près de Pontevès : empreinte des observations, trois statuts, chiffres et graphique par passage"></div>
+    <figcaption>Un événement du Var, juillet 2026 : 570 observations satellitaires en six jours, 57 passages. L'empreinte est cadrée sur les observations ; chaque point se lit au survol dans les mots du tableau. Plus bas sur la page, le graphique de puissance radiative par passage montre l'évolution qu'un tableau de 570 lignes ne montre pas.</figcaption>
+  </figure>
+  <div class="cols tight">
+    <div>
+      <h3>Ce que la fiche contient</h3>
+      <ul>
+        <li>les observations, une par pixel satellite : capteur, heure d'acquisition, confiance, puissance radiative ;</li>
+        <li>une chronologie horodatée, avec la provenance de chaque entrée ;</li>
+        <li>les périmètres publiés quand il en existe, versionnés, avec leur nature ;</li>
+        <li>les publications de la préfecture mentionnant la commune, citées et datées ;</li>
+        <li>une relecture temporelle : l'état à n'importe quel instant passé, à une adresse partageable.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Ce que la fiche ne dit jamais</h3>
+      <p>Qu'un incendie est en cours, qu'il est éteint, où sont les moyens, quelle surface a brûlé. Sous chaque chiffre calculé, la mention qu'il s'agit d'une déduction ; sous chaque observation, celle qu'un point est le centre approximatif d'un pixel, non le foyer exact.</p>
+    </div>
+  </div>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>4</span></div>
+</section>
+
+<!-- ============================ COMMUNE, TERRITOIRE, ÉTAT ============================ -->
+<section class="page">
+  <p class="eyebrow">2 · ce que voit un visiteur</p>
+  <h2>La commune, le territoire, l'état des données</h2>
+  <div class="cols">
+    <figure>
+      <div class="crop" style="height:78mm"><img src="captures/commune-longue.png" style="object-fit:cover;object-position:top;width:100%;height:100%" alt="Page d'une commune : carte, événements rattachés sur trente jours"></div>
+      <figcaption><strong>La page commune</strong> — pour chacune des 34 746 communes : sa carte, les événements dont elle est la commune la plus proche sur trente jours, la qualité de l'air modélisée, et les liens officiels de son département quand il est ouvert.</figcaption>
+    </figure>
+    <figure>
+      <div class="crop" style="height:78mm"><img src="captures/territoire.png" style="object-fit:cover;object-position:top;width:100%;height:100%" alt="Page du département du Var : informations officielles, accès aux massifs, publications de la préfecture"></div>
+      <figcaption><strong>La page territoire</strong> — les Alpes-Maritimes et le Var sont les deux départements pilotes : liens officiels vérifiés, niveaux d'accès aux massifs forestiers repris verbatim du site interservices des préfectures, publications préfectorales citées et datées.</figcaption>
+    </figure>
+  </div>
+  <figure>
+    <div class="crop" style="height:70mm"><img src="captures/statut-longue.png" style="object-fit:cover;object-position:top;width:100%;height:100%" alt="Page d'état des données : chaque source, sa fraîcheur, sa dernière donnée"></div>
+    <figcaption><strong>L'état des données</strong> — chaque source, son dernier import réussi, la date de sa dernière donnée et la prochaine attendue. Cette page est consultable même quand tout le reste tombe ; c'est précisément là qu'elle sert. Le bandeau de chaque page en résume l'essentiel : « 9/9 sources en service · maj il y a 4 min · prochaine vers 16:14 ».</figcaption>
+  </figure>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>5</span></div>
+</section>
+
+<!-- ============================ DOCTRINE ============================ -->
+<section class="page">
+  <p class="eyebrow">3 · ce que le service affirme, et ce qu'il ne dit pas</p>
+  <h2>Une doctrine d'honnêteté, appliquée dans le code</h2>
+  <p class="lead">Une carte de feux prise pour une source officielle produit exactement la confusion qu'elle prétendait dissiper. Les règles ci-dessous ne sont pas des intentions : elles sont écrites dans la base de données et dans les pages, et testées.</p>
+
+  <h3>Une observation n'est pas un feu</h3>
+  <p>Une anomalie thermique peut être un feu de végétation, mais aussi une torchère industrielle, un four, un brûlage agricole ou un reflet du soleil sur une surface métallique. MapFeux affiche l'observation, pas son interprétation. Les sources thermiques récurrentes connues — sites industriels, torchères — sont classées dès l'import : sur quatorze années d'archives, près d'une détection sur deux en France n'est pas de la végétation.</p>
+
+  <h3>L'absence d'observation n'est pas l'absence de feu</h3>
+  <p>Les satellites passent quelques fois par jour et ne surveillent pas ; les nuages masquent le sol ; un pixel couvre 375 mètres ou un kilomètre. Chaque page qui pourrait être lue comme « rien à signaler » porte la phrase qui l'interdit : une liste vide dit qu'une détection récente peut ne pas encore être importée, et renvoie à l'état des données.</p>
+
+  <h3>Trois statuts qui ne se confondent pas</h3>
+  <p>La <strong>fraîcheur technique</strong> dit quand remonte la dernière observation. Le <strong>niveau de vérification</strong> dit ce que l'on sait de l'existence de l'événement. Le <strong>statut officiel</strong> — fixé, maîtrisé, éteint — n'apparaît que publié par une autorité, avec sa source et sa date : aucun traitement automatique ne peut le renseigner, et cette règle est appliquée dans la base de données elle-même, pas seulement dans l'interface.</p>
+
+  <h3>Une panne n'est pas une absence</h3>
+  <p>Quand la base ne répond pas, le site ne montre pas zéro événement : il dit qu'il n'a pas pu lire, avec l'heure, et l'API répond « indisponible » plutôt qu'une liste vide. Un audit externe du 15 septembre 2026 avait relevé ce risque ; il a été traité le soir même, sur les événements comme sur les communes et les territoires, et vérifié sur une panne simulée.</p>
+
+  <h3>Le périmètre est une règle, pas une promesse</h3>
+  <p>Le service couvre la France métropolitaine et la Corse. Les détections voisines — Espagne, Belgique, Italie, mer — sont importées, jamais publiées : un déclencheur en base masque tout événement hors périmètre, quel que soit le chemin qui l'écrit, et une adresse qui y mènerait explique pourquoi elle ne montre rien.</p>
+
+  <div class="callout">
+    <strong>Ce que MapFeux ne fera jamais :</strong> confirmer qu'un incendie est en cours ; déclarer qu'un feu est éteint ; publier la position de moyens ou de personnels ; émettre une alerte de sécurité civile ; reformuler une information officielle. Pour les consignes, les évacuations et les fermetures d'accès, la préfecture et la commune font foi.
+  </div>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>6</span></div>
+</section>
+
+<!-- ============================ SOURCES ============================ -->
+<section class="page">
+  <p class="eyebrow">4 · d'où viennent les données</p>
+  <h2>Neuf sources publiques, un registre</h2>
+  <p>Chaque source est déclarée dans un registre que le site lit pour afficher son état, sa licence et son attribution — rien n'est recopié à la main. Les données brutes reçues sont archivées avant toute analyse et ne sont jamais modifiées ; ce qui est affiché en dérive par des traitements décrits sur la page Méthodologie.</p>
+  <table>
+    <thead><tr><th>Source</th><th>Fournisseur</th><th>Ce qu'elle apporte</th><th>Lecture</th><th>Licence</th></tr></thead>
+    <tbody>
+      <tr><td><strong>NASA FIRMS</strong></td><td>NASA / MODAPS</td><td>Détections de feux actifs, capteurs VIIRS et MODIS — la matière première des événements</td><td>toutes les 10 minutes</td><td>données NASA, libres</td></tr>
+      <tr><td><strong>Radar de précipitations</strong></td><td>Météo-France</td><td>Lame d'eau, animée sur la carte — calque éteint par défaut</td><td>toutes les 5 minutes</td><td>Licence Ouverte / Etalab</td></tr>
+      <tr><td><strong>Communiqués et actualités</strong></td><td>Préfectures (sites de l'État)</td><td>Publications mentionnant une commune, citées et datées, jamais reformulées</td><td>toutes les 15 minutes</td><td>Licence Ouverte / Etalab</td></tr>
+      <tr><td><strong>Vigilance météorologique</strong></td><td>Météo-France</td><td>Bulletins de vigilance, par département</td><td>toutes les heures</td><td>Licence Ouverte Etalab v2</td></tr>
+      <tr><td><strong>Accès aux massifs forestiers</strong></td><td>Préfectures / risque-prevention-incendie.fr</td><td>Niveaux d'accès du jour et du lendemain, verbatim</td><td>toutes les 3 heures</td><td>Licence Ouverte / Etalab</td></tr>
+      <tr><td><strong>Copernicus CAMS</strong></td><td>Copernicus / ECMWF</td><td>Qualité de l'air modélisée (PM2,5, PM10), calque à la demande</td><td>quotidienne</td><td>Copernicus, libre avec attribution</td></tr>
+      <tr><td><strong>Modèle AROME</strong></td><td>Météo-France</td><td>Champs météorologiques archivés pour l'indice feu de forêt</td><td>quotidienne</td><td>Licence Ouverte / Etalab</td></tr>
+      <tr><td><strong>ADMIN EXPRESS COG</strong></td><td>IGN / Géoplateforme</td><td>Limites communales et départementales — pour nommer un lieu, jamais pour affirmer qu'une commune est menacée</td><td>import annuel, manuel</td><td>Licence Ouverte / Etalab</td></tr>
+      <tr><td><strong>EFFIS</strong></td><td>Copernicus / JRC</td><td>Surfaces brûlées, chargées lors d'un grand feu</td><td>import manuel</td><td>Copernicus, libre avec attribution</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted" style="margin-top:8pt">Le fond de carte est celui de la Géoplateforme de l'IGN, attribué en permanence. Les cadences sont celles déclarées au registre et mesurées sur les journaux d'import ; l'état du moment est sur la page État des données.</p>
+
+  <h3>Ce que chaque source permet, et ne permet pas</h3>
+  <p><strong>NASA FIRMS</strong> fournit des anomalies thermiques, pas des incendies confirmés, généralement dans les trois heures suivant le passage du satellite. <strong>Météo-France</strong> et <strong>Copernicus CAMS</strong> fournissent des sorties de modèles à l'échelle de plusieurs kilomètres : une valeur de modèle n'est pas une mesure prise à l'endroit consulté, et chaque page qui en affiche une le dit. <strong>Les préfectures</strong> sont citées, jamais interprétées.</p>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>7</span></div>
+</section>
+
+<!-- ============================ MÉTHODE ============================ -->
+<section class="page">
+  <p class="eyebrow">5 · comment un point devient un événement</p>
+  <h2>La méthode, en clair</h2>
+  <div class="cols tight">
+    <div>
+      <h3>1. Le pixel</h3>
+      <p>Chaque observation FIRMS est un pixel dont la température de surface est nettement supérieure à son environnement. Il est importé tel quel, avec son capteur, son satellite, son heure d'acquisition en UTC, sa confiance fournisseur et sa puissance radiative. La donnée brute est conservée ; elle n'est jamais corrigée.</p>
+      <h3>2. Le passage</h3>
+      <p>Un même passage d'un satellite au-dessus d'un feu produit plusieurs pixels, à la même minute. Regroupés par passage, ils donnent une suite d'instants : « le satellite est passé sept fois ». La puissance d'un passage est la somme des puissances connues — une déduction, présentée comme telle.</p>
+      <h3>3. L'événement</h3>
+      <p>Les détections proches dans l'espace et dans le temps sont regroupées en un événement probable. La tolérance spatiale s'élargit avec le temps écoulé, parce qu'un feu s'étend, mais elle est plafonnée pour ne pas fondre deux foyers d'une même vallée. Ce regroupement est une inférence : il peut réunir deux feux voisins ou en séparer un. L'algorithme est déterministe et sa version est enregistrée avec chaque rattachement, si bien qu'un regroupement ancien reste explicable après un changement de réglage.</p>
+    </div>
+    <div>
+      <h3>4. Le masque des sources connues</h3>
+      <p>Les sites qui brûlent toute l'année — torchères, aciéries, cimenteries — sont recensés dans un registre spatial. Une détection qui y tombe est classée dès l'import et ne forme pas d'événement de feu. Le registre a été constitué sur quatorze saisons d'archives FIRMS, plus de 330 000 détections.</p>
+      <h3>5. Le cycle de vie</h3>
+      <p>Un événement est <em>nouveau</em>, puis <em>récent</em>, puis <em>ancien</em>, puis <em>archivé</em> après sept jours sans observation. Ces états dérivent du temps qui passe, pas des imports, et sont recalculés à chaque passe. Archivé n'est pas éteint : c'est sorti de la fenêtre d'affichage, et toujours consultable.</p>
+      <h3>6. La fiabilité</h3>
+      <p>Faible, modérée ou élevée : elle agrège la confiance du fournisseur, la répétition des observations, la présence de plusieurs capteurs et la persistance dans le temps. Une fiabilité élevée signifie « l'observation est solide », jamais « le feu est important ».</p>
+      <h3>7. Le périmètre</h3>
+      <p>Un événement dont le point représentatif est hors de France métropolitaine et de Corse — ou à plus de 0,05 degré d'un département, le littoral — est masqué en base. Ses détections restent archivées ; rien n'est détruit, et la décision est réversible.</p>
+    </div>
+  </div>
+  <div class="callout small">
+    <strong>Ce qui est mesuré, pas promis.</strong> Le regroupement se rejoue à l'identique sur les mêmes données : un recalcul complet redonne exactement la même empreinte, et le traitement par tranches donne le même résultat qu'en bloc. Le contrôle est un script du dépôt, exécutable par quiconque.
+  </div>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>8</span></div>
+</section>
+
+<!-- ============================ FIABILITÉ ============================ -->
+<section class="page">
+  <p class="eyebrow">6 · fiabilité et transparence</p>
+  <h2>Ce qui permet de faire confiance au service</h2>
+  <div class="cols tight">
+    <div>
+      <h3>Tout est daté, tout est sourcé</h3>
+      <p>Aucune page ne peut afficher une donnée sans annoncer son âge. Le bandeau de chaque page dit combien de sources répondent, de quand date la dernière mise à jour et quand la prochaine est attendue. Une fiche servie depuis un instantané le dit, avec l'heure de l'instantané.</p>
+      <h3>Une panne est dite comme une panne</h3>
+      <p>Une base qui ne répond pas n'est ni un 404 ni un zéro : c'est un bandeau daté, sur la page, et une réponse « indisponible » sur l'API, jamais mise en cache. Une veille extérieure lit l'état public toutes les heures et écrit à l'éditeur quand une source automatique dépasse l'âge qu'elle promet, ou quand le site ne répond pas.</p>
+      <h3>Les corrections n'effacent rien</h3>
+      <p>La donnée brute est immuable et archivée avant analyse. Toute retouche éditoriale à venir — masquer, rapprocher, corriger — sera journalisée avec son état antérieur et son motif : une correction n'efface jamais ce qu'elle corrige.</p>
+    </div>
+    <div>
+      <h3>Vérifié à chaque changement</h3>
+      <p>Le dépôt porte 231 tests sur le site et ses vocabulaires, 467 sur la chaîne d'ingestion. À chaque modification, une base vierge est reconstruite, ses 53 migrations rejouées dans l'ordre, et une passe complète d'ingestion exécutée sous le rôle restreint qui tourne en production — vingt tables, rien de plus.</p>
+      <h3>Audité de l'extérieur</h3>
+      <p>Un audit externe du code, mené le 15 septembre 2026 sur une archive du dépôt, a formulé cinq constats prioritaires. Quatre ont été traités dans les deux jours, chacun vérifié par reproduction et consigné dans le plan de développement, public dans le dépôt. Le cinquième — l'authentification à deux facteurs de l'administration — est planifié avant toute fonction sensible, et aucune fonction sensible n'est ouverte.</p>
+      <h3>Une architecture sobre</h3>
+      <p>Un site rendu par le serveur, une base de données géographique, une chaîne d'ingestion en Python, un dépôt de code ouvert avec ses décisions d'architecture documentées. Pas de données personnelles : la position d'un visiteur qui cherche « autour de moi » n'est ni journalisée ni conservée.</p>
+    </div>
+  </div>
+  <figure style="margin-top:6pt">
+    <div class="crop" style="height:42mm"><img src="captures/catalogue.png" style="object-fit:cover;object-position:top;width:100%;height:100%" alt="Le catalogue national des événements, filtrable par période, département et niveau de vérification"></div>
+    <figcaption><strong>Le catalogue national</strong> — tous les événements, triés par dernière observation, filtrables par période, département et niveau de vérification. Aucun classement par « importance » : aucune règle sourcée ne la définit.</figcaption>
+  </figure>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>9</span></div>
+</section>
+
+<!-- ============================ ÉTAT ET SUITE ============================ -->
+<section class="page">
+  <p class="eyebrow">7 · où en est le projet</p>
+  <h2>En service, et ce qui vient</h2>
+  <p class="lead">Le service tourne sur données réelles depuis le 5 août 2026, en France métropolitaine et Corse. Ce qu'un visiteur voit dit vrai : la France et ses départements, les événements de France seulement, l'état de chaque source.</p>
+  <div class="cols">
+    <div class="box">
+      <h3>Livré</h3>
+      <ul>
+        <li>ingestion FIRMS nationale, regroupement en événements, cycle de vie ;</li>
+        <li>fiche événement permanente, relecture temporelle, catalogue, archives ;</li>
+        <li>carte nationale à deux échelles, calques air et radar ;</li>
+        <li>pages communes pour 34 746 communes, pages territoire pour les deux départements pilotes ;</li>
+        <li>informations officielles : vigilance, accès aux massifs, publications préfectorales citées ;</li>
+        <li>état des données public, veille extérieure, API documentée.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>En cours et à venir</h3>
+      <ul>
+        <li>hébergement permanent du déclencheur d'ingestion sur un serveur dédié — aujourd'hui sur un poste de travail, en transition ;</li>
+        <li>administration éditoriale avec authentification forte, corrections journalisées, mode dégradé ;</li>
+        <li>tests de parcours complets dans le navigateur, avant ouverture large ;</li>
+        <li>ouverture de nouveaux territoires pilotes, avec leurs liens officiels vérifiés.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Ce qu'un partenaire institutionnel peut apporter</h3>
+  <ul>
+    <li><strong>Relire les formulations publiques.</strong> Le titre de l'accueil, les avertissements, les libellés de statut : chaque phrase publique est écrite pour rester vraie sans être vérifiée par le lecteur, et une relecture par un service compétent en est la meilleure épreuve.</li>
+    <li><strong>Fournir les liens officiels d'un territoire.</strong> Préfecture, service d'incendie et de secours, accès aux massifs, vigilance : une page territoire ne renvoie qu'à des sources vérifiées, et l'ouverture d'un département commence par cette liste.</li>
+    <li><strong>Confronter le service à un événement réel.</strong> Une fiche, une relecture, une chronologie comparées à ce qu'un service a vécu : c'est ainsi que l'on mesure ce que le service dit juste, et ce qu'il devrait taire.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Une position simple.</strong> MapFeux ne demande aucune donnée aux services, ne se substitue à aucun d'eux, et n'ambitionne pas de le faire. Il rend lisible ce qui est déjà public, et renvoie aux autorités pour tout ce qui relève d'elles.
+  </div>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>10</span></div>
+</section>
+
+<!-- ============================ CONDITIONS ET CONTACT ============================ -->
+<section class="page">
+  <p class="eyebrow">8 · conditions d'usage et contact</p>
+  <h2>Réutiliser, citer, écrire</h2>
+  <h3>Réutilisation des données</h3>
+  <p>Les données brutes appartiennent à leurs producteurs — NASA, Météo-France, Copernicus, IGN, préfectures — et restent soumises à leurs licences respectives, toutes ouvertes. Qui republie une information issue de MapFeux reprend l'attribution du producteur, telle qu'elle figure sur la page Sources et licences, et non celle du service.</p>
+  <h3>Citer une fiche</h3>
+  <p>Chaque événement a un identifiant public stable, de la forme <code>MPF-XXXXXXXX</code>, et une adresse permanente. Un identifiant fusionné redirige définitivement vers l'événement canonique ; une adresse partagée ne se périme pas.</p>
+  <h3>L'API</h3>
+  <p>Les mêmes données sont servies par une API publique en lecture, sans clé, avec pour chaque réponse l'heure de génération et l'état des sources mobilisées. Un état reconstitué à un instant donné, une liste d'observations, un catalogue filtrable : ce que le site montre, l'API le dit dans les mêmes termes.</p>
+
+  <h3>Le service en trois adresses</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:38%"><strong>Le site</strong></td><td>mapfeux.vercel.app</td></tr>
+      <tr><td><strong>La méthode et les limites</strong></td><td>mapfeux.vercel.app/methodologie</td></tr>
+      <tr><td><strong>L'état des données, en direct</strong></td><td>mapfeux.vercel.app/statut</td></tr>
+    </tbody>
+  </table>
+
+  <div class="todo" style="margin-top:14pt">
+    <strong>À compléter par l'éditeur avant diffusion :</strong> identité de l'éditeur, adresse de contact, et réponse à la question de la continuité du service — ce qu'il devient si son auteur s'arrête. Le cahier des charges en fait une condition de mise en service : un service d'information doit dire qui le tient.
+  </div>
+
+  <p class="small muted" style="margin-top:16pt">Document établi le 21 septembre 2026 depuis le service en ligne et son dépôt de code. Les captures d'écran sont celles du site à cette date ; les chiffres cités — 191 événements sur sept jours, 67 départements — sont ceux lus en base ce jour-là et changent à chaque import. Fond de carte IGN — Géoplateforme. Données NASA FIRMS, Météo-France, Copernicus, IGN, préfectures.</p>
+  <div class="footer"><span>MapFeux — dossier de présentation, 21 septembre 2026</span><span>11</span></div>
+</section>
+
+</body>
+</html>

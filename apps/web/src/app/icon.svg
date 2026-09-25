@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 23 300 300">
+  <!--
+    Favicon MapFeux, tiré du logo (components/logo.tsx) pour la taille d'un
+    onglet : 16 à 32 px. Deux écarts voulus. Le graticule gris disparaît : sous
+    48 px, ce n'est plus que du bruit autour de la flamme. L'anneau passe de 17
+    à 23 : à 16 px, 17 unités tombent sous le pixel et le secteur rouge ne se
+    voit plus. Le massif et la pointe forment un seul tracé : jointifs à
+    y = 226, ils laissaient une couture claire à l'anticrénelage.
+
+    Cadrage carré au plus près du dessin, sans le fond du logo : l'onglet fait
+    fond. Couleurs du thème sombre quand le navigateur l'est.
+
+    Source de favicon.ico et d'apple-icon.png : après toute retouche, relancer
+    `node scripts/build-icons.mjs` depuis apps/web.
+  -->
+  <style>
+    .ink { fill: #021526; }
+    .ring { fill: none; stroke: #021526; }
+    .alert { fill: none; stroke: #ce2516; }
+    .flame { fill: #ee5718; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #e9eef4; }
+      .ring { stroke: #e9eef4; }
+      .alert { stroke: #f2634f; }
+      .flame { fill: #ff8146; }
+    }
+  </style>
+  <path class="ink" d="M48 194 A108 108 0 0 0 252 194 L150 320 Z" />
+  <g stroke-width="23">
+    <path class="ring" d="M60 94 A103 103 0 0 1 123 39" />
+    <path class="ring" d="M134 35 A103 103 0 0 1 150 34" />
+    <path class="alert" d="M161 35 A103 103 0 0 1 231 71" />
+    <path class="ring" d="M239 82 A103 103 0 0 1 253 128" />
+    <path class="ring" d="M253 148 A103 103 0 0 1 238 196" />
+    <path class="ring" d="M62 196 A103 103 0 0 1 47 148" />
+    <path class="ring" d="M47 128 A103 103 0 0 1 55 105" />
+  </g>
+  <path
+    class="flame"
+    d="M152 196 C119 174 113 151 126 127 C132 116 139 107 137 90 C158 103 169 121 164 140 C178 127 182 113 178 99 C202 116 208 139 197 160 C190 174 177 187 162 198 C176 176 170 160 158 151 C159 169 148 182 141 190 C139 179 134 168 124 160 C124 176 135 188 152 196 Z"
+  />
+  <path
+    class="ink"
+    d="M70 226 L92 184 L108 212 L128 164 L149 213 L170 176 L190 215 L211 185 L233 226 H203 L150 304 L97 226 Z"
+  />
+</svg>
