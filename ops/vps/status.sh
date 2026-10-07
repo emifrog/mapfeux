@@ -15,8 +15,13 @@ echo
 echo "== dernière passe par service =="
 printf '%-26s %-10s %-6s %s\n' "service" "résultat" "code" "fin"
 for unit in $(systemctl list-units --all 'mapfeux-*.service' --no-legend --plain | awk '{print $1}'); do
-  read -r result status stamp < <(systemctl show "$unit" \
-    -p Result -p ExecMainStatus -p ExecMainExitTimestamp --value | paste -sd' ')
+  # Une propriété par appel : `systemctl show` rend les propriétés dans son
+  # ordre à lui, pas dans celui des `-p`, et l'horodatage contient des
+  # espaces — lu en une ligne, le code de sortie recevait le jour de la
+  # semaine (vu le 7 octobre 2026, première passe radar du VPS).
+  result=$(systemctl show "$unit" -p Result --value)
+  status=$(systemctl show "$unit" -p ExecMainStatus --value)
+  stamp=$(systemctl show "$unit" -p ExecMainExitTimestamp --value)
   printf '%-26s %-10s %-6s %s\n' "$unit" "${result:-—}" "${status:-—}" "${stamp:-jamais}"
 done
 
