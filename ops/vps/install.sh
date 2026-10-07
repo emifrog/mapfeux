@@ -54,7 +54,13 @@ fi
 # --- Dépôt --------------------------------------------------------------------
 say "dépôt dans $ROOT"
 if [[ -d "$ROOT/.git" ]]; then
-  git -C "$ROOT" pull --ff-only
+  # Le dépôt appartient au compte d'exécution depuis le premier passage ;
+  # git, lancé par root, refuse un dépôt qui n'est pas à lui (« dubious
+  # ownership »). On tire donc en tant que propriétaire — sans shell de
+  # connexion, le compte n'en a pas — plutôt que de déclarer le dépôt sûr
+  # pour root, ce qui serait une exception de plus à retenir.
+  # Vu le 7 octobre 2026 sur le VPS, au second passage.
+  runuser -u "$USER_NAME" -- git -C "$ROOT" pull --ff-only
 else
   git clone --depth 1 "$REPO" "$ROOT"
 fi
