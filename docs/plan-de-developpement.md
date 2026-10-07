@@ -1,7 +1,7 @@
 # Plan de développement MapFeux
 
-**Dernière mise à jour** : 17 septembre 2026 — **le projet
-peut être montré.** Ce qu'un visiteur voit dit vrai : la France et ses
+**Dernière mise à jour** : 7 octobre 2026 — **le projet
+peut être montré, et son déclencheur ne dort plus.** Ce qu'un visiteur voit dit vrai : la France et ses
 départements, les événements de France seulement, l'état de chaque source.
 La journée a livré la fiche regardée avec le même œil que la carte, le coup
 d'œil air et radar, trois retouches du registre, la carte nationale à deux
@@ -27,9 +27,26 @@ seconde. Le 17, **le graphique de puissance par passage lit tous les
 passages** : le calcul passe en base (53ᵉ migration), le graphique ne
 dépend plus du plafond du tableau. Le dépôt compte 53 migrations, 231
 tests web et paquets, 460 au worker, tous verts en CI.
-Restent deux gestes à l'auteur : la bascule du déclencheur sur le VPS — le
-poste n'a tourné qu'un tiers du temps, mesuré — et la validation du titre
-de l'accueil. Le fil de la journée suit, du matin au soir.
+Le 7 octobre, **le déclencheur est passé sur un VPS** : six tâches sur
+sept y tournent, les préfectures restant au poste — leurs sites refusent
+les adresses de centres de données. Reste à l'auteur la validation du titre
+de l'accueil. Le fil suit, du plus récent au plus ancien.
+
+**7 octobre 2026** — **le déclencheur tourne sur le VPS.** Hostinger
+KVM 2, Ubuntu 24.04, `install.sh` en deux passages ; première passe radar
+à 15:25 UTC, première passe FIRMS à 15:30, toutes deux en base, succès.
+Le premier passage réel du kit a trouvé trois défauts, corrigés dans
+l'heure : `git pull` en root sur un dépôt qui appartient au compte
+d'exécution, un tableau d'état qui lisait le jour de la semaine comme code
+de sortie, et une passe préfectures « partielle » à zéro page lue qui
+datait quand même sa lecture. Et une limite qui n'est pas du kit : **les
+sites préfectoraux ferment la connexion aux adresses de centres de
+données** — même refus depuis un runner GitHub —, si bien que cette tâche
+reste au poste, inscrite comme exception dans le registre des tâches
+(`only_on`). Sur le poste, six tâches désactivées, une active. La mesure
+de sept jours dira si la bascule tient ; la veille extérieure, qui
+échouait chaque nuit depuis le 17 septembre, doit redevenir verte. Détail
+en [§14](#le-déclencheur-sur-le-vps--7-octobre-2026).
 
 **17 septembre 2026** — **le graphique de puissance par passage lit tous
 les passages.** Il était calculé en TypeScript sur les 500 observations
@@ -338,36 +355,24 @@ build — vertes.
 
 ## 2. Prochaine action
 
-**Basculer le déclencheur sur le VPS — un geste de l'auteur, le kit est
-prêt.**
+**Tenir sept jours sur le VPS, et le mesurer.**
 
-Le planificateur Windows tient la cadence quand il tourne — médianes
-mesurées le 15 septembre : radar 5 min, FIRMS 10, préfectures 15,
-vigilance 60 — mais **il n'a tourné qu'un tiers du temps** depuis la
-bascule : trois trous de 17,7 h, 2,4 h et 9,9 h en quarante-deux heures, le
-poste éteint ou endormi (`scripts/mesure-cadence.py --depuis
-2026-09-13T14:43:00Z`). Il lie l'ingestion à une session ouverte sur une
-machine de travail. **Le projet peut être montré dès maintenant** — ce
-qu'un visiteur voit dit vrai — mais une démonstration dépend de ce poste
-tant que la bascule n'est pas faite ; c'est le seul point qui ne tient
-qu'à vous, avec la validation du titre de l'accueil. Le kit VPS
-(`ops/vps/`, Hostinger KVM 1, Ubuntu 24.04) est écrit et vérifié ; ce
-qu'il reste ne peut pas être fait d'ici : provisionner, remplir `.env`
-avec la chaîne `mapfeux_ingest` que le poste emploie depuis le 15 au soir
-— la forme pooler, celle du secret CI —, lancer `install.sh` deux fois —
-l'environnement Python y vient du verrou `conda-lock.yml`, celui que la CI
-valide depuis le 15 au soir —,
-**désactiver** les tâches Windows, constater `environment: production`
-dans les journaux des tâches — et voir la **veille extérieure**
-(`veille-passes.yml`, depuis le 17 septembre) rester verte la nuit
-suivante : c'est elle qui dira que la bascule a tenu. Le runbook est
-`ops/vps/README.md`. Ensuite :
-sept jours de cadence mesurée, le critère des trente minutes de J4 sur la
-première publication réelle, et J5 — administration, supervision, mode
-dégradé. L'audit externe du 15 septembre (§14, §15) donne le même ordre
-une fois les indisponibilités rendues honnêtes et l'historique calculé en
-base — faits le soir même : continuité des imports, puis l'administration
-(MFA) et les tests de frontières.
+Le déclencheur est passé sur le VPS le 7 octobre (§14) : six tâches sur
+sept y tournent, première passe radar à 15:25 UTC, première passe FIRMS à
+15:30, toutes deux en base. Les préfectures restent au poste — leurs sites
+refusent les adresses de centres de données (§15) —, seule tâche Windows
+encore active. Ce qui reste n'est plus un geste, c'est une attente
+mesurée. Au 14 octobre, `scripts/mesure-cadence.py --jours 7` doit donner
+une couverture proche de 100 % sur FIRMS et le radar — contre un tiers le
+15 septembre et un cinquième le 23 —, et la veille extérieure
+(`veille-passes.yml`), qui échouait chaque nuit, doit être restée verte.
+Alors les six tâches Windows désactivées se retirent
+(`ops\windows\unregister-tasks.ps1`), les préfectures exceptées. Puis le
+critère des trente minutes de J4 sur la première publication réelle, et J5
+— administration, supervision, mode dégradé —, dans l'ordre que l'audit
+externe du 15 septembre donnait une fois la continuité des imports
+assurée : l'administration (MFA), puis les tests de frontières. Reste à
+l'auteur la validation du titre de l'accueil.
 
 Les deux clés attendues sont posées et vivantes — `COPERNICUS_KEY` en
 secret GitHub, la clé d'application radar dans l'environnement : au
@@ -2436,6 +2441,41 @@ l'attente du script était fausse — « rattachements » ne compte que les
 pixels rattachés à un événement existant, deux ici, les deux créations
 comptant à part. Corrigé sur le total traité.
 
+#### Le déclencheur sur le VPS — 7 octobre 2026
+
+Le geste que le plan attendait depuis le 13 septembre. Hostinger KVM 2,
+Ubuntu 24.04 nue, clé SSH posée à la création ; `install.sh` en deux
+passages, le `.env` copié depuis le poste puis réduit à ce que le
+gabarit attend — sans la chaîne `postgres`, avec `ENVIRONMENT=production`
+— ; les sept tâches Windows désactivées avant d'activer les minuteries.
+Première passe radar à 15:25 UTC, première passe FIRMS à 15:30 — quatre
+produits, 187 pixels lus —, toutes deux en base, succès.
+
+**Ce que le premier passage réel a trouvé.** Trois défauts du kit,
+corrigés dans l'heure et poussés : au second passage, `git pull` lancé par
+root refusait un dépôt que le premier passage avait donné au compte
+`mapfeux` (« dubious ownership ») — on tire en tant que propriétaire,
+`runuser`, plutôt que de déclarer le dépôt sûr pour root ; `status.sh`
+lisait trois propriétés systemd en une ligne et le code de sortie recevait
+le jour de la semaine — une propriété par appel ; et une passe préfectures
+qui n'avait lu aucune page sortait « partielle » en datant sa lecture, si
+bien que le registre aurait dit « à jour » sur du vide — aucun flux lu est
+une passe manquée, `FEEDS_UNREACHABLE`, statut failed, rien de daté.
+
+**Ce qu'il a trouvé qui n'est pas du kit.** Les sites préfectoraux
+ferment la connexion aux adresses de centres de données : depuis le VPS,
+`ENHANCE_YOUR_CALM` en HTTP/2 et réponse vide en HTTP/1.1, agent de
+navigateur ou non ; depuis un runner GitHub, le même refus à la même
+seconde ; depuis le poste, dix-sept minutes plus tôt, 19 publications. Ce
+n'est pas le client, c'est l'adresse. La tâche reste au poste : le
+registre des tâches porte l'exception avec son motif (`only_on: poste`),
+`generate-units.py` ne lui pose aucune unité et `install.sh` retire la
+minuterie si un passage antérieur l'avait posée — rejouable dans les deux
+sens. Sur le poste, une seule tâche active, `MapFeux-Prefectures`.
+
+Reste la mesure : sept jours, la même qui a condamné GitHub Actions puis
+le poste (§2).
+
 #### L'import manuel est un état, et la commune lit ses événements — 15 septembre 2026, midi
 
 - ✅ **`manual`, un état de source qui manquait** (48ᵉ migration,
@@ -2600,6 +2640,8 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | ADR-027 dit que le regroupement n'alimente pas les masqués — le code les alimente | L'ADR et le commentaire de la 49ᵉ migration affirmaient qu'un événement masqué ne reçoit plus de détections ; `_existing_events` (`clustering.py`) n'exclut que `archived`. Vérifié en production : 53 rattachements à 14 événements déjà masqués depuis la migration. **Le code a raison** — un site étranger reste un seul événement au lieu d'en engendrer un par passe, et c'est ce qui permet au déclencheur de rendre la main si le point représentatif revient dans le périmètre. **Corrigé le soir même** : révision de l'ADR, commentaire de la 49ᵉ migration (SQL inchangé), docstring de `_existing_events`, et un test qui fige la clause — `TestEvenementsRattachables`, 460ᵉ test du worker | Traité |
 | README périmé | Annonçait encore la fiche événement et l'ingestion FIRMS « à construire », et une planification GitHub Actions retirée depuis le 13 septembre. **Corrigé le soir du 15** : état d'avancement, section « Ingestion planifiée » (planificateur, workflows sans cron, mêmes trois étapes pour le `.env` et le secret CI), note sur le seul cron restant (réconciliation) | Traité |
 | La recherche de commune expirait en production | Trouvé le 15 septembre au soir en vérifiant le patron étendu : « nice » sortait en 503 sur le chemin sain. `api.search_municipalities` testait le code postal par `q = any (postal_codes)`, que l'index GIN ne sert pas ; dans un `or` avec les deux prédicats trigramme, la table entière était parcourue — 316 lignes au pilote, **34 746 depuis l'import national** —, 3,1 s à froid contre les 3 s de `statement_timeout` d'`anon`. Personne ne l'avait vu : la route levait une exception traduite en 500, et le champ de recherche disait « erreur ». **Corrigé le soir même, 52ᵉ migration** : `postal_codes @> array[q]`, les trois index combinés en `BitmapOr`, 40 à 330 ms sous `anon` en production. Leçon : une cible de latence (§6.2, p95 < 300 ms) ne se vérifie pas sur 316 lignes ; à remesurer à chaque changement d'échelle d'une table | Traité |
+| Les sites préfectoraux refusent les centres de données | Trouvé le 7 octobre, première passe depuis le VPS : `var.gouv.fr` et `alpes-maritimes.gouv.fr` ferment la connexion — `ENHANCE_YOUR_CALM` en HTTP/2, réponse vide en HTTP/1.1, agent de navigateur ou non —, et un runner GitHub reçoit le même refus à la même seconde. Le poste, en adresse résidentielle, lit 19 publications. La tâche reste donc au poste, exception inscrite au registre (`only_on: poste`, motif à côté) que le kit VPS honore. Conséquence : les préfectures gardent la cadence du poste, un tiers à un cinquième du temps. Pistes : demander aux préfectures un accès déclaré, trouver un flux officiel servi autrement, ou une adresse résidentielle dédiée ; aucune n'est faite | Ouvert, J4 |
+| Le déclencheur dépendait d'un poste de travail | Un tiers du temps le 15 septembre, un cinquième le 23. **Traité le 7 octobre** : VPS Hostinger KVM 2, six tâches sur sept (§14), le poste ne gardant que les préfectures. Le premier passage réel du kit a corrigé trois défauts — `git pull` en root sur un dépôt du compte `mapfeux` (`runuser`), `status.sh` qui lisait les propriétés systemd en une ligne, une passe préfectures « partielle » à zéro page lue qui datait sa lecture (`FEEDS_UNREACHABLE`, statut failed) — tous poussés avant la fin de la bascule. Reste la mesure de sept jours (§2) | Mesure au 14 octobre |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
