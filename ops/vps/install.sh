@@ -114,6 +114,14 @@ EOF
 fi
 chmod 600 "$ENV_FILE"
 chown "$USER_NAME:$USER_NAME" "$ENV_FILE"
+# L'étiquette des journaux : c'est elle qui distingue une passe du VPS d'une
+# passe du poste, et la preuve de la bascule. Un `.env` copié depuis le poste
+# dit `local` tant qu'on ne l'a pas retouché.
+if grep -qE '^ENVIRONMENT=' "$ENV_FILE" && ! grep -qE '^ENVIRONMENT=production\s*$' "$ENV_FILE"; then
+  echo "  ! ENVIRONMENT n'est pas « production » dans $ENV_FILE : les passes se diront autre chose" >&2
+else
+  echo "étiquette : production"
+fi
 
 # --- Connexion à la base : IPv6 ou pooler ? ------------------------------------
 # La connexion directe Supabase ne résout qu'en IPv6. Si la machine n'en a

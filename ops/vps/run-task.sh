@@ -39,6 +39,25 @@ export PYTHONUTF8=1
 export PYTHONIOENCODING=utf-8
 export PYTHONUNBUFFERED=1
 
+# L'étiquette d'environnement des journaux vient du **processus**, pas du
+# fichier : `geo_worker.logging` lit `os.environ` à l'import, et les scripts
+# ne relisent le `.env` que pour leurs propres réglages. Sans cet export,
+# chaque passe du VPS se disait `local` — vu le 7 octobre 2026, le jour de
+# la bascule, 36 passes étiquetées à tort. On n'exporte que ces deux clés,
+# qui ne sont pas des secrets ; et ce lanceur n'existe que sur le VPS, donc
+# `production` est le repli quand le fichier ne dit rien.
+ENV_FILE="$ROOT/services/geo-worker/.env"
+value_from_env_file() {
+  [[ -f "$ENV_FILE" ]] || return 0
+  { grep -E "^$1=" "$ENV_FILE" || true; } | tail -1 | cut -d= -f2- | tr -d "\"' \r"
+}
+ENVIRONMENT="${ENVIRONMENT:-$(value_from_env_file ENVIRONMENT)}"
+export ENVIRONMENT="${ENVIRONMENT:-production}"
+LOG_LEVEL_FROM_FILE="$(value_from_env_file LOG_LEVEL)"
+if [[ -n "$LOG_LEVEL_FROM_FILE" ]]; then
+  export LOG_LEVEL="${LOG_LEVEL:-$LOG_LEVEL_FROM_FILE}"
+fi
+
 # Les scripts de la tâche, un par ligne, lus du registre par le python du
 # système — la bibliothèque standard suffit, et l'environnement conda n'a
 # pas à être prêt pour lire un JSON.

@@ -2451,8 +2451,13 @@ gabarit attend — sans la chaîne `postgres`, avec `ENVIRONMENT=production`
 Première passe radar à 15:25 UTC, première passe FIRMS à 15:30 — quatre
 produits, 187 pixels lus —, toutes deux en base, succès.
 
-**Ce que le premier passage réel a trouvé.** Trois défauts du kit,
-corrigés dans l'heure et poussés : au second passage, `git pull` lancé par
+**Ce que le premier passage réel a trouvé.** Quatre défauts du kit,
+corrigés dans l'heure et poussés. L'étiquette `environment` des journaux
+— la preuve même de la bascule — vient du processus, pas du fichier
+`.env`, et le lanceur systemd ne l'exportait pas : 36 passes du VPS se
+sont dites `local` ; `run-task.sh` exporte désormais `ENVIRONMENT` et
+`LOG_LEVEL` depuis le fichier, `production` par défaut, et `install.sh`
+avertit si le fichier dit autre chose. Puis : au second passage, `git pull` lancé par
 root refusait un dépôt que le premier passage avait donné au compte
 `mapfeux` (« dubious ownership ») — on tire en tant que propriétaire,
 `runuser`, plutôt que de déclarer le dépôt sûr pour root ; `status.sh`
@@ -2641,7 +2646,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | README périmé | Annonçait encore la fiche événement et l'ingestion FIRMS « à construire », et une planification GitHub Actions retirée depuis le 13 septembre. **Corrigé le soir du 15** : état d'avancement, section « Ingestion planifiée » (planificateur, workflows sans cron, mêmes trois étapes pour le `.env` et le secret CI), note sur le seul cron restant (réconciliation) | Traité |
 | La recherche de commune expirait en production | Trouvé le 15 septembre au soir en vérifiant le patron étendu : « nice » sortait en 503 sur le chemin sain. `api.search_municipalities` testait le code postal par `q = any (postal_codes)`, que l'index GIN ne sert pas ; dans un `or` avec les deux prédicats trigramme, la table entière était parcourue — 316 lignes au pilote, **34 746 depuis l'import national** —, 3,1 s à froid contre les 3 s de `statement_timeout` d'`anon`. Personne ne l'avait vu : la route levait une exception traduite en 500, et le champ de recherche disait « erreur ». **Corrigé le soir même, 52ᵉ migration** : `postal_codes @> array[q]`, les trois index combinés en `BitmapOr`, 40 à 330 ms sous `anon` en production. Leçon : une cible de latence (§6.2, p95 < 300 ms) ne se vérifie pas sur 316 lignes ; à remesurer à chaque changement d'échelle d'une table | Traité |
 | Les sites préfectoraux refusent les centres de données | Trouvé le 7 octobre, première passe depuis le VPS : `var.gouv.fr` et `alpes-maritimes.gouv.fr` ferment la connexion — `ENHANCE_YOUR_CALM` en HTTP/2, réponse vide en HTTP/1.1, agent de navigateur ou non —, et un runner GitHub reçoit le même refus à la même seconde. Le poste, en adresse résidentielle, lit 19 publications. La tâche reste donc au poste, exception inscrite au registre (`only_on: poste`, motif à côté) que le kit VPS honore. Conséquence : les préfectures gardent la cadence du poste, un tiers à un cinquième du temps. Pistes : demander aux préfectures un accès déclaré, trouver un flux officiel servi autrement, ou une adresse résidentielle dédiée ; aucune n'est faite | Ouvert, J4 |
-| Le déclencheur dépendait d'un poste de travail | Un tiers du temps le 15 septembre, un cinquième le 23. **Traité le 7 octobre** : VPS Hostinger KVM 2, six tâches sur sept (§14), le poste ne gardant que les préfectures. Le premier passage réel du kit a corrigé trois défauts — `git pull` en root sur un dépôt du compte `mapfeux` (`runuser`), `status.sh` qui lisait les propriétés systemd en une ligne, une passe préfectures « partielle » à zéro page lue qui datait sa lecture (`FEEDS_UNREACHABLE`, statut failed) — tous poussés avant la fin de la bascule. Reste la mesure de sept jours (§2) | Mesure au 14 octobre |
+| Le déclencheur dépendait d'un poste de travail | Un tiers du temps le 15 septembre, un cinquième le 23. **Traité le 7 octobre** : VPS Hostinger KVM 2, six tâches sur sept (§14), le poste ne gardant que les préfectures. Le premier passage réel du kit a corrigé quatre défauts — `git pull` en root sur un dépôt du compte `mapfeux` (`runuser`), `status.sh` qui lisait les propriétés systemd en une ligne, une passe préfectures « partielle » à zéro page lue qui datait sa lecture (`FEEDS_UNREACHABLE`, statut failed), et l'étiquette `environment` des journaux que le lanceur n'exportait pas (36 passes dites `local`) — tous poussés le jour de la bascule. Reste la mesure de sept jours (§2) | Mesure au 14 octobre |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |
