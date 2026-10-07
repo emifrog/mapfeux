@@ -119,8 +119,10 @@ depuis l'éditeur SQL du tableau de bord.
 ### Ingestion planifiée — à faire une fois
 
 La chaîne d'ingestion tourne depuis un planificateur — les sept tâches de
-`ops/tasks.json`, sur un poste Windows en transition, sur le VPS ensuite
-(`ops/vps/README.md`). Les workflows GitHub Actions n'ont plus de cron depuis
+`ops/tasks.json` : six sur un VPS depuis le 7 octobre 2026
+(`ops/vps/README.md`, qui dit aussi l'ordre des gestes pour déployer un
+changement du worker), les préfectures seules sur le poste (`ops/windows`,
+leurs sites refusant les centres de données). Les workflows GitHub Actions n'ont plus de cron depuis
 le 13 septembre 2026 : ils gardent le déclenchement manuel, pour éprouver un
 secret ou rejouer une passe depuis un runner. Les trois étapes ci-dessous
 servent aux deux : la chaîne de connexion est la même dans le `.env` du

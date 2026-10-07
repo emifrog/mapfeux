@@ -39,9 +39,55 @@ même nom, `DATABASE_URL` étant celle d'`INGESTION_DATABASE_URL`, le rôle
 seconde fois, il va au bout : environnement micromamba, unités systemd,
 minuteries actives, état affiché.
 
-Le script est **rejouable** : c'est aussi la mise à jour (`git pull`,
-environnement, unités), après tout changement du dépôt ou de
-`ops/tasks.json`.
+Le script est **rejouable** : c'est aussi la mise à jour. L'ordre à tenir
+est à la section suivante.
+
+## Mettre à jour — l'ordre des gestes
+
+Le VPS exécute `/opt/mapfeux` tel qu'il était au dernier `install.sh`. Un
+push sur `main` ne l'atteint pas : le site, lui, se déploie seul sur Vercel
+au push, le worker non. Déployer un changement du worker est donc un geste,
+et il a un ordre :
+
+1. **La migration d'abord, depuis le poste** — `pnpm db:push`, avec la
+   chaîne d'administration, qui ne va jamais sur le VPS. Entre ce moment et
+   l'étape 3, le code **ancien** tourne sur le VPS contre la base
+   **nouvelle** : une migration doit être additive — ajouter une colonne,
+   une fonction, une vue — et ne jamais retirer ni renommer ce que les
+   scripts en place appellent. Sinon, migration et étape 3 dans la même
+   séance, sans quitter le clavier entre les deux.
+2. **Commit, push, CI verte.** La CI rejoue toutes les migrations sur une
+   base vierge, puis une passe complète sous `mapfeux_ingest`, depuis le
+   verrou conda — la même pile que le VPS, linux-64.
+3. **Sur le VPS, rejouer `install.sh`** (la commande d'installation,
+   ci-dessus). Il tire `main`, ne recrée l'environnement conda **que si
+   `conda-lock.yml` a changé** — l'empreinte du verrou est gardée dans
+   l'environnement —, régénère les unités depuis `ops/tasks.json`, et
+   affiche l'état. Quelques secondes quand le verrou n'a pas bougé.
+4. **Vérifier** : `status.sh`, le journal de la première passe qui suit,
+   et la base (section suivante).
+
+Une passe en cours pendant l'étape 3 finit sur l'ancien code — `git pull`
+remplace les fichiers, pas le processus — ; la suivante part sur le nouveau.
+
+## La machine
+
+- **Mises à jour de sécurité** : `install.sh` pose `unattended-upgrades`,
+  mises à jour quotidiennes, et le **redémarrage automatique à 04:30**
+  (heure de la machine) quand un noyau le demande — sans lui, le noyau ne
+  changerait jamais. Une passe tuée par le redémarrage reprend à la
+  suivante ; les minuteries rattrapent (`Persistent=true`). `status.sh`
+  dit si un redémarrage attend.
+- **Rien d'unique dessus, sauf le `.env`.** Le dépôt, l'environnement, les
+  unités se refont en dix minutes par `install.sh` sur une machine neuve ;
+  le `.env` est la seule chose à ressaisir — depuis les secrets GitHub du
+  même nom. C'est le plan de reprise, et il n'y a pas de sauvegarde à
+  faire.
+- **Rien n'écoute** : aucun port ouvert par MapFeux, pas de service web.
+  Clé SSH seule, mot de passe root coupé.
+- **Les secrets existent en trois exemplaires** : ce `.env`, celui du
+  poste (avec la chaîne d'administration et `ENVIRONMENT=local`), et les
+  secrets GitHub. Faire tourner une clé, c'est les trois.
 
 ## Vérifier
 
@@ -84,8 +130,9 @@ cadence mesurée n'aurait plus de sens.
    `Get-ScheduledTask -TaskPath '\MapFeux\' | Disable-ScheduledTask`
 2. Installer et vérifier sur le VPS (ci-dessus).
 3. Après sept jours de cadence tenue — la même mesure que celle qui a
-   condamné GitHub Actions —, retirer les tâches Windows :
-   `ops\windows\unregister-tasks.ps1`.
+   condamné GitHub Actions —, retirer les tâches Windows sauf celle qui
+   reste au poste : `ops\windows\unregister-tasks.ps1 -Except Prefectures`
+   (`-WhatIf` d'abord, pour lire ce qui partirait).
 
 En cas de panne du VPS, l'inverse : `Enable-ScheduledTask` sur le poste, ou
 le `workflow_dispatch` de chaque workflow GitHub pour une passe isolée.

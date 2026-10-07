@@ -35,11 +35,18 @@ de l'accueil. Le fil suit, du plus récent au plus ancien.
 **7 octobre 2026** — **le déclencheur tourne sur le VPS.** Hostinger
 KVM 2, Ubuntu 24.04, `install.sh` en deux passages ; première passe radar
 à 15:25 UTC, première passe FIRMS à 15:30, toutes deux en base, succès.
-Le premier passage réel du kit a trouvé trois défauts, corrigés dans
-l'heure : `git pull` en root sur un dépôt qui appartient au compte
-d'exécution, un tableau d'état qui lisait le jour de la semaine comme code
-de sortie, et une passe préfectures « partielle » à zéro page lue qui
-datait quand même sa lecture. Et une limite qui n'est pas du kit : **les
+Le premier passage réel du kit a trouvé quatre défauts, corrigés dans
+l'heure : l'étiquette `environment` des journaux que le lanceur
+n'exportait pas — 36 passes du VPS se disaient `local` —, `git pull` en
+root sur un dépôt qui appartient au compte d'exécution, un tableau d'état
+qui lisait le jour de la semaine comme code de sortie, et une passe
+préfectures « partielle » à zéro page lue qui datait quand même sa
+lecture. Le soir, **ce que la bascule change au développement** est
+écrit et outillé : déployer le worker est désormais un geste ordonné —
+migration additive, push, CI, `install.sh` —, l'installateur ne recrée
+l'environnement conda que si le verrou a changé, la machine se met à jour
+seule, et le retrait des tâches Windows accepte `-Except Prefectures`
+(§14). Et une limite qui n'est pas du kit : **les
 sites préfectoraux ferment la connexion aux adresses de centres de
 données** — même refus depuis un runner GitHub —, si bien que cette tâche
 reste au poste, inscrite comme exception dans le registre des tâches
@@ -367,7 +374,8 @@ une couverture proche de 100 % sur FIRMS et le radar — contre un tiers le
 15 septembre et un cinquième le 23 —, et la veille extérieure
 (`veille-passes.yml`), qui échouait chaque nuit, doit être restée verte.
 Alors les six tâches Windows désactivées se retirent
-(`ops\windows\unregister-tasks.ps1`), les préfectures exceptées. Puis le
+(`ops\windows\unregister-tasks.ps1 -Except Prefectures`, `-WhatIf`
+d'abord), les préfectures exceptées. Puis le
 critère des trente minutes de J4 sur la première publication réelle, et J5
 — administration, supervision, mode dégradé —, dans l'ordre que l'audit
 externe du 15 septembre donnait une fois la continuité des imports
@@ -2481,6 +2489,37 @@ sens. Sur le poste, une seule tâche active, `MapFeux-Prefectures`.
 Reste la mesure : sept jours, la même qui a condamné GitHub Actions puis
 le poste (§2).
 
+**Ce que la bascule change au développement — le soir même.** Quatre
+choses, une seule confortable, écrites et outillées le jour même.
+*Déployer le worker devient un geste* : le planificateur Windows exécutait
+le dépôt local, une retouche non commitée partait à la passe suivante ; le
+VPS exécute `/opt/mapfeux` tel qu'il était au dernier `install.sh`, et un
+push sur `main` ne l'atteint pas — le site, lui, se déploie seul sur
+Vercel. L'ordre est désormais écrit dans `ops/vps/README.md` : migration
+d'abord, depuis le poste ; push et CI verte ; `install.sh` sur le VPS ;
+vérification. *Les migrations ouvrent une fenêtre* : entre la migration
+et le `install.sh` qui suit, le code ancien tourne contre la base
+nouvelle — la même main faisait les deux à la même minute sur la même
+machine, plus maintenant. Règle : migrations additives, ou les deux dans
+la même séance. *`install.sh` recréait l'environnement conda à chaque
+passage* — plusieurs minutes de téléchargement pour tirer trois lignes,
+alors que ce script est la mise à jour et va être rejoué souvent :
+l'empreinte SHA-256 du verrou est gardée dans l'environnement, et un
+verrou inchangé ne coûte rien (essayé sur un `micromamba` factice : créé,
+inchangé, recréé quand le verrou change). *Une machine à tenir* :
+`unattended-upgrades` posé par `install.sh`, mises à jour de sécurité
+quotidiennes et redémarrage automatique à 04:30 quand un noyau le
+demande — sans lui, le noyau ne changerait jamais ; `status.sh` dit si un
+redémarrage attend et quelle empreinte de verrou l'environnement porte.
+Rien d'unique sur la machine sauf le `.env`, qui existe en trois
+exemplaires avec celui du poste et les secrets GitHub : faire tourner une
+clé, c'est les trois. Enfin `unregister-tasks.ps1` retirait tout,
+préfectures comprises : `-Only`, `-Except` et `-WhatIf` — essayé sur le
+poste, `-Except Prefectures -WhatIf` liste les six, les sept tâches sont
+toujours là. Le côté confortable : le VPS est du linux-64, la plateforme
+que la CI verrouille — les ennuis propres à Windows ne concernent plus la
+production.
+
 #### L'import manuel est un état, et la commune lit ses événements — 15 septembre 2026, midi
 
 - ✅ **`manual`, un état de source qui manquait** (48ᵉ migration,
@@ -2646,7 +2685,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | README périmé | Annonçait encore la fiche événement et l'ingestion FIRMS « à construire », et une planification GitHub Actions retirée depuis le 13 septembre. **Corrigé le soir du 15** : état d'avancement, section « Ingestion planifiée » (planificateur, workflows sans cron, mêmes trois étapes pour le `.env` et le secret CI), note sur le seul cron restant (réconciliation) | Traité |
 | La recherche de commune expirait en production | Trouvé le 15 septembre au soir en vérifiant le patron étendu : « nice » sortait en 503 sur le chemin sain. `api.search_municipalities` testait le code postal par `q = any (postal_codes)`, que l'index GIN ne sert pas ; dans un `or` avec les deux prédicats trigramme, la table entière était parcourue — 316 lignes au pilote, **34 746 depuis l'import national** —, 3,1 s à froid contre les 3 s de `statement_timeout` d'`anon`. Personne ne l'avait vu : la route levait une exception traduite en 500, et le champ de recherche disait « erreur ». **Corrigé le soir même, 52ᵉ migration** : `postal_codes @> array[q]`, les trois index combinés en `BitmapOr`, 40 à 330 ms sous `anon` en production. Leçon : une cible de latence (§6.2, p95 < 300 ms) ne se vérifie pas sur 316 lignes ; à remesurer à chaque changement d'échelle d'une table | Traité |
 | Les sites préfectoraux refusent les centres de données | Trouvé le 7 octobre, première passe depuis le VPS : `var.gouv.fr` et `alpes-maritimes.gouv.fr` ferment la connexion — `ENHANCE_YOUR_CALM` en HTTP/2, réponse vide en HTTP/1.1, agent de navigateur ou non —, et un runner GitHub reçoit le même refus à la même seconde. Le poste, en adresse résidentielle, lit 19 publications. La tâche reste donc au poste, exception inscrite au registre (`only_on: poste`, motif à côté) que le kit VPS honore. Conséquence : les préfectures gardent la cadence du poste, un tiers à un cinquième du temps. Pistes : demander aux préfectures un accès déclaré, trouver un flux officiel servi autrement, ou une adresse résidentielle dédiée ; aucune n'est faite | Ouvert, J4 |
-| Le déclencheur dépendait d'un poste de travail | Un tiers du temps le 15 septembre, un cinquième le 23. **Traité le 7 octobre** : VPS Hostinger KVM 2, six tâches sur sept (§14), le poste ne gardant que les préfectures. Le premier passage réel du kit a corrigé quatre défauts — `git pull` en root sur un dépôt du compte `mapfeux` (`runuser`), `status.sh` qui lisait les propriétés systemd en une ligne, une passe préfectures « partielle » à zéro page lue qui datait sa lecture (`FEEDS_UNREACHABLE`, statut failed), et l'étiquette `environment` des journaux que le lanceur n'exportait pas (36 passes dites `local`) — tous poussés le jour de la bascule. Reste la mesure de sept jours (§2) | Mesure au 14 octobre |
+| Le déclencheur dépendait d'un poste de travail | Un tiers du temps le 15 septembre, un cinquième le 23. **Traité le 7 octobre** : VPS Hostinger KVM 2, six tâches sur sept (§14), le poste ne gardant que les préfectures. Le premier passage réel du kit a corrigé quatre défauts — `git pull` en root sur un dépôt du compte `mapfeux` (`runuser`), `status.sh` qui lisait les propriétés systemd en une ligne, une passe préfectures « partielle » à zéro page lue qui datait sa lecture (`FEEDS_UNREACHABLE`, statut failed), et l'étiquette `environment` des journaux que le lanceur n'exportait pas (36 passes dites `local`) — tous poussés le jour de la bascule. **Le soir** : l'ordre de déploiement du worker écrit (migration additive, push, CI, `install.sh`), l'environnement conda recréé seulement si le verrou change, `unattended-upgrades` et redémarrage nocturne, `unregister-tasks.ps1 -Except Prefectures` (§14). Reste la mesure de sept jours (§2) | Mesure au 14 octobre |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
 | Aucun test de composant | Recherche et carte n'ont que le typage | J6 (Playwright) |

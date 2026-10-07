@@ -37,7 +37,31 @@ say() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 say "paquets système"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq git curl ca-certificates bzip2 tzdata python3 >/dev/null
+apt-get install -y -qq git curl ca-certificates bzip2 tzdata python3 unattended-upgrades >/dev/null
+
+# --- Mises à jour de sécurité, sans personne -----------------------------------
+# Une machine que personne ne regarde doit se tenir à jour seule. Le paquet
+# applique les mises à jour de sécurité chaque jour ; on y ajoute le
+# redémarrage automatique quand un noyau le demande — sans lui, le noyau
+# ne changerait jamais. L'heure est celle de la machine ; à 04:30 aucune
+# tâche quotidienne ne part, et une passe de dix minutes tuée par le
+# redémarrage reprend à la suivante (`Persistent=true`, voir
+# generate-units.py). Deux fichiers écrasés à chaque passage : rejouable.
+say "mises à jour de sécurité"
+cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+EOF
+cat > /etc/apt/apt.conf.d/52mapfeux-reboot <<'EOF'
+// Posé par ops/vps/install.sh — écrasé à chaque passage, ne pas éditer ici.
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:30";
+EOF
+systemctl enable --now unattended-upgrades >/dev/null 2>&1 || true
+echo "quotidiennes ; redémarrage à 04:30 ($(timedatectl show -p Timezone --value 2>/dev/null || echo 'fuseau inconnu')) si un noyau le demande"
+if [[ -f /var/run/reboot-required ]]; then
+  echo "  ! un redémarrage est déjà en attente : à 04:30, ou tout de suite par « reboot »"
+fi
 
 # --- Compte d'exécution -------------------------------------------------------
 # Un compte système, sans shell ni mot de passe : il ne sert qu'à porter les
@@ -87,13 +111,23 @@ fi
 # ajouter par pip, et la même combinaison à chaque recréation. `environment.yml`
 # reste la source, le verrou s'en régénère (voir son en-tête). Un verrou ne se
 # met pas à jour en place : on recrée, ce qui remplace l'environnement existant.
+#
+# Mais seulement si le verrou a changé. L'empreinte du verrou qui a produit
+# l'environnement vit dans l'environnement lui-même — recréer l'efface — et
+# un verrou identique ne coûte rien. Jusqu'au 7 octobre 2026, chaque
+# passage recréait tout : plusieurs minutes de téléchargement pour un
+# `git pull` de trois lignes, alors que ce script est aussi la mise à jour.
 say "environnement mapfeux-geo"
-if [[ -d "$MAMBA_ROOT_PREFIX/envs/mapfeux-geo" ]]; then
-  "$MICROMAMBA" create -y -q -n mapfeux-geo -f "$ROOT/services/geo-worker/conda-lock.yml"
-  echo "recréé depuis le verrou"
+LOCK="$ROOT/services/geo-worker/conda-lock.yml"
+ENV_PREFIX="$MAMBA_ROOT_PREFIX/envs/mapfeux-geo"
+STAMP="$ENV_PREFIX/.conda-lock.sha256"
+LOCK_SUM="$(sha256sum "$LOCK" | cut -d' ' -f1)"
+if [[ -d "$ENV_PREFIX" && -f "$STAMP" && "$(<"$STAMP")" == "$LOCK_SUM" ]]; then
+  echo "en place, verrou inchangé (${LOCK_SUM:0:12})"
 else
-  "$MICROMAMBA" create -y -q -n mapfeux-geo -f "$ROOT/services/geo-worker/conda-lock.yml"
-  echo "créé depuis le verrou"
+  "$MICROMAMBA" create -y -q -n mapfeux-geo -f "$LOCK"
+  printf '%s\n' "$LOCK_SUM" > "$STAMP"
+  echo "créé depuis le verrou (${LOCK_SUM:0:12})"
 fi
 "$MICROMAMBA" run -n mapfeux-geo python -c "import rasterio, psycopg, httpx; print('pile géospatiale : ok')"
 

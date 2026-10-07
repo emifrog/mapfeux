@@ -8,6 +8,9 @@
 
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+STAMP="${MAMBA_ROOT_PREFIX:-$ROOT/.micromamba}/envs/mapfeux-geo/.conda-lock.sha256"
+
 echo "== minuteries =="
 systemctl list-timers --all 'mapfeux-*' --no-pager
 
@@ -24,6 +27,19 @@ for unit in $(systemctl list-units --all 'mapfeux-*.service' --no-legend --plain
   stamp=$(systemctl show "$unit" -p ExecMainExitTimestamp --value)
   printf '%-26s %-10s %-6s %s\n' "$unit" "${result:-—}" "${status:-—}" "${stamp:-jamais}"
 done
+
+echo
+echo "== machine =="
+if [[ -f /var/run/reboot-required ]]; then
+  echo "redémarrage requis : oui (automatique à 04:30, ou « reboot » maintenant)"
+else
+  echo "redémarrage requis : non"
+fi
+if [[ -f "$STAMP" ]]; then
+  echo "environnement conda : verrou $(cut -c1-12 "$STAMP")"
+else
+  echo "environnement conda : sans empreinte — le prochain install.sh le recrée une fois"
+fi
 
 echo
 echo "journal d'une tâche : journalctl -u mapfeux-radar -n 40"
