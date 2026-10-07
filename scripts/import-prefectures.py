@@ -144,6 +144,19 @@ def main(argv: list[str]) -> int:
                     counters.artifact_path = f"{BUCKET_RAW}/{object_path}"
                     counters.checksum = checksum
 
+                # Aucun flux lu : ce n'est pas une passe partielle, c'est une
+                # passe manquée. « Partielle » veut dire « certains flux lus,
+                # d'autres non » ; dater la lecture d'une passe qui n'a rien lu
+                # ferait dire au registre « à jour » sur du vide — vu le
+                # 7 octobre 2026, le jour où le déclencheur est passé sur un
+                # VPS : les sites préfectoraux ferment la connexion aux
+                # adresses de centres de données, et la passe sortait
+                # « partielle », zéro page lue, source « à jour ».
+                if not per_feed:
+                    raise ImportRunError(
+                        "FEEDS_UNREACHABLE", "aucun flux lu — " + " ; ".join(rejections)
+                    )
+
                 counters.records_read = total_read
                 counters.records_inserted = total_inserted
                 counters.records_updated = total_refreshed
