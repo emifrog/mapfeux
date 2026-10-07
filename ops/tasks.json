@@ -35,7 +35,9 @@
       "description": "Pages d'actualités préfectorales vers les citations (import-prefectures.py)",
       "scripts": ["scripts/import-prefectures.py"],
       "schedule": { "kind": "every", "minutes": 15 },
-      "time_limit_min": 10
+      "time_limit_min": 10,
+      "only_on": "poste",
+      "only_on_reason": "Les sites préfectoraux ferment la connexion aux adresses de centres de données — HTTP/2 ENHANCE_YOUR_CALM, réponse vide en HTTP/1.1, même refus depuis un runner GitHub (7 octobre 2026). Seule une adresse résidentielle les lit : cette tâche reste au poste, le kit VPS ne la pose pas."
     },
     {
       "name": "Vigilance",

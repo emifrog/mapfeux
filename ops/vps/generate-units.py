@@ -55,7 +55,9 @@ def on_calendar(schedule: dict) -> str:
                 raise ValueError(f"un intervalle sous l'heure doit diviser 60 : {every}")
             return f"*-*-* *:0/{every}:00 UTC"
         if every % 60 != 0:
-            raise ValueError(f"un intervalle au-delà de l'heure doit être un multiple de 60 : {every}")
+            raise ValueError(
+                f"un intervalle au-delà de l'heure doit être un multiple de 60 : {every}"
+            )
         hours = every // 60
         hour_expr = "*" if hours == 1 else f"0/{hours}"
         return f"*-*-* {hour_expr}:{minute:02d}:00 UTC"
@@ -64,7 +66,7 @@ def on_calendar(schedule: dict) -> str:
 
 def service_unit(task: dict, root: str, user: str) -> str:
     return f"""[Unit]
-Description=MapFeux — {task['description']}
+Description=MapFeux — {task["description"]}
 Documentation=https://github.com/emifrog/mapfeux/tree/main/ops/vps
 After=network-online.target
 Wants=network-online.target
@@ -73,8 +75,8 @@ Wants=network-online.target
 Type=oneshot
 User={user}
 WorkingDirectory={root}
-ExecStart={root}/ops/vps/run-task.sh {task['name']}
-TimeoutStartSec={int(task['time_limit_min'])}min
+ExecStart={root}/ops/vps/run-task.sh {task["name"]}
+TimeoutStartSec={int(task["time_limit_min"])}min
 # L'ingestion n'a pas à concurrencer le système pour le processeur.
 Nice=10
 """
@@ -82,13 +84,13 @@ Nice=10
 
 def timer_unit(task: dict) -> str:
     return f"""[Unit]
-Description=Déclencheur MapFeux — {task['name']}
+Description=Déclencheur MapFeux — {task["name"]}
 
 [Timer]
-OnCalendar={on_calendar(task['schedule'])}
+OnCalendar={on_calendar(task["schedule"])}
 Persistent=true
 AccuracySec=30s
-Unit=mapfeux-{task['unit']}.service
+Unit=mapfeux-{task["unit"]}.service
 
 [Install]
 WantedBy=timers.target
@@ -107,15 +109,28 @@ def main(argv: list[str]) -> int:
     out.mkdir(parents=True, exist_ok=True)
 
     written: list[str] = []
+    excluded: list[str] = []
     for task in registry["tasks"]:
         stem = f"mapfeux-{task['unit']}"
-        (out / f"{stem}.service").write_text(service_unit(task, args.root, args.user), encoding="utf-8")
+        # `only_on` : une tâche réservée à un autre hôte n'a pas d'unité ici.
+        # Les préfectures, depuis le 7 octobre 2026 : leurs sites refusent les
+        # adresses de centres de données, le poste seul les lit. Le motif est
+        # dans le registre, à côté de l'exception.
+        if task.get("only_on") not in (None, "vps"):
+            excluded.append(stem)
+            print(f"{stem:<24} réservée à « {task['only_on']} » — pas d'unité ici")
+            continue
+        (out / f"{stem}.service").write_text(
+            service_unit(task, args.root, args.user), encoding="utf-8"
+        )
         (out / f"{stem}.timer").write_text(timer_unit(task), encoding="utf-8")
         written.append(stem)
         print(f"{stem:<24} {on_calendar(task['schedule'])}")
 
     print(f"\n{len(written)} paires écrites dans {out}")
     print("timers : " + " ".join(f"{stem}.timer" for stem in written))
+    if excluded:
+        print("exclues : " + " ".join(f"{stem}.timer" for stem in excluded))
     return 0
 
 

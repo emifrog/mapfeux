@@ -59,6 +59,21 @@ d'`ingest.import_runs` postérieures à l'installation, et le champ
 écrit `local`. Puis `/statut` sur le site, qui doit cesser de dire
 « Retardée » sur FIRMS et le radar.
 
+## Tâches réservées au poste
+
+Une tâche du registre peut porter `"only_on": "poste"`, avec son motif
+dans `only_on_reason`. Le kit VPS ne lui pose aucune unité, et retire la
+minuterie si un passage antérieur l'avait posée ; le planificateur Windows,
+lui, l'enregistre comme les autres.
+
+C'est le cas des **préfectures** depuis le 7 octobre 2026 : leurs sites
+ferment la connexion aux adresses de centres de données — `ENHANCE_YOUR_CALM`
+en HTTP/2, réponse vide en HTTP/1.1, même refus depuis un runner GitHub —,
+et seule une adresse résidentielle les lit. Sur le poste, une seule tâche
+reste donc active : `Enable-ScheduledTask -TaskPath '\MapFeux\' -TaskName
+MapFeux-Prefectures`. Retirer l'exception du registre remet la minuterie
+sur le VPS au passage suivant d'`install.sh`.
+
 ## Bascule depuis le poste Windows
 
 Les deux déclencheurs ne doivent pas tourner ensemble : le verrou en base

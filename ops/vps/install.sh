@@ -144,8 +144,29 @@ fi
 say "unités systemd"
 python3 "$ROOT/ops/vps/generate-units.py" --out /etc/systemd/system --root "$ROOT" --user "$USER_NAME"
 chmod +x "$ROOT/ops/vps/run-task.sh" "$ROOT/ops/vps/status.sh"
+
+# Les tâches que le registre réserve à un autre hôte (`only_on`) : si une
+# minuterie en existe d'un passage antérieur, elle s'arrête et disparaît —
+# les préfectures, depuis le 7 octobre 2026, le poste seul pouvant lire
+# leurs sites. Le reste s'active. Rejouable dans les deux sens : retirer
+# l'exception du registre remet la minuterie au passage suivant.
+mapfile -t DROP < <(python3 - "$ROOT/ops/tasks.json" <<'PY'
+import json, sys
+for t in json.load(open(sys.argv[1], encoding="utf-8"))["tasks"]:
+    if t.get("only_on") not in (None, "vps"):
+        print(f"mapfeux-{t['unit']}")
+PY
+)
+for stem in "${DROP[@]:-}"; do
+  [[ -n "$stem" ]] || continue
+  if [[ -f "/etc/systemd/system/$stem.timer" ]]; then
+    systemctl disable --now "$stem.timer" >/dev/null 2>&1 || true
+    rm -f "/etc/systemd/system/$stem.timer" "/etc/systemd/system/$stem.service"
+    echo "$stem.timer retirée : tâche réservée à un autre hôte"
+  fi
+done
 systemctl daemon-reload
-for unit in $(python3 -c "import json;print(' '.join('mapfeux-'+t['unit']+'.timer' for t in json.load(open('$ROOT/ops/tasks.json'))['tasks']))"); do
+for unit in $(python3 -c "import json;print(' '.join('mapfeux-'+t['unit']+'.timer' for t in json.load(open('$ROOT/ops/tasks.json', encoding='utf-8'))['tasks'] if t.get('only_on') in (None, 'vps')))"); do
   systemctl enable --now "$unit" >/dev/null
 done
 
