@@ -246,28 +246,32 @@ build, une requête. « Le code est écrit » vaut 🟢, pas ✅.
 
 ## 1. Où en est le projet
 
-**État au 15 septembre 2026.** Le service tourne sur données réelles depuis
+**État au 7 octobre 2026.** Le service tourne sur données réelles depuis
 le 5 août, en France métropolitaine et Corse : l'ingestion FIRMS est
 nationale, et depuis ce jour **seuls les événements de France sont publiés**
 — 61 % de ce qui avait été regroupé depuis août était hors périmètre
-(ADR-027, masqué en base). Sur les sept derniers jours : 306 événements sur
-72 départements, lus par la carte nationale à deux échelles, le catalogue,
-les pages communes et l'accueil, qui disent les mêmes nombres. Neuf sources
-au registre, **9/9 en service** — sept lues par le planificateur Windows aux
-cadences déclarées quand le poste tourne, sous le rôle d'ingestion
-`mapfeux_ingest` depuis le 15 au soir, deux à la main (IGN, EFFIS). La
-fiche événement, la carte, l'accueil et l'état des données sont au niveau
-où on les montre — et depuis le soir du 15, **ils disent la panne quand la
-base ne répond pas** au lieu d'afficher zéro événement, un 404 ou un
-catalogue vide mis en cache (constat 1 d'un audit externe, §14) — les
-communes, les territoires et les informations officielles aussi —, l'état
-d'un événement à un instant se calcule en base sans plafond (51ᵉ
-migration), la recherche de commune répond en moins de 300 ms sur les
-34 746 communes (52ᵉ migration), et le worker a son verrou conda, validé
-par la CI ; le
-déclencheur, lui, n'a tourné qu'un tiers du temps depuis sa bascule sur le
-poste, et attend le VPS (§2). Les paragraphes suivants sont l'histoire, du
-plus ancien au plus récent.
+(ADR-027, masqué en base). Au 15 septembre, sur sept jours : 306
+événements sur 72 départements, lus par la carte nationale à deux
+échelles, le catalogue, les pages communes et l'accueil, qui disent les
+mêmes nombres. Neuf sources au registre — **six lues depuis un VPS** aux
+cadences déclarées depuis le 7 octobre, sous le rôle d'ingestion
+`mapfeux_ingest`, les préfectures depuis le poste (leurs sites refusent les
+centres de données), deux à la main (IGN, EFFIS). Ce soir-là, l'état
+public lit « dégradé » pour une raison de saison : les cartes d'accès aux
+massifs ne paraissent plus depuis le 1ᵉʳ octobre et le registre n'a pas de
+mot pour le dire (§2). La fiche événement, la carte, l'accueil et l'état
+des données sont au niveau où on les montre — et depuis le 15 septembre,
+**ils disent la panne quand la base ne répond pas** au lieu d'afficher
+zéro événement, un 404 ou un catalogue vide mis en cache (constat 1 d'un
+audit externe, §14) — les communes, les territoires et les informations
+officielles aussi —, l'état d'un événement à un instant et ses passages se
+calculent en base sans plafond (51ᵉ et 53ᵉ migrations), la recherche de
+commune répond en moins de 300 ms sur les 34 746 communes (52ᵉ), le
+worker a son verrou conda validé par la CI, et la CI rejoue une passe
+complète sous le rôle d'ingestion. Le déclencheur a quitté le poste le
+7 octobre ; déployer le worker est désormais un geste ordonné (migration,
+push, `install.sh`), et la mesure de sept jours est en cours (§2). Les
+paragraphes suivants sont l'histoire, du plus ancien au plus récent.
 
 **La chaîne complète répond**, vérifiée de bout en bout contre le projet
 Supabase hébergé : navigateur → Next.js → PostgREST → schéma `api` → PostGIS.
@@ -375,7 +379,19 @@ une couverture proche de 100 % sur FIRMS et le radar — contre un tiers le
 (`veille-passes.yml`), qui échouait chaque nuit, doit être restée verte.
 Alors les six tâches Windows désactivées se retirent
 (`ops\windows\unregister-tasks.ps1 -Except Prefectures`, `-WhatIf`
-d'abord), les préfectures exceptées. Puis le
+d'abord), les préfectures exceptées.
+
+**Avant cela, un geste court.** La veille extérieure, déclenchée à la
+main le 7 au soir, échoue encore — plus pour le poste, pour les
+**massifs** : leurs cartes d'accès ne paraissent plus depuis le
+1ᵉʳ octobre, fin de saison ; chaque passe reçoit quatre 404, sort en succès
+à zéro lecture sans dater sa donnée, et le registre, qui attend un jour,
+la dit « trop ancienne ». Il manque un état **hors saison** au registre —
+la leçon de `manual` du 15 septembre, une fois de plus (§15). Tant qu'il
+manque, la veille échouera chaque nuit et n'avertira de rien, et l'état
+public lira « dégradé » jusqu'en juin.
+
+Puis le
 critère des trente minutes de J4 sur la première publication réelle, et J5
 — administration, supervision, mode dégradé —, dans l'ordre que l'audit
 externe du 15 septembre donnait une fois la continuité des imports
@@ -2685,6 +2701,7 @@ Deux fuites de secrets, trouvées en exerçant AROME et corrigées le 5 août.
 | README périmé | Annonçait encore la fiche événement et l'ingestion FIRMS « à construire », et une planification GitHub Actions retirée depuis le 13 septembre. **Corrigé le soir du 15** : état d'avancement, section « Ingestion planifiée » (planificateur, workflows sans cron, mêmes trois étapes pour le `.env` et le secret CI), note sur le seul cron restant (réconciliation) | Traité |
 | La recherche de commune expirait en production | Trouvé le 15 septembre au soir en vérifiant le patron étendu : « nice » sortait en 503 sur le chemin sain. `api.search_municipalities` testait le code postal par `q = any (postal_codes)`, que l'index GIN ne sert pas ; dans un `or` avec les deux prédicats trigramme, la table entière était parcourue — 316 lignes au pilote, **34 746 depuis l'import national** —, 3,1 s à froid contre les 3 s de `statement_timeout` d'`anon`. Personne ne l'avait vu : la route levait une exception traduite en 500, et le champ de recherche disait « erreur ». **Corrigé le soir même, 52ᵉ migration** : `postal_codes @> array[q]`, les trois index combinés en `BitmapOr`, 40 à 330 ms sous `anon` en production. Leçon : une cible de latence (§6.2, p95 < 300 ms) ne se vérifie pas sur 316 lignes ; à remesurer à chaque changement d'échelle d'une table | Traité |
 | Les sites préfectoraux refusent les centres de données | Trouvé le 7 octobre, première passe depuis le VPS : `var.gouv.fr` et `alpes-maritimes.gouv.fr` ferment la connexion — `ENHANCE_YOUR_CALM` en HTTP/2, réponse vide en HTTP/1.1, agent de navigateur ou non —, et un runner GitHub reçoit le même refus à la même seconde. Le poste, en adresse résidentielle, lit 19 publications. La tâche reste donc au poste, exception inscrite au registre (`only_on: poste`, motif à côté) que le kit VPS honore. Conséquence : les préfectures gardent la cadence du poste, un tiers à un cinquième du temps. Pistes : demander aux préfectures un accès déclaré, trouver un flux officiel servi autrement, ou une adresse résidentielle dédiée ; aucune n'est faite | Ouvert, J4 |
+| Les massifs hors saison lisent « trop ancienne », et la veille échoue chaque nuit pour eux | Trouvé le 7 octobre au soir, en déclenchant la veille à la main après la bascule : elle échoue encore, et plus pour le poste. Les cartes d'accès aux massifs du 06 et du 83 ne paraissent plus depuis le 1ᵉʳ octobre — fin de saison — : chaque passe, toutes les trois heures, reçoit quatre 404 (« pas encore publié », aujourd'hui et demain, deux départements), sort en **succès à zéro lecture** sans dater sa donnée — c'est juste —, si bien que `source_data_at` reste au 1ᵉʳ octobre 18 h 20 et que le registre, qui attend 1 440 minutes, la dit « trop ancienne » : l'état public lit « dégradé » et la veille alerte sur une source qui n'a rien à livrer. La même famille que `manual` le 15 septembre : il manque un **mot** au registre. À poser : une saison déclarée sur la source (`settings`), un statut `off_season` rendu par la vue d'état hors de cette fenêtre quand aucune donnée n'est plus récente que sa fin — qu'une publication hors saison, que les préfectures font lors d'un épisode, ramène à « à jour » le temps de son intervalle —, hors veille comme `manual`, nommé sur `/statut` (« Hors saison · reprise le 21 juin »), tenu pour sain par `isHealthy`. La passe, elle, continue : trois heures, quelques requêtes, c'est elle qui verra la reprise | Ouvert — prochaine action (§2) |
 | Le déclencheur dépendait d'un poste de travail | Un tiers du temps le 15 septembre, un cinquième le 23. **Traité le 7 octobre** : VPS Hostinger KVM 2, six tâches sur sept (§14), le poste ne gardant que les préfectures. Le premier passage réel du kit a corrigé quatre défauts — `git pull` en root sur un dépôt du compte `mapfeux` (`runuser`), `status.sh` qui lisait les propriétés systemd en une ligne, une passe préfectures « partielle » à zéro page lue qui datait sa lecture (`FEEDS_UNREACHABLE`, statut failed), et l'étiquette `environment` des journaux que le lanceur n'exportait pas (36 passes dites `local`) — tous poussés le jour de la bascule. **Le soir** : l'ordre de déploiement du worker écrit (migration additive, push, CI, `install.sh`), l'environnement conda recréé seulement si le verrou change, `unattended-upgrades` et redémarrage nocturne, `unregister-tasks.ps1 -Except Prefectures` (§14). Reste la mesure de sept jours (§2) | Mesure au 14 octobre |
 | Types Supabase non générés | Requêtes typées à la main dans `lib/data/` | J1 |
 | Pas de CSP | En-têtes partiels seulement | J6 |
